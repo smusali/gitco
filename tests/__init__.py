@@ -1,1 +1,1 @@
-"""Test package for GitCo.""" 
+"""Test package for GitCo."""

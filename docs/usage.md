@@ -14,7 +14,7 @@ gitco init
 
 This creates a `gitco-config.yml` file in your current directory.
 
-**Note:** The CLI framework, configuration management, and logging system are implemented. Full functionality will be added in subsequent commits.
+**Note:** The CLI framework, configuration management, logging system, and CI pipeline are implemented. Full functionality will be added in subsequent commits.
 
 ### Sync Repositories
 

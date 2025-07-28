@@ -1,26 +1,42 @@
 """Test GitCo utility functions."""
 
-import pytest
 import logging
-import tempfile
 import os
-from pathlib import Path
+import tempfile
+
+import pytest
 
 from gitco.utils import (
-    setup_logging, get_logger, log_error_and_exit, safe_execute,
-    validate_file_exists, validate_directory_exists, ensure_directory_exists,
-    format_error_message, handle_validation_errors, log_operation_start,
-    log_operation_success, log_operation_failure, create_progress_context,
-    update_progress, log_configuration_loaded, log_repository_operation,
-    log_api_call, log_validation_result,
-    GitCoError, ConfigurationError, GitOperationError, ValidationError, APIError
+    APIError,
+    ConfigurationError,
+    GitCoError,
+    GitOperationError,
+    ValidationError,
+    create_progress_context,
+    ensure_directory_exists,
+    format_error_message,
+    get_logger,
+    handle_validation_errors,
+    log_api_call,
+    log_configuration_loaded,
+    log_error_and_exit,
+    log_operation_failure,
+    log_operation_start,
+    log_operation_success,
+    log_repository_operation,
+    log_validation_result,
+    safe_execute,
+    setup_logging,
+    update_progress,
+    validate_directory_exists,
+    validate_file_exists,
 )
 
 
 @pytest.fixture
 def temp_log_file():
     """Create a temporary log file path."""
-    with tempfile.NamedTemporaryFile(suffix='.log', delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as f:
         temp_path = f.name
         f.close()
         os.unlink(temp_path)  # Remove the file immediately
@@ -84,14 +100,14 @@ def test_setup_logging_with_file(temp_log_file):
     """Test setup_logging with log file."""
     logger = setup_logging(log_file=temp_log_file)
     assert logger.name == "gitco"
-    
+
     # Test that logging works
     test_message = "Test log message"
     logger.info(test_message)
-    
+
     # Check that file was created and contains the message
     assert os.path.exists(temp_log_file)
-    with open(temp_log_file, 'r') as f:
+    with open(temp_log_file) as f:
         content = f.read()
         assert test_message in content
 
@@ -107,7 +123,7 @@ def test_log_error_and_exit(caplog):
     """Test log_error_and_exit function."""
     with pytest.raises(SystemExit) as exc_info:
         log_error_and_exit("Test error")
-    
+
     assert exc_info.value.code == 1
     assert "Test error" in caplog.text
 
@@ -117,7 +133,7 @@ def test_log_error_and_exit_with_error(caplog):
     error = ValueError("Test exception")
     with pytest.raises(SystemExit) as exc_info:
         log_error_and_exit("Test error", error)
-    
+
     assert exc_info.value.code == 1
     assert "Test error" in caplog.text
     assert "Test exception" in caplog.text
@@ -127,37 +143,42 @@ def test_log_error_and_exit_custom_code(caplog):
     """Test log_error_and_exit function with custom exit code."""
     with pytest.raises(SystemExit) as exc_info:
         log_error_and_exit("Test error", exit_code=42)
-    
+
     assert exc_info.value.code == 42
 
 
 def test_safe_execute_success():
     """Test safe_execute with successful function."""
+
     def test_func(x, y):
         return x + y
-    
+
     result = safe_execute(test_func, 2, 3, error_message="Test error")
     assert result == 5
 
 
 def test_safe_execute_failure_exit(caplog):
     """Test safe_execute with failing function that exits."""
+
     def test_func():
         raise ValueError("Test error")
-    
+
     with pytest.raises(SystemExit) as exc_info:
         safe_execute(test_func, error_message="Operation failed")
-    
+
     assert exc_info.value.code == 1
     assert "Operation failed" in caplog.text
 
 
 def test_safe_execute_failure_no_exit(caplog):
     """Test safe_execute with failing function that doesn't exit."""
+
     def test_func():
         raise ValueError("Test error")
-    
-    result = safe_execute(test_func, error_message="Operation failed", exit_on_error=False)
+
+    result = safe_execute(
+        test_func, error_message="Operation failed", exit_on_error=False
+    )
     assert result is None
     assert "Operation failed" in caplog.text
 
@@ -165,9 +186,9 @@ def test_safe_execute_failure_no_exit(caplog):
 def test_validate_file_exists_success(temp_log_file):
     """Test validate_file_exists with existing file."""
     # Create a temporary file
-    with open(temp_log_file, 'w') as f:
+    with open(temp_log_file, "w") as f:
         f.write("test")
-    
+
     # Should not raise an exception
     validate_file_exists(temp_log_file)
 
@@ -176,7 +197,7 @@ def test_validate_file_exists_failure():
     """Test validate_file_exists with non-existing file."""
     with pytest.raises(FileNotFoundError) as exc_info:
         validate_file_exists("nonexistent.txt")
-    
+
     assert "File not found: nonexistent.txt" in str(exc_info.value)
 
 
@@ -191,7 +212,7 @@ def test_validate_directory_exists_failure():
     """Test validate_directory_exists with non-existing directory."""
     with pytest.raises(FileNotFoundError) as exc_info:
         validate_directory_exists("nonexistent_dir")
-    
+
     assert "Directory not found: nonexistent_dir" in str(exc_info.value)
 
 
@@ -213,11 +234,11 @@ def test_ensure_directory_exists_existing():
 def test_format_error_message():
     """Test format_error_message function."""
     error = ValueError("Test error")
-    
+
     # Without context
     message = format_error_message(error)
     assert message == "Test error"
-    
+
     # With context
     message = format_error_message(error, "Test context")
     assert message == "Test context: Test error"
@@ -226,10 +247,10 @@ def test_format_error_message():
 def test_handle_validation_errors():
     """Test handle_validation_errors function."""
     errors = ["Error 1", "Error 2"]
-    
+
     with pytest.raises(ValidationError) as exc_info:
         handle_validation_errors(errors, "Test validation")
-    
+
     assert "Test validation validation failed" in str(exc_info.value)
 
 
@@ -281,7 +302,7 @@ def test_log_operation_failure_with_context(caplog):
 def test_create_progress_context():
     """Test create_progress_context function."""
     context = create_progress_context("test operation", 10)
-    
+
     assert context["operation"] == "test operation"
     assert context["total"] == 10
     assert context["current"] == 0
@@ -291,7 +312,7 @@ def test_create_progress_context():
 def test_update_progress(caplog):
     """Test update_progress function."""
     context = create_progress_context("test operation", 10)
-    
+
     update_progress(context, 5, "Processing item")
     assert context["current"] == 5
     assert "test operation: 5/10 (50.0%) - Processing item" in caplog.text
@@ -300,7 +321,7 @@ def test_update_progress(caplog):
 def test_update_progress_no_total(caplog):
     """Test update_progress function without total."""
     context = create_progress_context("test operation")
-    
+
     update_progress(context, 5, "Processing item")
     assert context["current"] == 5
     assert "test operation: 5 - Processing item" in caplog.text
@@ -309,7 +330,7 @@ def test_update_progress_no_total(caplog):
 def test_log_configuration_loaded(caplog):
     """Test log_configuration_loaded function."""
     log_configuration_loaded("/path/to/config.yml", 5)
-    
+
     assert "Configuration loaded from /path/to/config.yml" in caplog.text
     assert "Found 5 repositories" in caplog.text
 
@@ -349,4 +370,4 @@ def test_log_validation_result_no_details(caplog):
     # Set up logging for test
     setup_logging(level="DEBUG")
     log_validation_result("test validation", True)
-    assert "Validation test validation: passed" in caplog.text 
+    assert "Validation test validation: passed" in caplog.text

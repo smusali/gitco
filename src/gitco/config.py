@@ -1,25 +1,31 @@
 """Configuration management for GitCo."""
 
 import os
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
+from typing import Any, Optional
+
+import yaml
 
 from .utils import (
-    get_logger, log_operation_start, log_operation_success, log_operation_failure,
-    log_configuration_loaded, log_validation_result, ConfigurationError
+    ConfigurationError,
+    get_logger,
+    log_configuration_loaded,
+    log_operation_failure,
+    log_operation_start,
+    log_operation_success,
+    log_validation_result,
 )
 
 
 @dataclass
 class Repository:
     """Repository configuration."""
+
     name: str
     fork: str
     upstream: str
     local_path: str
-    skills: List[str] = field(default_factory=list)
+    skills: list[str] = field(default_factory=list)
     analysis_enabled: bool = True
     sync_frequency: Optional[str] = None
 
@@ -27,6 +33,7 @@ class Repository:
 @dataclass
 class Settings:
     """Global settings configuration."""
+
     llm_provider: str = "openai"
     api_key_env: str = "AETHERIUM_API_KEY"
     default_path: str = "~/code"
@@ -40,166 +47,226 @@ class Settings:
 @dataclass
 class Config:
     """Main configuration class."""
-    repositories: List[Repository] = field(default_factory=list)
+
+    repositories: list[Repository] = field(default_factory=list)
     settings: Settings = field(default_factory=Settings)
 
 
 class ConfigManager:
     """Manages GitCo configuration."""
-    
+
     def __init__(self, config_path: Optional[str] = None):
         """Initialize configuration manager.
-        
+
         Args:
             config_path: Path to configuration file. Defaults to 'gitco-config.yml'.
         """
         self.config_path = config_path or "gitco-config.yml"
         self.config = Config()
-    
+
     def load_config(self) -> Config:
         """Load configuration from file.
-        
+
         Returns:
             Loaded configuration.
-            
+
         Raises:
             FileNotFoundError: If configuration file doesn't exist.
             yaml.YAMLError: If configuration file has invalid YAML.
         """
-        logger = get_logger()
+        get_logger()
         log_operation_start("configuration loading", config_path=self.config_path)
-        
+
         try:
             if not os.path.exists(self.config_path):
-                raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
-            
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+                raise FileNotFoundError(
+                    f"Configuration file not found: {self.config_path}"
+                )
+
+            with open(self.config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
-            
+
             config = self._parse_config(data)
             log_operation_success("configuration loading", config_path=self.config_path)
             log_configuration_loaded(self.config_path, len(config.repositories))
-            
+
             return config
-            
+
         except Exception as e:
-            log_operation_failure("configuration loading", e, config_path=self.config_path)
+            log_operation_failure(
+                "configuration loading", e, config_path=self.config_path
+            )
             raise
-    
+
     def save_config(self, config: Config) -> None:
         """Save configuration to file.
-        
+
         Args:
             config: Configuration to save.
         """
-        logger = get_logger()
+        get_logger()
         log_operation_start("configuration saving", config_path=self.config_path)
-        
+
         try:
             data = self._serialize_config(config)
-            
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 yaml.dump(data, f, default_flow_style=False, indent=2)
-            
+
             log_operation_success("configuration saving", config_path=self.config_path)
-            
+
         except Exception as e:
-            log_operation_failure("configuration saving", e, config_path=self.config_path)
+            log_operation_failure(
+                "configuration saving", e, config_path=self.config_path
+            )
             raise
-    
+
     def create_default_config(self, force: bool = False) -> Config:
         """Create default configuration file.
-        
+
         Args:
             force: Whether to overwrite existing file.
-            
+
         Returns:
             Default configuration.
         """
         if os.path.exists(self.config_path) and not force:
-            raise FileExistsError(f"Configuration file already exists: {self.config_path}")
-        
+            raise FileExistsError(
+                f"Configuration file already exists: {self.config_path}"
+            )
+
         config = Config()
         self.save_config(config)
         return config
-    
-    def validate_config(self, config: Config) -> List[str]:
+
+    def validate_config(self, config: Config) -> list[str]:
         """Validate configuration.
-        
+
         Args:
             config: Configuration to validate.
-            
+
         Returns:
             List of validation errors.
         """
-        logger = get_logger()
+        get_logger()
         log_operation_start("configuration validation")
-        
+
         errors = []
-        
+
         # Validate repositories
         repo_names = set()
         for repo in config.repositories:
             if not repo.name:
                 errors.append("Repository name is required")
-                log_validation_result("repository name", False, f"Repository {repo.name} missing name")
+                log_validation_result(
+                    "repository name", False, f"Repository {repo.name} missing name"
+                )
             elif repo.name in repo_names:
                 errors.append(f"Duplicate repository name: {repo.name}")
-                log_validation_result("repository name uniqueness", False, f"Duplicate name: {repo.name}")
+                log_validation_result(
+                    "repository name uniqueness", False, f"Duplicate name: {repo.name}"
+                )
             else:
                 repo_names.add(repo.name)
-                log_validation_result("repository name", True, f"Repository {repo.name}")
-            
+                log_validation_result(
+                    "repository name", True, f"Repository {repo.name}"
+                )
+
             if not repo.fork:
                 errors.append(f"Fork URL is required for repository: {repo.name}")
-                log_validation_result("repository fork", False, f"Repository {repo.name} missing fork URL")
+                log_validation_result(
+                    "repository fork", False, f"Repository {repo.name} missing fork URL"
+                )
             else:
-                log_validation_result("repository fork", True, f"Repository {repo.name}")
-            
+                log_validation_result(
+                    "repository fork", True, f"Repository {repo.name}"
+                )
+
             if not repo.upstream:
                 errors.append(f"Upstream URL is required for repository: {repo.name}")
-                log_validation_result("repository upstream", False, f"Repository {repo.name} missing upstream URL")
+                log_validation_result(
+                    "repository upstream",
+                    False,
+                    f"Repository {repo.name} missing upstream URL",
+                )
             else:
-                log_validation_result("repository upstream", True, f"Repository {repo.name}")
-            
+                log_validation_result(
+                    "repository upstream", True, f"Repository {repo.name}"
+                )
+
             if not repo.local_path:
                 errors.append(f"Local path is required for repository: {repo.name}")
-                log_validation_result("repository local_path", False, f"Repository {repo.name} missing local path")
+                log_validation_result(
+                    "repository local_path",
+                    False,
+                    f"Repository {repo.name} missing local path",
+                )
             else:
-                log_validation_result("repository local_path", True, f"Repository {repo.name}")
-        
+                log_validation_result(
+                    "repository local_path", True, f"Repository {repo.name}"
+                )
+
         # Validate settings
-        if config.settings.llm_provider not in ["openai", "anthropic", "local", "custom"]:
-            errors.append("Invalid LLM provider. Must be one of: openai, anthropic, local, custom")
-            log_validation_result("settings llm_provider", False, f"Invalid provider: {config.settings.llm_provider}")
+        if config.settings.llm_provider not in [
+            "openai",
+            "anthropic",
+            "local",
+            "custom",
+        ]:
+            errors.append(
+                "Invalid LLM provider. Must be one of: openai, anthropic, local, custom"
+            )
+            log_validation_result(
+                "settings llm_provider",
+                False,
+                f"Invalid provider: {config.settings.llm_provider}",
+            )
         else:
-            log_validation_result("settings llm_provider", True, f"Provider: {config.settings.llm_provider}")
-        
+            log_validation_result(
+                "settings llm_provider",
+                True,
+                f"Provider: {config.settings.llm_provider}",
+            )
+
         if config.settings.max_repos_per_batch < 1:
             errors.append("max_repos_per_batch must be at least 1")
-            log_validation_result("settings max_repos_per_batch", False, f"Value: {config.settings.max_repos_per_batch}")
+            log_validation_result(
+                "settings max_repos_per_batch",
+                False,
+                f"Value: {config.settings.max_repos_per_batch}",
+            )
         else:
-            log_validation_result("settings max_repos_per_batch", True, f"Value: {config.settings.max_repos_per_batch}")
-        
+            log_validation_result(
+                "settings max_repos_per_batch",
+                True,
+                f"Value: {config.settings.max_repos_per_batch}",
+            )
+
         if config.settings.git_timeout < 30:
             errors.append("git_timeout must be at least 30 seconds")
-            log_validation_result("settings git_timeout", False, f"Value: {config.settings.git_timeout}")
+            log_validation_result(
+                "settings git_timeout", False, f"Value: {config.settings.git_timeout}"
+            )
         else:
-            log_validation_result("settings git_timeout", True, f"Value: {config.settings.git_timeout}")
-        
+            log_validation_result(
+                "settings git_timeout", True, f"Value: {config.settings.git_timeout}"
+            )
+
         if errors:
-            log_operation_failure("configuration validation", ConfigurationError("Validation failed"))
+            log_operation_failure(
+                "configuration validation", ConfigurationError("Validation failed")
+            )
         else:
             log_operation_success("configuration validation")
-        
+
         return errors
-    
+
     def get_repository(self, name: str) -> Optional[Repository]:
         """Get repository by name.
-        
+
         Args:
             name: Repository name.
-            
+
         Returns:
             Repository configuration or None if not found.
         """
@@ -207,41 +274,45 @@ class ConfigManager:
             if repo.name == name:
                 return repo
         return None
-    
+
     def add_repository(self, repo: Repository) -> None:
         """Add repository to configuration.
-        
+
         Args:
             repo: Repository to add.
         """
         # Remove existing repository with same name
-        self.config.repositories = [r for r in self.config.repositories if r.name != repo.name]
+        self.config.repositories = [
+            r for r in self.config.repositories if r.name != repo.name
+        ]
         self.config.repositories.append(repo)
-    
+
     def remove_repository(self, name: str) -> bool:
         """Remove repository from configuration.
-        
+
         Args:
             name: Repository name to remove.
-            
+
         Returns:
             True if repository was removed, False if not found.
         """
         initial_count = len(self.config.repositories)
-        self.config.repositories = [r for r in self.config.repositories if r.name != name]
+        self.config.repositories = [
+            r for r in self.config.repositories if r.name != name
+        ]
         return len(self.config.repositories) < initial_count
-    
-    def _parse_config(self, data: Dict[str, Any]) -> Config:
+
+    def _parse_config(self, data: dict[str, Any]) -> Config:
         """Parse configuration from dictionary.
-        
+
         Args:
             data: Configuration data.
-            
+
         Returns:
             Parsed configuration.
         """
         config = Config()
-        
+
         # Parse repositories
         if "repositories" in data:
             for repo_data in data["repositories"]:
@@ -252,10 +323,10 @@ class ConfigManager:
                     local_path=repo_data.get("local_path", ""),
                     skills=repo_data.get("skills", []),
                     analysis_enabled=repo_data.get("analysis_enabled", True),
-                    sync_frequency=repo_data.get("sync_frequency")
+                    sync_frequency=repo_data.get("sync_frequency"),
                 )
                 config.repositories.append(repo)
-        
+
         # Parse settings
         if "settings" in data:
             settings_data = data["settings"]
@@ -267,21 +338,21 @@ class ConfigManager:
                 max_repos_per_batch=settings_data.get("max_repos_per_batch", 10),
                 git_timeout=settings_data.get("git_timeout", 300),
                 rate_limit_delay=settings_data.get("rate_limit_delay", 1.0),
-                log_level=settings_data.get("log_level", "INFO")
+                log_level=settings_data.get("log_level", "INFO"),
             )
-        
+
         return config
-    
-    def _serialize_config(self, config: Config) -> Dict[str, Any]:
+
+    def _serialize_config(self, config: Config) -> dict[str, Any]:
         """Serialize configuration to dictionary.
-        
+
         Args:
             config: Configuration to serialize.
-            
+
         Returns:
             Serialized configuration.
         """
-        data = {
+        data: dict[str, Any] = {
             "repositories": [],
             "settings": {
                 "llm_provider": config.settings.llm_provider,
@@ -291,10 +362,10 @@ class ConfigManager:
                 "max_repos_per_batch": config.settings.max_repos_per_batch,
                 "git_timeout": config.settings.git_timeout,
                 "rate_limit_delay": config.settings.rate_limit_delay,
-                "log_level": config.settings.log_level
-            }
+                "log_level": config.settings.log_level,
+            },
         }
-        
+
         for repo in config.repositories:
             repo_data = {
                 "name": repo.name,
@@ -302,30 +373,30 @@ class ConfigManager:
                 "upstream": repo.upstream,
                 "local_path": repo.local_path,
                 "skills": repo.skills,
-                "analysis_enabled": repo.analysis_enabled
+                "analysis_enabled": repo.analysis_enabled,
             }
             if repo.sync_frequency:
                 repo_data["sync_frequency"] = repo.sync_frequency
             data["repositories"].append(repo_data)
-        
+
         return data
 
 
 def get_config_manager(config_path: Optional[str] = None) -> ConfigManager:
     """Get configuration manager instance.
-    
+
     Args:
         config_path: Path to configuration file.
-        
+
     Returns:
         Configuration manager.
     """
     return ConfigManager(config_path)
 
 
-def create_sample_config() -> Dict[str, Any]:
+def create_sample_config() -> dict[str, Any]:
     """Create sample configuration data.
-    
+
     Returns:
         Sample configuration dictionary.
     """
@@ -336,15 +407,15 @@ def create_sample_config() -> Dict[str, Any]:
                 "fork": "username/django",
                 "upstream": "django/django",
                 "local_path": "~/code/django",
-                "skills": ["python", "web", "orm"]
+                "skills": ["python", "web", "orm"],
             },
             {
                 "name": "fastapi",
                 "fork": "username/fastapi",
                 "upstream": "tiangolo/fastapi",
                 "local_path": "~/code/fastapi",
-                "skills": ["python", "api", "async"]
-            }
+                "skills": ["python", "api", "async"],
+            },
         ],
         "settings": {
             "llm_provider": "openai",
@@ -354,6 +425,6 @@ def create_sample_config() -> Dict[str, Any]:
             "max_repos_per_batch": 10,
             "git_timeout": 300,
             "rate_limit_delay": 1.0,
-            "log_level": "INFO"
-        }
-    } 
+            "log_level": "INFO",
+        },
+    }

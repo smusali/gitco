@@ -2,6 +2,7 @@
 
 import pytest
 from click.testing import CliRunner
+
 from gitco.cli import main
 
 
@@ -89,7 +90,9 @@ def test_analyze_command(runner):
 
 def test_analyze_command_with_prompt(runner):
     """Test the analyze command with custom prompt."""
-    result = runner.invoke(main, ["analyze", "--repo", "django", "--prompt", "Security focus"])
+    result = runner.invoke(
+        main, ["analyze", "--repo", "django", "--prompt", "Security focus"]
+    )
     assert result.exit_code == 0
     assert "Using custom prompt: Security focus" in result.output
 
@@ -183,4 +186,4 @@ def test_invalid_command(runner):
     """Test handling of invalid commands."""
     result = runner.invoke(main, ["invalid-command"])
     assert result.exit_code != 0
-    assert "No such command" in result.output 
+    assert "No such command" in result.output

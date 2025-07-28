@@ -1,0 +1,56 @@
+name: Test CI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0'  # Run weekly on Sundays at 2 AM
+
+jobs:
+  test-ci:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Test linting
+      run: |
+        ruff check src/ tests/
+        ruff format --check src/ tests/
+
+    - name: Test type checking
+      run: |
+        mypy src/gitco/ --ignore-missing-imports
+
+    - name: Test package building
+      run: |
+        python -m build
+        twine check dist/*
+
+    - name: Test CLI functionality
+      run: |
+        PYTHONPATH=src python -m gitco.cli --help
+        PYTHONPATH=src python -m gitco.cli --version
+
+    - name: Test configuration
+      run: |
+        PYTHONPATH=src python -m gitco.cli init --force
+        PYTHONPATH=src python -m gitco.cli config validate
+        PYTHONPATH=src python -m gitco.cli config status
+
+    - name: Run all tests
+      run: |
+        PYTHONPATH=src pytest tests/ -v --cov=gitco --cov-report=term-missing
+
+    - name: Test security tools
+      run: |
+        pip-audit --format json --output pip-audit-report.json || true
+        bandit -r src/ -f json -o bandit-report.json || true 
