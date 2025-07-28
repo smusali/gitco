@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 
+from .utils import (
+    get_logger, log_operation_start, log_operation_success, log_operation_failure,
+    log_configuration_loaded, log_validation_result, ConfigurationError
+)
+
 
 @dataclass
 class Repository:
@@ -61,13 +66,25 @@ class ConfigManager:
             FileNotFoundError: If configuration file doesn't exist.
             yaml.YAMLError: If configuration file has invalid YAML.
         """
-        if not os.path.exists(self.config_path):
-            raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
+        logger = get_logger()
+        log_operation_start("configuration loading", config_path=self.config_path)
         
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-        
-        return self._parse_config(data)
+        try:
+            if not os.path.exists(self.config_path):
+                raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
+            
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+            
+            config = self._parse_config(data)
+            log_operation_success("configuration loading", config_path=self.config_path)
+            log_configuration_loaded(self.config_path, len(config.repositories))
+            
+            return config
+            
+        except Exception as e:
+            log_operation_failure("configuration loading", e, config_path=self.config_path)
+            raise
     
     def save_config(self, config: Config) -> None:
         """Save configuration to file.
@@ -75,10 +92,20 @@ class ConfigManager:
         Args:
             config: Configuration to save.
         """
-        data = self._serialize_config(config)
+        logger = get_logger()
+        log_operation_start("configuration saving", config_path=self.config_path)
         
-        with open(self.config_path, 'w', encoding='utf-8') as f:
-            yaml.dump(data, f, default_flow_style=False, indent=2)
+        try:
+            data = self._serialize_config(config)
+            
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(data, f, default_flow_style=False, indent=2)
+            
+            log_operation_success("configuration saving", config_path=self.config_path)
+            
+        except Exception as e:
+            log_operation_failure("configuration saving", e, config_path=self.config_path)
+            raise
     
     def create_default_config(self, force: bool = False) -> Config:
         """Create default configuration file.
@@ -105,6 +132,9 @@ class ConfigManager:
         Returns:
             List of validation errors.
         """
+        logger = get_logger()
+        log_operation_start("configuration validation")
+        
         errors = []
         
         # Validate repositories
@@ -112,29 +142,55 @@ class ConfigManager:
         for repo in config.repositories:
             if not repo.name:
                 errors.append("Repository name is required")
+                log_validation_result("repository name", False, f"Repository {repo.name} missing name")
             elif repo.name in repo_names:
                 errors.append(f"Duplicate repository name: {repo.name}")
+                log_validation_result("repository name uniqueness", False, f"Duplicate name: {repo.name}")
             else:
                 repo_names.add(repo.name)
+                log_validation_result("repository name", True, f"Repository {repo.name}")
             
             if not repo.fork:
                 errors.append(f"Fork URL is required for repository: {repo.name}")
+                log_validation_result("repository fork", False, f"Repository {repo.name} missing fork URL")
+            else:
+                log_validation_result("repository fork", True, f"Repository {repo.name}")
             
             if not repo.upstream:
                 errors.append(f"Upstream URL is required for repository: {repo.name}")
+                log_validation_result("repository upstream", False, f"Repository {repo.name} missing upstream URL")
+            else:
+                log_validation_result("repository upstream", True, f"Repository {repo.name}")
             
             if not repo.local_path:
                 errors.append(f"Local path is required for repository: {repo.name}")
+                log_validation_result("repository local_path", False, f"Repository {repo.name} missing local path")
+            else:
+                log_validation_result("repository local_path", True, f"Repository {repo.name}")
         
         # Validate settings
         if config.settings.llm_provider not in ["openai", "anthropic", "local", "custom"]:
             errors.append("Invalid LLM provider. Must be one of: openai, anthropic, local, custom")
+            log_validation_result("settings llm_provider", False, f"Invalid provider: {config.settings.llm_provider}")
+        else:
+            log_validation_result("settings llm_provider", True, f"Provider: {config.settings.llm_provider}")
         
         if config.settings.max_repos_per_batch < 1:
             errors.append("max_repos_per_batch must be at least 1")
+            log_validation_result("settings max_repos_per_batch", False, f"Value: {config.settings.max_repos_per_batch}")
+        else:
+            log_validation_result("settings max_repos_per_batch", True, f"Value: {config.settings.max_repos_per_batch}")
         
         if config.settings.git_timeout < 30:
             errors.append("git_timeout must be at least 30 seconds")
+            log_validation_result("settings git_timeout", False, f"Value: {config.settings.git_timeout}")
+        else:
+            log_validation_result("settings git_timeout", True, f"Value: {config.settings.git_timeout}")
+        
+        if errors:
+            log_operation_failure("configuration validation", ConfigurationError("Validation failed"))
+        else:
+            log_operation_success("configuration validation")
         
         return errors
     
