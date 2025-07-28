@@ -10,11 +10,17 @@ from .config import ConfigManager, create_sample_config
 from .git_ops import GitRepository, GitRepositoryManager
 from .utils import (
     ValidationError,
+    console,
+    create_progress_bar,
     get_logger,
     handle_validation_errors,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
+    print_error_panel,
+    print_info_panel,
+    print_success_panel,
+    print_warning_panel,
     setup_logging,
 )
 
@@ -81,20 +87,26 @@ def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
         log_operation_success(
             "configuration initialization", config_file=config_manager.config_path
         )
-        click.echo("✅ Configuration initialized successfully!")
-        click.echo(f"Configuration file created: {config_manager.config_path}")
-        click.echo("Next steps:")
-        click.echo("1. Edit gitco-config.yml to add your repositories")
-        click.echo("2. Set up your LLM API key")
-        click.echo("3. Run 'gitco sync' to start managing your forks")
+
+        print_success_panel(
+            "Configuration initialized successfully!",
+            f"Configuration file created: {config_manager.config_path}\n\n"
+            "Next steps:\n"
+            "1. Edit gitco-config.yml to add your repositories\n"
+            "2. Set up your LLM API key\n"
+            "3. Run 'gitco sync' to start managing your forks",
+        )
 
     except FileExistsError as e:
         log_operation_failure("configuration initialization", e, force=force)
-        click.echo("❌ Configuration file already exists. Use --force to overwrite.")
+        print_error_panel(
+            "Configuration file already exists",
+            "Use --force to overwrite the existing configuration file.",
+        )
         sys.exit(1)
     except Exception as e:
         log_operation_failure("configuration initialization", e, force=force)
-        click.echo(f"❌ Error initializing configuration: {e}")
+        print_error_panel("Error initializing configuration", str(e))
         sys.exit(1)
 
 
@@ -164,25 +176,34 @@ def sync(
                 log_operation_failure(
                     "repository synchronization", Exception(error_msg)
                 )
-                click.echo(f"❌ {error_msg}")
+                print_error_panel(
+                    "Repository not found",
+                    f"Repository '{repo}' not found in configuration.\n"
+                    "Use 'gitco init' to create a configuration or add the repository.",
+                )
                 sys.exit(1)
 
-            # Sync single repository
+            # Sync single repository with progress indicator
+            if not quiet:
+                console.print(f"[blue]🔄 Syncing repository: {repo}[/blue]")
+
             result = repo_manager._sync_single_repository(
                 repo_config["local_path"], repo_config
             )
 
             if result["success"]:
                 log_operation_success("repository synchronization", repo=repo)
-                click.echo(f"✅ Successfully synced repository: {repo}")
+                details = ""
                 if result.get("stashed_changes"):
-                    click.echo("   📦 Uncommitted changes were stashed and restored")
+                    details = "📦 Uncommitted changes were stashed and restored"
+
+                print_success_panel(f"Successfully synced repository: {repo}", details)
             else:
                 error_msg = result.get("message", "Unknown error")
                 log_operation_failure(
                     "repository synchronization", Exception(error_msg), repo=repo
                 )
-                click.echo(f"❌ Failed to sync repository '{repo}': {error_msg}")
+                print_error_panel(f"Failed to sync repository '{repo}'", error_msg)
                 sys.exit(1)
 
         else:
@@ -222,8 +243,9 @@ def sync(
                     log_operation_success(
                         "batch repository synchronization", total=len(results)
                     )
-                    click.echo(
-                        f"\n✅ Successfully synced all {len(results)} repositories!"
+                    print_success_panel(
+                        f"Successfully synced all {len(results)} repositories!",
+                        "All repositories are now up to date with their upstream sources.",
                     )
                 else:
                     error_msg = f"{failed} repositories failed"
@@ -233,52 +255,83 @@ def sync(
                         total=len(results),
                         failed=failed,
                     )
-                    click.echo(
-                        f"\n⚠️  Synced {successful} repositories, {failed} failed"
+                    print_error_panel(
+                        f"Sync completed with {failed} failures",
+                        f"Successfully synced {successful} repositories, {failed} failed.\n"
+                        "Check the output above for details on failed repositories.",
                     )
 
             else:
-                # Process repositories sequentially
+                # Process repositories sequentially with progress bar
                 logger.info("Processing repositories sequentially")
 
                 successful = 0
                 failed = 0
 
-                for r in config.repositories:
-                    repo_config = {
-                        "name": r.name,
-                        "local_path": r.local_path,
-                        "upstream": r.upstream,
-                        "fork": r.fork,
-                    }
+                if not quiet:
+                    with create_progress_bar(
+                        "Syncing repositories", len(config.repositories)
+                    ) as progress:
+                        task = progress.add_task(
+                            "[cyan]Syncing repositories[/cyan]",
+                            total=len(config.repositories),
+                        )
 
-                    if not quiet:
-                        click.echo(f"🔄 Syncing {r.name}...")
+                        for r in config.repositories:
+                            repo_config = {
+                                "name": r.name,
+                                "local_path": r.local_path,
+                                "upstream": r.upstream,
+                                "fork": r.fork,
+                            }
 
-                    result = repo_manager._sync_single_repository(
-                        r.local_path, repo_config
-                    )
+                            progress.update(task, description=f"Syncing {r.name}...")
 
-                    if result["success"]:
-                        successful += 1
-                        if not quiet:
-                            click.echo(
-                                f"✅ {r.name}: {result.get('message', 'Sync completed')}"
+                            result = repo_manager._sync_single_repository(
+                                r.local_path, repo_config
                             )
-                    else:
-                        failed += 1
-                        if not quiet:
-                            click.echo(
-                                f"❌ {r.name}: {result.get('message', 'Sync failed')}"
-                            )
+
+                            if result["success"]:
+                                successful += 1
+                                progress.update(
+                                    task,
+                                    description=f"✅ {r.name}: {result.get('message', 'Sync completed')}",
+                                )
+                            else:
+                                failed += 1
+                                progress.update(
+                                    task,
+                                    description=f"❌ {r.name}: {result.get('message', 'Sync failed')}",
+                                )
+
+                            progress.advance(task)
+                else:
+                    # Quiet mode - no progress bar
+                    for r in config.repositories:
+                        repo_config = {
+                            "name": r.name,
+                            "local_path": r.local_path,
+                            "upstream": r.upstream,
+                            "fork": r.fork,
+                        }
+
+                        result = repo_manager._sync_single_repository(
+                            r.local_path, repo_config
+                        )
+
+                        if result["success"]:
+                            successful += 1
+                        else:
+                            failed += 1
 
                 if failed == 0:
                     log_operation_success(
                         "sequential repository synchronization",
                         total=len(config.repositories),
                     )
-                    click.echo(
-                        f"\n✅ Successfully synced all {len(config.repositories)} repositories!"
+                    print_success_panel(
+                        f"Successfully synced all {len(config.repositories)} repositories!",
+                        "All repositories are now up to date with their upstream sources.",
                     )
                 else:
                     error_msg = f"{failed} repositories failed"
@@ -288,19 +341,29 @@ def sync(
                         total=len(config.repositories),
                         failed=failed,
                     )
-                    click.echo(
-                        f"\n⚠️  Synced {successful} repositories, {failed} failed"
+                    print_error_panel(
+                        f"Sync completed with {failed} failures",
+                        f"Successfully synced {successful} repositories, {failed} failed.\n"
+                        "Check the output above for details on failed repositories.",
                     )
 
         # Handle analysis if requested
         if analyze:
             logger.info("AI analysis requested")
-            click.echo("\n🤖 AI analysis will be implemented in Commit 22")
+            print_info_panel(
+                "AI Analysis",
+                "AI analysis functionality will be implemented in Commit 22.\n"
+                "This will provide intelligent summaries of upstream changes.",
+            )
 
         # Handle export if requested
         if export:
             logger.info(f"Export requested to: {export}")
-            click.echo("\n📊 Export functionality will be implemented in Commit 35")
+            print_info_panel(
+                "Export Functionality",
+                f"Export functionality will be implemented in Commit 35.\n"
+                f"Reports will be exported to: {export}",
+            )
 
         # Exit with error code if there were failures
         if not repo and failed > 0:
@@ -308,11 +371,14 @@ def sync(
 
     except FileNotFoundError as e:
         log_operation_failure("repository synchronization", e)
-        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        print_error_panel(
+            "Configuration file not found",
+            "Run 'gitco init' to create a configuration file.",
+        )
         sys.exit(1)
     except Exception as e:
         log_operation_failure("repository synchronization", e)
-        click.echo(f"❌ Error during synchronization: {e}")
+        print_error_panel("Error during synchronization", str(e))
         sys.exit(1)
 
 
@@ -333,23 +399,28 @@ def analyze(
 
     Generates human-readable summaries of upstream changes using AI analysis.
     """
-    click.echo("Analyzing repository changes...")
+    print_info_panel(
+        "Analyzing Repository Changes",
+        f"Analyzing repository: {repo}\n"
+        "This functionality will be implemented in Commit 22.",
+    )
 
     # TODO: Implement AI analysis
     # This will be implemented in Commit 22
 
-    click.echo(f"Analyzing repository: {repo}")
-
     if prompt:
-        click.echo(f"Using custom prompt: {prompt}")
+        print_info_panel("Using Custom Prompt", f"Using custom prompt: {prompt}")
 
     if repos:
-        click.echo(f"Analyzing multiple repositories: {repos}")
+        print_info_panel(
+            "Analyzing Multiple Repositories",
+            f"Analyzing multiple repositories: {repos}",
+        )
 
     if export:
-        click.echo(f"Exporting analysis to: {export}")
+        print_info_panel("Exporting Analysis", f"Exporting analysis to: {export}")
 
-    click.echo("✅ Analysis completed!")
+    print_success_panel("Analysis Completed", "✅ Analysis completed!")
 
 
 @main.command()
@@ -369,24 +440,27 @@ def discover(
 
     Scans repositories for issues matching your skills and interests.
     """
-    click.echo("Discovering contribution opportunities...")
+    print_info_panel(
+        "Discovering Contribution Opportunities",
+        "This functionality will be implemented in Commit 30.",
+    )
 
     # TODO: Implement opportunity discovery
     # This will be implemented in Commit 30
 
     if skill:
-        click.echo(f"Filtering by skill: {skill}")
+        print_info_panel("Filtering by Skill", f"Filtering by skill: {skill}")
 
     if label:
-        click.echo(f"Filtering by label: {label}")
+        print_info_panel("Filtering by Label", f"Filtering by label: {label}")
 
     if export:
-        click.echo(f"Exporting results to: {export}")
+        print_info_panel("Exporting Results", f"Exporting results to: {export}")
 
     if limit:
-        click.echo(f"Limiting results to: {limit}")
+        print_info_panel("Limiting Results", f"Limiting results to: {limit}")
 
-    click.echo("✅ Discovery completed!")
+    print_success_panel("Discovery Completed", "✅ Discovery completed!")
 
 
 @main.command()
@@ -401,23 +475,31 @@ def status(
 
     Displays the current status of your repositories and their sync state.
     """
-    click.echo("Checking repository status...")
+    print_info_panel(
+        "Checking Repository Status",
+        "This functionality will be implemented in Commit 33.",
+    )
 
     # TODO: Implement status reporting
     # This will be implemented in Commit 33
 
     if repo:
-        click.echo(f"Checking status for: {repo}")
+        print_info_panel(
+            "Checking Status for Specific Repository", f"Checking status for: {repo}"
+        )
     else:
-        click.echo("Checking status for all repositories")
+        print_info_panel(
+            "Checking Status for All Repositories",
+            "Checking status for all repositories",
+        )
 
     if detailed:
-        click.echo("Detailed mode enabled")
+        print_info_panel("Detailed Mode Enabled", "Detailed mode enabled")
 
     if export:
-        click.echo(f"Exporting status to: {export}")
+        print_info_panel("Exporting Status", f"Exporting status to: {export}")
 
-    click.echo("✅ Status check completed!")
+    print_success_panel("Status Check Completed", "✅ Status check completed!")
 
 
 @main.command()
@@ -427,8 +509,10 @@ def help(ctx: click.Context) -> None:
 
     Provides comprehensive help and usage examples for GitCo commands.
     """
-    click.echo("GitCo Help")
-    click.echo("==========")
+    print_info_panel(
+        "GitCo Help",
+        "This provides comprehensive help and usage examples for GitCo commands.",
+    )
     click.echo()
     click.echo(
         "GitCo is a CLI tool for intelligent OSS fork management and contribution discovery."
@@ -484,26 +568,33 @@ def validate(ctx: click.Context) -> None:
             log_operation_success(
                 "configuration validation", repo_count=len(config.repositories)
             )
-            click.echo("✅ Configuration is valid!")
-            click.echo(f"Found {len(config.repositories)} repositories")
-            click.echo(f"LLM provider: {config.settings.llm_provider}")
+            print_success_panel(
+                "Configuration is valid!",
+                f"Found {len(config.repositories)} repositories\n"
+                f"LLM provider: {config.settings.llm_provider}",
+            )
         else:
             log_operation_failure(
                 "configuration validation", ValidationError("Configuration has errors")
             )
             handle_validation_errors(errors, "Configuration")
-            click.echo("❌ Configuration has errors:")
+            print_error_panel(
+                "Configuration has errors", "❌ Configuration has errors:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
     except FileNotFoundError as e:
         log_operation_failure("configuration validation", e)
-        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        print_error_panel(
+            "Configuration file not found",
+            "Run 'gitco init' to create a configuration file.",
+        )
         sys.exit(1)
     except Exception as e:
         log_operation_failure("configuration validation", e)
-        click.echo(f"❌ Error validating configuration: {e}")
+        print_error_panel("Error validating configuration", str(e))
         sys.exit(1)
 
 
@@ -524,27 +615,42 @@ def config_status(ctx: click.Context) -> None:
         log_operation_success(
             "configuration status", repo_count=len(config.repositories)
         )
-        click.echo("Configuration Status")
-        click.echo("===================")
+        print_success_panel(
+            "Configuration Status", "Configuration Status\n===================\n\n"
+        )
 
-        click.echo(f"Configuration file: {config_manager.config_path}")
-        click.echo(f"Repositories: {len(config.repositories)}")
-        click.echo(f"LLM provider: {config.settings.llm_provider}")
-        click.echo(f"Analysis enabled: {config.settings.analysis_enabled}")
-        click.echo(f"Max repos per batch: {config.settings.max_repos_per_batch}")
+        print_info_panel(
+            "Configuration File", f"Configuration file: {config_manager.config_path}"
+        )
+        print_info_panel("Repositories", f"Repositories: {len(config.repositories)}")
+        print_info_panel(
+            "LLM Provider", f"LLM provider: {config.settings.llm_provider}"
+        )
+        print_info_panel(
+            "Analysis Enabled", f"Analysis enabled: {config.settings.analysis_enabled}"
+        )
+        print_info_panel(
+            "Max Repos per Batch",
+            f"Max repos per batch: {config.settings.max_repos_per_batch}",
+        )
 
         if config.repositories:
-            click.echo("\nRepositories:")
+            print_info_panel("Repositories", "Repositories:\n")
             for repo in config.repositories:
-                click.echo(f"  - {repo.name}: {repo.fork} -> {repo.upstream}")
+                print_info_panel(
+                    "Repository", f"  - {repo.name}: {repo.fork} -> {repo.upstream}"
+                )
 
     except FileNotFoundError as e:
         log_operation_failure("configuration status", e)
-        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        print_error_panel(
+            "Configuration file not found",
+            "Run 'gitco init' to create a configuration file.",
+        )
         sys.exit(1)
     except Exception as e:
         log_operation_failure("configuration status", e)
-        click.echo(f"❌ Error reading configuration: {e}")
+        print_error_panel("Error reading configuration", str(e))
         sys.exit(1)
 
 
@@ -575,9 +681,11 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Add upstream remote
@@ -585,19 +693,22 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
 
         if success:
             log_operation_success("upstream remote addition", repo=repo, url=url)
-            click.echo("✅ Upstream remote added successfully!")
-            click.echo(f"Repository: {repo}")
-            click.echo(f"Upstream URL: {url}")
+            print_success_panel(
+                "Upstream remote added successfully!",
+                f"Repository: {repo}\nUpstream URL: {url}",
+            )
         else:
             log_operation_failure(
                 "upstream remote addition", Exception("Failed to add upstream remote")
             )
-            click.echo("❌ Failed to add upstream remote")
+            print_error_panel(
+                "Failed to add upstream remote", "❌ Failed to add upstream remote"
+            )
             sys.exit(1)
 
     except Exception as e:
         log_operation_failure("upstream remote addition", e)
-        click.echo(f"❌ Error adding upstream remote: {e}")
+        print_error_panel("Error adding upstream remote", str(e))
         sys.exit(1)
 
 
@@ -620,9 +731,11 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Remove upstream remote
@@ -630,18 +743,22 @@ def remove(ctx: click.Context, repo: str) -> None:
 
         if success:
             log_operation_success("upstream remote removal", repo=repo)
-            click.echo("✅ Upstream remote removed successfully!")
-            click.echo(f"Repository: {repo}")
+            print_success_panel(
+                "Upstream remote removed successfully!", f"Repository: {repo}"
+            )
         else:
             log_operation_failure(
                 "upstream remote removal", Exception("Failed to remove upstream remote")
             )
-            click.echo("❌ Failed to remove upstream remote")
+            print_error_panel(
+                "Failed to remove upstream remote",
+                "❌ Failed to remove upstream remote",
+            )
             sys.exit(1)
 
     except Exception as e:
         log_operation_failure("upstream remote removal", e)
-        click.echo(f"❌ Error removing upstream remote: {e}")
+        print_error_panel("Error removing upstream remote", str(e))
         sys.exit(1)
 
 
@@ -665,9 +782,11 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Update upstream remote
@@ -675,19 +794,23 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
 
         if success:
             log_operation_success("upstream remote update", repo=repo, url=url)
-            click.echo("✅ Upstream remote updated successfully!")
-            click.echo(f"Repository: {repo}")
-            click.echo(f"New upstream URL: {url}")
+            print_success_panel(
+                "Upstream remote updated successfully!",
+                f"Repository: {repo}\nNew upstream URL: {url}",
+            )
         else:
             log_operation_failure(
                 "upstream remote update", Exception("Failed to update upstream remote")
             )
-            click.echo("❌ Failed to update upstream remote")
+            print_error_panel(
+                "Failed to update upstream remote",
+                "❌ Failed to update upstream remote",
+            )
             sys.exit(1)
 
     except Exception as e:
         log_operation_failure("upstream remote update", e)
-        click.echo(f"❌ Error updating upstream remote: {e}")
+        print_error_panel("Error updating upstream remote", str(e))
         sys.exit(1)
 
 
@@ -710,33 +833,46 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Validate upstream remote
         validation = git_manager.validate_upstream_remote(repo)
 
         log_operation_success("upstream remote validation", repo=repo)
-        click.echo(f"Repository: {repo}")
+        print_success_panel(
+            f"Repository: {repo}", "Upstream Remote Status\n======================\n\n"
+        )
 
         if validation["has_upstream"]:
-            click.echo(f"Upstream URL: {validation['url']}")
+            print_info_panel("Upstream URL", f"Upstream URL: {validation['url']}")
 
             if validation["is_valid"]:
-                click.echo("✅ Upstream remote is valid and accessible")
+                print_success_panel(
+                    "Upstream remote is valid and accessible",
+                    "✅ Upstream remote is valid and accessible",
+                )
                 if validation.get("accessible", False):
-                    click.echo("✅ Upstream remote is accessible")
+                    print_success_panel(
+                        "Upstream remote is accessible",
+                        "✅ Upstream remote is accessible",
+                    )
             else:
-                click.echo("❌ Upstream remote validation failed")
-                click.echo(f"Error: {validation['error']}")
+                print_error_panel(
+                    "Upstream remote validation failed", f"Error: {validation['error']}"
+                )
         else:
-            click.echo("❌ No upstream remote configured")
+            print_error_panel(
+                "No upstream remote configured", "❌ No upstream remote configured"
+            )
 
     except Exception as e:
         log_operation_failure("upstream remote validation", e)
-        click.echo(f"❌ Error validating upstream remote: {e}")
+        print_error_panel("Error validating upstream remote", str(e))
         sys.exit(1)
 
 
@@ -759,9 +895,11 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Get repository instance
@@ -770,7 +908,9 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", Exception("Not a valid Git repository")
             )
-            click.echo("❌ Not a valid Git repository")
+            print_error_panel(
+                "Not a valid Git repository", "❌ Not a valid Git repository"
+            )
             sys.exit(1)
 
         # Fetch from upstream
@@ -779,18 +919,21 @@ def fetch(ctx: click.Context, repo: str) -> None:
 
         if success:
             log_operation_success("upstream fetch", repo=repo)
-            click.echo("✅ Successfully fetched from upstream!")
-            click.echo(f"Repository: {repo}")
+            print_success_panel(
+                "Successfully fetched from upstream!", f"Repository: {repo}"
+            )
         else:
             log_operation_failure(
                 "upstream fetch", Exception("Failed to fetch from upstream")
             )
-            click.echo("❌ Failed to fetch from upstream")
+            print_error_panel(
+                "Failed to fetch from upstream", "❌ Failed to fetch from upstream"
+            )
             sys.exit(1)
 
     except Exception as e:
         log_operation_failure("upstream fetch", e)
-        click.echo(f"❌ Error fetching from upstream: {e}")
+        print_error_panel("Error fetching from upstream", str(e))
         sys.exit(1)
 
 
@@ -830,9 +973,11 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            click.echo("❌ Invalid repository path:")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
-                click.echo(f"  - {error}")
+                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
         # Get repository instance
@@ -841,7 +986,9 @@ def merge(
             log_operation_failure(
                 "upstream merge", Exception("Not a valid Git repository")
             )
-            click.echo("❌ Not a valid Git repository")
+            print_error_panel(
+                "Not a valid Git repository", "❌ Not a valid Git repository"
+            )
             sys.exit(1)
 
         git_repo = GitRepository(repo)
@@ -855,15 +1002,21 @@ def merge(
                 success = git_repo.abort_merge()
                 if success:
                     log_operation_success("upstream merge abort", repo=repo)
-                    click.echo("✅ Successfully aborted merge!")
+                    print_success_panel(
+                        "Merge aborted successfully!", "✅ Successfully aborted merge!"
+                    )
                 else:
                     log_operation_failure(
                         "upstream merge abort", Exception("Failed to abort merge")
                     )
-                    click.echo("❌ Failed to abort merge")
+                    print_error_panel(
+                        "Failed to abort merge", "❌ Failed to abort merge"
+                    )
                     sys.exit(1)
             else:
-                click.echo("ℹ️  No active merge to abort")
+                print_info_panel(
+                    "No active merge to abort", "ℹ️  No active merge to abort"
+                )
             return
 
         if resolve:
@@ -874,18 +1027,23 @@ def merge(
                     log_operation_success(
                         "upstream merge resolve", repo=repo, strategy=strategy
                     )
-                    click.echo(
-                        f"✅ Successfully resolved conflicts using {strategy} strategy!"
+                    print_success_panel(
+                        f"Conflicts resolved using {strategy} strategy!",
+                        f"✅ Successfully resolved conflicts using {strategy} strategy!",
                     )
                 else:
                     log_operation_failure(
                         "upstream merge resolve",
                         Exception("Failed to resolve conflicts"),
                     )
-                    click.echo("❌ Failed to resolve conflicts")
+                    print_error_panel(
+                        "Failed to resolve conflicts", "❌ Failed to resolve conflicts"
+                    )
                     sys.exit(1)
             else:
-                click.echo("ℹ️  No conflicts to resolve")
+                print_info_panel(
+                    "No conflicts to resolve", "ℹ️  No conflicts to resolve"
+                )
             return
 
         # Perform merge operation
@@ -893,45 +1051,53 @@ def merge(
 
         if merge_result["success"]:
             log_operation_success("upstream merge", repo=repo, branch=branch)
-            click.echo("✅ Successfully merged upstream changes!")
-            click.echo(f"Repository: {repo}")
+            print_success_panel(
+                "Successfully merged upstream changes!", f"Repository: {repo}\n"
+            )
             if merge_result.get("message"):
-                click.echo(f"Message: {merge_result['message']}")
+                print_info_panel("Message", f"Message: {merge_result['message']}")
             if merge_result.get("merge_commit"):
-                click.echo(f"Merge commit: {merge_result['merge_commit']}")
+                print_info_panel(
+                    "Merge Commit", f"Merge commit: {merge_result['merge_commit']}"
+                )
         else:
             if merge_result.get("conflicts"):
                 log_operation_failure(
                     "upstream merge", Exception("Merge conflicts detected")
                 )
-                click.echo("⚠️  Merge conflicts detected!")
-                click.echo(f"Repository: {repo}")
-                click.echo("Conflicted files:")
+                print_error_panel(
+                    "Merge Conflicts Detected",
+                    "⚠️  Merge conflicts detected!\n\n"
+                    f"Repository: {repo}\n"
+                    "Conflicted files:\n",
+                )
                 for conflict in merge_result["conflicts"]:
-                    click.echo(f"  - {conflict}")
-                click.echo()
-                click.echo("To resolve conflicts, use:")
-                click.echo(
-                    f"  gitco upstream merge --repo {repo} --resolve --strategy ours"
+                    print_error_panel("Conflict", f"  - {conflict}")
+                print_info_panel(
+                    "Resolution Options",
+                    "To resolve conflicts, use:\n"
+                    f"  gitco upstream merge --repo {repo} --resolve --strategy ours\n"
+                    f"  gitco upstream merge --repo {repo} --resolve --strategy theirs\n",
                 )
-                click.echo(
-                    f"  gitco upstream merge --repo {repo} --resolve --strategy theirs"
+                print_info_panel(
+                    "Abort Merge",
+                    "Or abort the merge with:\n"
+                    f"  gitco upstream merge --repo {repo} --abort",
                 )
-                click.echo("Or abort the merge with:")
-                click.echo(f"  gitco upstream merge --repo {repo} --abort")
             else:
                 log_operation_failure(
                     "upstream merge",
                     Exception(merge_result.get("error", "Unknown error")),
                 )
-                click.echo(
-                    f"❌ Merge failed: {merge_result.get('error', 'Unknown error')}"
+                print_error_panel(
+                    "Merge failed",
+                    f"❌ Merge failed: {merge_result.get('error', 'Unknown error')}",
                 )
             sys.exit(1)
 
     except Exception as e:
         log_operation_failure("upstream merge", e)
-        click.echo(f"❌ Error merging upstream changes: {e}")
+        print_error_panel("Error merging upstream changes", str(e))
         sys.exit(1)
 
 
@@ -964,33 +1130,47 @@ def validate_repo(
                 log_operation_failure(
                     "repository validation", Exception("No Git repositories found")
                 )
-                click.echo("❌ No Git repositories found in the specified path.")
+                print_error_panel(
+                    "No Git Repositories Found",
+                    "❌ No Git repositories found in the specified path.",
+                )
                 sys.exit(1)
 
             log_operation_success("repository validation", repo_count=len(repositories))
-            click.echo(f"Found {len(repositories)} Git repositories:")
-            click.echo()
-
+            print_success_panel(
+                f"Found {len(repositories)} Git repositories!",
+                f"Found {len(repositories)} Git repositories:\n",
+            )
             for repo in repositories:
                 status = repo.get_repository_status()
-                click.echo(f"📁 {status['path']}")
-                click.echo(f"   Branch: {status['current_branch'] or 'unknown'}")
-                click.echo(f"   Default: {status['default_branch'] or 'unknown'}")
-                click.echo(f"   Remotes: {len(status['remotes'])}")
-                click.echo(f"   Clean: {'✅' if status['is_clean'] else '❌'}")
+                print_info_panel("Repository", f"📁 {status['path']}\n")
+                print_info_panel(
+                    "Branch", f"   Branch: {status['current_branch'] or 'unknown'}"
+                )
+                print_info_panel(
+                    "Default Branch",
+                    f"   Default: {status['default_branch'] or 'unknown'}",
+                )
+                print_info_panel("Remotes", f"   Remotes: {len(status['remotes'])}")
+                print_info_panel(
+                    "Clean", f"   Clean: {'✅' if status['is_clean'] else '❌'}"
+                )
 
                 if detailed:
                     sync_status = git_manager.check_repository_sync_status(
                         str(repo.path)
                     )
                     if sync_status["is_syncable"]:
-                        click.echo(
-                            f"   Sync: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead"
+                        print_info_panel(
+                            "Sync Status",
+                            f"   Sync: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead",
                         )
                     else:
-                        click.echo(f"   Sync: {sync_status['error']}")
+                        print_error_panel(
+                            "Sync Status", f"   Sync: {sync_status['error']}"
+                        )
 
-                click.echo()
+                print_info_panel("Repository", "")
 
         else:
             # Validate single repository
@@ -998,44 +1178,60 @@ def validate_repo(
 
             if is_valid:
                 log_operation_success("repository validation", path=target_path)
-                click.echo("✅ Valid Git repository!")
+                print_success_panel("Valid Git repository!", "✅ Valid Git repository!")
 
                 if detailed:
                     status = git_manager.get_repository_info(target_path)
                     sync_status = git_manager.check_repository_sync_status(target_path)
 
-                    click.echo(f"Path: {status['path']}")
-                    click.echo(f"Current branch: {status['current_branch']}")
-                    click.echo(f"Default branch: {status['default_branch']}")
-                    click.echo(f"Remotes: {', '.join(status['remotes'].keys())}")
-                    click.echo(
-                        f"Has uncommitted changes: {'Yes' if status['has_uncommitted_changes'] else 'No'}"
+                    print_info_panel("Path", f"Path: {status['path']}")
+                    print_info_panel(
+                        "Current Branch", f"Current branch: {status['current_branch']}"
                     )
-                    click.echo(
-                        f"Has untracked files: {'Yes' if status['has_untracked_files'] else 'No'}"
+                    print_info_panel(
+                        "Default Branch", f"Default branch: {status['default_branch']}"
+                    )
+                    print_info_panel(
+                        "Remotes", f"Remotes: {', '.join(status['remotes'].keys())}"
+                    )
+                    print_info_panel(
+                        "Uncommitted Changes",
+                        f"Has uncommitted changes: {'Yes' if status['has_uncommitted_changes'] else 'No'}",
+                    )
+                    print_info_panel(
+                        "Untracked Files",
+                        f"Has untracked files: {'Yes' if status['has_untracked_files'] else 'No'}",
                     )
 
                     if sync_status["is_syncable"]:
-                        click.echo(
-                            f"Sync status: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead"
+                        print_info_panel(
+                            "Sync Status",
+                            f"Sync status: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead",
                         )
                         if sync_status["diverged"]:
-                            click.echo("⚠️  Repository has diverged from upstream")
+                            print_warning_panel(
+                                "Repository Diverged",
+                                "⚠️  Repository has diverged from upstream",
+                            )
                     else:
-                        click.echo(f"Sync status: {sync_status['error']}")
+                        print_error_panel(
+                            "Sync Status", f"Sync status: {sync_status['error']}"
+                        )
             else:
                 log_operation_failure(
                     "repository validation",
                     ValidationError("Repository validation failed"),
                 )
-                click.echo("❌ Invalid Git repository:")
+                print_error_panel(
+                    "Invalid Git repository", "❌ Invalid Git repository:\n"
+                )
                 for error in errors:
-                    click.echo(f"  - {error}")
+                    print_error_panel("Error", f"  - {error}")
                 sys.exit(1)
 
     except Exception as e:
         log_operation_failure("repository validation", e)
-        click.echo(f"❌ Error validating repository: {e}")
+        print_error_panel("Error validating repository", str(e))
         sys.exit(1)
 
 

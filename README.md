@@ -15,6 +15,10 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Comprehensive stash management with automatic restoration
 - Detection of uncommitted changes before operations
 - Atomic stash-and-restore operations for data safety
+- **Rich progress indicators** with real-time updates and colored status messages
+- **Enhanced CLI output** with success, error, warning, and info panels
+- **Progress bars** for repository operations with spinners and time tracking
+- **Color-coded status** for different operation types (started, completed, failed, skipped)
 
 ### 🧠 **AI-Powered Change Analysis**
 - Generates human-readable summaries of upstream changes
@@ -263,6 +267,53 @@ gitco sync --quiet --log sync.log
 
 # Validate repositories recursively
 gitco validate-repo --recursive --detailed
+```
+
+### Enhanced CLI Experience
+
+GitCo provides a rich, user-friendly CLI experience with progress indicators and colored output:
+
+**Progress Indicators:**
+- **Real-time progress bars** for batch operations with spinners and time tracking
+- **Color-coded status messages** for different operation types
+- **Success panels** with detailed completion information and next steps
+- **Error panels** with detailed context and resolution suggestions
+- **Info panels** for operation status and informational messages
+- **Warning panels** for non-critical issues and recommendations
+
+**Visual Features:**
+- **Emojis and icons** for quick visual identification of operation types
+- **Color coding** for different status levels (green for success, red for errors, blue for info, yellow for warnings)
+- **Rich tables** for batch operation summaries with detailed statistics
+- **Progress tracking** with percentage completion and time elapsed
+- **Status indicators** for repository operations (started, completed, failed, skipped)
+
+**Example Output:**
+```
+🔄 Starting batch sync for 3 repositories
+════════════════════════════════════════════════════════════════════
+
+✅ django                   2.34s - Sync completed
+❌ fastapi                  1.87s - Merge conflicts detected
+✅ requests                 3.12s - Sync completed
+
+════════════════════════════════════════════════════════════════════
+📊 Batch sync Summary
+   Total repositories: 3
+   Successful: 2
+   Failed: 1
+   Total duration: 7.33s
+   Average per repo: 2.44s
+
+❌ Failed repositories:
+  • fastapi: Merge conflicts detected
+════════════════════════════════════════════════════════════════════
+```
+
+**Quiet Mode:**
+For automated usage or cron jobs, use the `--quiet` flag to suppress progress indicators:
+```bash
+gitco sync --quiet --log sync.log
 ```
 
 ## 🔧 Configuration

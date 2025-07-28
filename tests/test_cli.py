@@ -86,14 +86,14 @@ def test_sync_command_with_analyze(runner):
     result = runner.invoke(main, ["sync", "--analyze"])
     # The sync command will fail because the repositories don't exist, but it should handle the error gracefully
     assert result.exit_code == 1
-    assert "AI analysis will be implemented in Commit 22" in result.output
+    assert "AI Analysis" in result.output
 
 
 def test_analyze_command(runner):
     """Test the analyze command."""
     result = runner.invoke(main, ["analyze", "--repo", "fastapi"])
     assert result.exit_code == 0
-    assert "Analyzing repository changes" in result.output
+    assert "Analyzing Repository Changes" in result.output
     assert "Analyzing repository: fastapi" in result.output
     assert "Analysis completed" in result.output
 
@@ -111,7 +111,7 @@ def test_discover_command(runner):
     """Test the discover command."""
     result = runner.invoke(main, ["discover"])
     assert result.exit_code == 0
-    assert "Discovering contribution opportunities" in result.output
+    assert "Discovering Contribution Opportunities" in result.output
     assert "Discovery completed" in result.output
 
 
@@ -133,7 +133,7 @@ def test_status_command(runner):
     """Test the status command."""
     result = runner.invoke(main, ["status"])
     assert result.exit_code == 0
-    assert "Checking repository status" in result.output
+    assert "Checking Repository Status" in result.output
     assert "Status check completed" in result.output
 
 

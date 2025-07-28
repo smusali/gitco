@@ -1,22 +1,22 @@
 repositories:
-  - analysis_enabled: true
-    fork: username/django
-    local_path: ~/code/django
-    name: django
-    skills:
-      - python
-      - web
-      - orm
-    upstream: django/django
-  - analysis_enabled: true
-    fork: username/fastapi
-    local_path: ~/code/fastapi
-    name: fastapi
-    skills:
-      - python
-      - api
-      - async
-    upstream: tiangolo/fastapi
+- analysis_enabled: true
+  fork: username/django
+  local_path: ~/code/django
+  name: django
+  skills:
+  - python
+  - web
+  - orm
+  upstream: django/django
+- analysis_enabled: true
+  fork: username/fastapi
+  local_path: ~/code/fastapi
+  name: fastapi
+  skills:
+  - python
+  - api
+  - async
+  upstream: tiangolo/fastapi
 settings:
   analysis_enabled: true
   api_key_env: AETHERIUM_API_KEY

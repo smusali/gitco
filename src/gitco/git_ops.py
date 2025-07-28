@@ -9,7 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from .utils import GitOperationError, get_logger
+from rich import box
+from rich.table import Table
+
+from .utils import (
+    GitOperationError,
+    console,
+    create_progress_bar,
+    get_logger,
+)
 
 
 @dataclass
@@ -68,48 +76,94 @@ class BatchProcessor:
         if show_progress:
             self._print_batch_header(operation_name, len(repositories))
 
-        # Process repositories with thread pool for concurrent execution
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
-            future_to_repo = {
-                executor.submit(
-                    self._process_single_repository,
-                    repo,
-                    operation_func,
-                    operation_name,
-                ): repo
-                for repo in repositories
-            }
+            # Create progress bar for batch processing
+            with create_progress_bar(
+                f"Processing {len(repositories)} repositories", len(repositories)
+            ) as progress:
+                task = progress.add_task(
+                    f"[cyan]{operation_name}[/cyan]", total=len(repositories)
+                )
 
-            # Collect results as they complete
-            for future in as_completed(future_to_repo):
-                repo = future_to_repo[future]
-                try:
-                    result = future.result()
-                    results.append(result)
+                # Process repositories with thread pool for concurrent execution
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    # Submit all tasks
+                    future_to_repo = {
+                        executor.submit(
+                            self._process_single_repository,
+                            repo,
+                            operation_func,
+                            operation_name,
+                        ): repo
+                        for repo in repositories
+                    }
 
-                    if show_progress:
-                        self._print_repository_result(result)
+                    # Collect results as they complete
+                    for future in as_completed(future_to_repo):
+                        repo = future_to_repo[future]
+                        try:
+                            result = future.result()
+                            results.append(result)
 
-                except Exception as e:
-                    # Handle unexpected errors in the future
-                    error_result = BatchResult(
-                        repository_name=repo.get("name", "unknown"),
-                        repository_path=repo.get("local_path", "unknown"),
-                        success=False,
-                        operation=operation_name,
-                        message=f"Unexpected error: {str(e)}",
-                        details={},
-                        duration=0.0,
-                        error=e,
-                    )
-                    results.append(error_result)
+                            # Update progress bar
+                            progress.update(task, advance=1)
 
-                    if show_progress:
-                        self._print_repository_result(error_result)
+                            # Show result with color coding
+                            self._print_repository_result(result)
+
+                        except Exception as e:
+                            # Handle unexpected errors in the future
+                            error_result = BatchResult(
+                                repository_name=repo.get("name", "unknown"),
+                                repository_path=repo.get("local_path", "unknown"),
+                                success=False,
+                                operation=operation_name,
+                                message=f"Unexpected error: {e}",
+                                details={"error": str(e)},
+                                duration=0.0,
+                                error=e,
+                            )
+                            results.append(error_result)
+
+                            # Update progress bar
+                            progress.update(task, advance=1)
+
+                            # Show error result
+                            self._print_repository_result(error_result)
+        else:
+            # Process without progress bar (for quiet mode)
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                future_to_repo = {
+                    executor.submit(
+                        self._process_single_repository,
+                        repo,
+                        operation_func,
+                        operation_name,
+                    ): repo
+                    for repo in repositories
+                }
+
+                for future in as_completed(future_to_repo):
+                    repo = future_to_repo[future]
+                    try:
+                        result = future.result()
+                        results.append(result)
+                    except Exception as e:
+                        error_result = BatchResult(
+                            repository_name=repo.get("name", "unknown"),
+                            repository_path=repo.get("local_path", "unknown"),
+                            success=False,
+                            operation=operation_name,
+                            message=f"Unexpected error: {e}",
+                            details={"error": str(e)},
+                            duration=0.0,
+                            error=e,
+                        )
+                        results.append(error_result)
 
         total_duration = time.time() - start_time
-        self._print_batch_summary(results, operation_name, total_duration)
+
+        if show_progress:
+            self._print_batch_summary(results, operation_name, total_duration)
 
         return results
 
@@ -135,10 +189,6 @@ class BatchProcessor:
         start_time = time.time()
 
         try:
-            # Add rate limiting delay
-            if self.rate_limit_delay > 0:
-                time.sleep(self.rate_limit_delay)
-
             # Execute the operation
             result = operation_func(repo_path, repo_config)
 
@@ -150,7 +200,7 @@ class BatchProcessor:
                 success=result.get("success", False),
                 operation=operation_name,
                 message=result.get("message", "Operation completed"),
-                details=result,
+                details=result.get("details", {}),
                 duration=duration,
             )
 
@@ -162,39 +212,48 @@ class BatchProcessor:
                 repository_path=repo_path,
                 success=False,
                 operation=operation_name,
-                message=f"Error during {operation_name}: {str(e)}",
+                message=f"Operation failed: {e}",
                 details={"error": str(e)},
                 duration=duration,
                 error=e,
             )
 
     def _print_batch_header(self, operation_name: str, total_repos: int) -> None:
-        """Print batch processing header.
+        """Print batch processing header with rich formatting.
 
         Args:
             operation_name: Name of the operation
             total_repos: Total number of repositories
         """
-        print(f"\n🔄 Starting batch {operation_name} for {total_repos} repositories")
-        print("=" * 60)
+        console.print(
+            f"\n[bold blue]🔄 Starting batch {operation_name} for {total_repos} repositories[/bold blue]"
+        )
+        console.print("=" * 60)
 
     def _print_repository_result(self, result: BatchResult) -> None:
-        """Print result for a single repository.
+        """Print result for a single repository with color coding.
 
         Args:
             result: Batch result to print
         """
-        status_icon = "✅" if result.success else "❌"
         duration_str = f"{result.duration:.2f}s"
 
-        print(
-            f"{status_icon} {result.repository_name:<20} {duration_str:>8} - {result.message}"
+        if result.success:
+            status_icon = "[green]✅[/green]"
+            status_color = "green"
+        else:
+            status_icon = "[red]❌[/red]"
+            status_color = "red"
+
+        console.print(
+            f"{status_icon} [{status_color}]{result.repository_name:<20}[/{status_color}] "
+            f"[cyan]{duration_str:>8}[/cyan] - {result.message}"
         )
 
     def _print_batch_summary(
         self, results: list[BatchResult], operation_name: str, total_duration: float
     ) -> None:
-        """Print batch processing summary.
+        """Print batch processing summary with rich table.
 
         Args:
             results: List of batch results
@@ -204,21 +263,29 @@ class BatchProcessor:
         successful = sum(1 for r in results if r.success)
         failed = len(results) - successful
 
-        print("\n" + "=" * 60)
-        print(f"📊 Batch {operation_name} Summary")
-        print(f"   Total repositories: {len(results)}")
-        print(f"   Successful: {successful}")
-        print(f"   Failed: {failed}")
-        print(f"   Total duration: {total_duration:.2f}s")
-        print(f"   Average per repo: {total_duration / len(results):.2f}s")
+        # Create summary table
+        table = Table(title=f"📊 Batch {operation_name} Summary", box=box.ROUNDED)
+        table.add_column("Metric", style="cyan", no_wrap=True)
+        table.add_column("Value", style="white")
+
+        table.add_row("Total repositories", str(len(results)))
+        table.add_row("Successful", f"[green]{successful}[/green]")
+        table.add_row("Failed", f"[red]{failed}[/red]")
+        table.add_row("Total duration", f"{total_duration:.2f}s")
+        table.add_row("Average per repo", f"{total_duration / len(results):.2f}s")
+
+        console.print("\n")
+        console.print(table)
 
         if failed > 0:
-            print("\n❌ Failed repositories:")
+            console.print("\n[red]❌ Failed repositories:[/red]")
             for result in results:
                 if not result.success:
-                    print(f"   - {result.repository_name}: {result.message}")
+                    console.print(
+                        f"  [red]• {result.repository_name}: {result.message}[/red]"
+                    )
 
-        print("=" * 60)
+        console.print("=" * 60)
 
 
 class GitRepository:
