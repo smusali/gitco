@@ -148,6 +148,32 @@ gitco help
 # Validate Git repositories
 gitco validate-repo --path ~/code/django
 gitco validate-repo --recursive --detailed
+
+# Manage upstream remotes
+gitco upstream add --repo ~/code/django --url git@github.com:django/django.git
+gitco upstream validate-upstream --repo ~/code/django
+gitco upstream fetch --repo ~/code/django
+```
+
+### Upstream Remote Management
+
+GitCo provides comprehensive upstream remote management functionality:
+
+```bash
+# Add or update upstream remote
+gitco upstream add --repo ~/code/django --url git@github.com:django/django.git
+
+# Remove upstream remote
+gitco upstream remove --repo ~/code/django
+
+# Update upstream remote URL
+gitco upstream update --repo ~/code/django --url git@github.com:new/django.git
+
+# Validate upstream remote configuration
+gitco upstream validate-upstream --repo ~/code/django
+
+# Fetch latest changes from upstream
+gitco upstream fetch --repo ~/code/django
 ```
 
 ### Advanced Usage

@@ -7,7 +7,7 @@ import click
 
 from . import __version__
 from .config import ConfigManager, create_sample_config
-from .git_ops import GitRepositoryManager
+from .git_ops import GitRepository, GitRepositoryManager
 from .utils import (
     ValidationError,
     get_logger,
@@ -376,6 +376,252 @@ def config_status(ctx: click.Context) -> None:
     except Exception as e:
         log_operation_failure("configuration status", e)
         click.echo(f"❌ Error reading configuration: {e}")
+        sys.exit(1)
+
+
+@main.group()
+@click.pass_context
+def upstream(ctx: click.Context) -> None:
+    """Manage upstream remotes for repositories."""
+    pass
+
+
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.option("--url", "-u", required=True, help="Upstream repository URL")
+@click.pass_context
+def add(ctx: click.Context, repo: str, url: str) -> None:
+    """Add upstream remote to a repository.
+
+    Adds or updates the upstream remote for the specified repository.
+    """
+    log_operation_start("upstream remote addition", repo=repo, url=url)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream remote addition", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Add upstream remote
+        success = git_manager.setup_upstream_remote(repo, url)
+
+        if success:
+            log_operation_success("upstream remote addition", repo=repo, url=url)
+            click.echo("✅ Upstream remote added successfully!")
+            click.echo(f"Repository: {repo}")
+            click.echo(f"Upstream URL: {url}")
+        else:
+            log_operation_failure(
+                "upstream remote addition", Exception("Failed to add upstream remote")
+            )
+            click.echo("❌ Failed to add upstream remote")
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("upstream remote addition", e)
+        click.echo(f"❌ Error adding upstream remote: {e}")
+        sys.exit(1)
+
+
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.pass_context
+def remove(ctx: click.Context, repo: str) -> None:
+    """Remove upstream remote from a repository.
+
+    Removes the upstream remote if it exists.
+    """
+    log_operation_start("upstream remote removal", repo=repo)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream remote removal", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Remove upstream remote
+        success = git_manager.remove_upstream_remote(repo)
+
+        if success:
+            log_operation_success("upstream remote removal", repo=repo)
+            click.echo("✅ Upstream remote removed successfully!")
+            click.echo(f"Repository: {repo}")
+        else:
+            log_operation_failure(
+                "upstream remote removal", Exception("Failed to remove upstream remote")
+            )
+            click.echo("❌ Failed to remove upstream remote")
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("upstream remote removal", e)
+        click.echo(f"❌ Error removing upstream remote: {e}")
+        sys.exit(1)
+
+
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.option("--url", "-u", required=True, help="New upstream repository URL")
+@click.pass_context
+def update(ctx: click.Context, repo: str, url: str) -> None:
+    """Update upstream remote URL for a repository.
+
+    Updates the URL of the existing upstream remote.
+    """
+    log_operation_start("upstream remote update", repo=repo, url=url)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream remote update", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Update upstream remote
+        success = git_manager.update_upstream_remote(repo, url)
+
+        if success:
+            log_operation_success("upstream remote update", repo=repo, url=url)
+            click.echo("✅ Upstream remote updated successfully!")
+            click.echo(f"Repository: {repo}")
+            click.echo(f"New upstream URL: {url}")
+        else:
+            log_operation_failure(
+                "upstream remote update", Exception("Failed to update upstream remote")
+            )
+            click.echo("❌ Failed to update upstream remote")
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("upstream remote update", e)
+        click.echo(f"❌ Error updating upstream remote: {e}")
+        sys.exit(1)
+
+
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.pass_context
+def validate_upstream(ctx: click.Context, repo: str) -> None:
+    """Validate upstream remote for a repository.
+
+    Checks if the upstream remote is properly configured and accessible.
+    """
+    log_operation_start("upstream remote validation", repo=repo)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream remote validation", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Validate upstream remote
+        validation = git_manager.validate_upstream_remote(repo)
+
+        log_operation_success("upstream remote validation", repo=repo)
+        click.echo(f"Repository: {repo}")
+
+        if validation["has_upstream"]:
+            click.echo(f"Upstream URL: {validation['url']}")
+
+            if validation["is_valid"]:
+                click.echo("✅ Upstream remote is valid and accessible")
+                if validation.get("accessible", False):
+                    click.echo("✅ Upstream remote is accessible")
+            else:
+                click.echo("❌ Upstream remote validation failed")
+                click.echo(f"Error: {validation['error']}")
+        else:
+            click.echo("❌ No upstream remote configured")
+
+    except Exception as e:
+        log_operation_failure("upstream remote validation", e)
+        click.echo(f"❌ Error validating upstream remote: {e}")
+        sys.exit(1)
+
+
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.pass_context
+def fetch(ctx: click.Context, repo: str) -> None:
+    """Fetch latest changes from upstream.
+
+    Fetches the latest changes from the upstream remote.
+    """
+    log_operation_start("upstream fetch", repo=repo)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream fetch", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Get repository instance
+        repository = git_manager.get_repository_info(repo)
+        if not repository["is_git_repository"]:
+            log_operation_failure(
+                "upstream fetch", Exception("Not a valid Git repository")
+            )
+            click.echo("❌ Not a valid Git repository")
+            sys.exit(1)
+
+        # Fetch from upstream
+        git_repo = GitRepository(repo)
+        success = git_repo.fetch_upstream()
+
+        if success:
+            log_operation_success("upstream fetch", repo=repo)
+            click.echo("✅ Successfully fetched from upstream!")
+            click.echo(f"Repository: {repo}")
+        else:
+            log_operation_failure(
+                "upstream fetch", Exception("Failed to fetch from upstream")
+            )
+            click.echo("❌ Failed to fetch from upstream")
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("upstream fetch", e)
+        click.echo(f"❌ Error fetching from upstream: {e}")
         sys.exit(1)
 
 

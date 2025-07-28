@@ -65,6 +65,191 @@ class GitRepository:
             self.logger.debug(f"Error getting remote URLs for {self.path}: {e}")
             return {}
 
+    def add_upstream_remote(self, upstream_url: str) -> bool:
+        """Add or update upstream remote.
+
+        Args:
+            upstream_url: URL of the upstream repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Check if upstream remote already exists
+            remotes = self.get_remote_urls()
+
+            if "upstream" in remotes:
+                # Update existing upstream remote
+                self.logger.info(f"Updating upstream remote for {self.path}")
+                result = self._run_git_command(
+                    ["remote", "set-url", "upstream", upstream_url]
+                )
+            else:
+                # Add new upstream remote
+                self.logger.info(f"Adding upstream remote for {self.path}")
+                result = self._run_git_command(
+                    ["remote", "add", "upstream", upstream_url]
+                )
+
+            if result.returncode == 0:
+                self.logger.info(
+                    f"Successfully configured upstream remote: {upstream_url}"
+                )
+                return True
+            else:
+                self.logger.error(
+                    f"Failed to configure upstream remote: {result.stderr}"
+                )
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error configuring upstream remote for {self.path}: {e}")
+            return False
+
+    def remove_upstream_remote(self) -> bool:
+        """Remove upstream remote if it exists.
+
+        Returns:
+            True if successful or remote doesn't exist, False otherwise.
+        """
+        try:
+            remotes = self.get_remote_urls()
+
+            if "upstream" not in remotes:
+                self.logger.info(f"No upstream remote found for {self.path}")
+                return True
+
+            self.logger.info(f"Removing upstream remote for {self.path}")
+            result = self._run_git_command(["remote", "remove", "upstream"])
+
+            if result.returncode == 0:
+                self.logger.info("Successfully removed upstream remote")
+                return True
+            else:
+                self.logger.error(f"Failed to remove upstream remote: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error removing upstream remote for {self.path}: {e}")
+            return False
+
+    def update_upstream_remote(self, upstream_url: str) -> bool:
+        """Update upstream remote URL.
+
+        Args:
+            upstream_url: New URL for the upstream repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            remotes = self.get_remote_urls()
+
+            if "upstream" not in remotes:
+                self.logger.warning(
+                    f"No upstream remote found for {self.path}, adding new one"
+                )
+                return self.add_upstream_remote(upstream_url)
+
+            self.logger.info(f"Updating upstream remote URL for {self.path}")
+            result = self._run_git_command(
+                ["remote", "set-url", "upstream", upstream_url]
+            )
+
+            if result.returncode == 0:
+                self.logger.info(
+                    f"Successfully updated upstream remote: {upstream_url}"
+                )
+                return True
+            else:
+                self.logger.error(f"Failed to update upstream remote: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error updating upstream remote for {self.path}: {e}")
+            return False
+
+    def validate_upstream_remote(self) -> dict[str, any]:
+        """Validate upstream remote configuration.
+
+        Returns:
+            Dictionary with validation results.
+        """
+        try:
+            remotes = self.get_remote_urls()
+
+            if "upstream" not in remotes:
+                return {
+                    "has_upstream": False,
+                    "is_valid": False,
+                    "error": "No upstream remote configured",
+                    "url": None,
+                }
+
+            upstream_url = remotes["upstream"]
+
+            # Test if upstream remote is accessible
+            result = self._run_git_command(
+                ["ls-remote", "--heads", "upstream"], capture_output=True, text=True
+            )
+
+            if result.returncode == 0:
+                return {
+                    "has_upstream": True,
+                    "is_valid": True,
+                    "url": upstream_url,
+                    "accessible": True,
+                }
+            else:
+                return {
+                    "has_upstream": True,
+                    "is_valid": False,
+                    "error": f"Upstream remote not accessible: {result.stderr}",
+                    "url": upstream_url,
+                    "accessible": False,
+                }
+
+        except Exception as e:
+            return {
+                "has_upstream": "upstream" in self.get_remote_urls(),
+                "is_valid": False,
+                "error": str(e),
+                "url": self.get_remote_urls().get("upstream"),
+            }
+
+    def fetch_upstream(self) -> bool:
+        """Fetch latest changes from upstream.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Validate upstream remote first
+            validation = self.validate_upstream_remote()
+            if not validation["has_upstream"]:
+                self.logger.error("No upstream remote configured")
+                return False
+
+            if not validation["is_valid"]:
+                self.logger.error(
+                    f"Upstream remote validation failed: {validation['error']}"
+                )
+                return False
+
+            self.logger.info(f"Fetching from upstream for {self.path}")
+            result = self._run_git_command(["fetch", "upstream"])
+
+            if result.returncode == 0:
+                self.logger.info("Successfully fetched from upstream")
+                return True
+            else:
+                self.logger.error(f"Failed to fetch from upstream: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error fetching from upstream for {self.path}: {e}")
+            return False
+
     def get_current_branch(self) -> Optional[str]:
         """Get the current branch name.
 
@@ -130,6 +315,7 @@ class GitRepository:
             "has_uncommitted_changes": False,
             "has_untracked_files": False,
             "is_clean": False,
+            "upstream_status": {},
         }
 
         if not self.is_git_repository():
@@ -139,6 +325,7 @@ class GitRepository:
         status["current_branch"] = self.get_current_branch()
         status["default_branch"] = self.get_default_branch()
         status["remotes"] = self.get_remote_urls()
+        status["upstream_status"] = self.validate_upstream_remote()
 
         # Check for uncommitted changes
         try:
@@ -191,6 +378,13 @@ class GitRepository:
         if not default_branch:
             errors.append(
                 f"Could not determine default branch for repository: {self.path}"
+            )
+
+        # Check upstream remote if configured
+        upstream_status = self.validate_upstream_remote()
+        if upstream_status["has_upstream"] and not upstream_status["is_valid"]:
+            errors.append(
+                f"Upstream remote validation failed: {upstream_status['error']}"
             )
 
         return errors
@@ -424,4 +618,102 @@ class GitRepositoryManager:
                 "behind_upstream": 0,
                 "ahead_upstream": 0,
                 "diverged": False,
+            }
+
+    def setup_upstream_remote(self, path: str, upstream_url: str) -> bool:
+        """Setup upstream remote for a repository.
+
+        Args:
+            path: Path to the repository
+            upstream_url: URL of the upstream repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.add_upstream_remote(upstream_url)
+
+        except Exception as e:
+            self.logger.error(f"Error setting up upstream remote for {path}: {e}")
+            return False
+
+    def remove_upstream_remote(self, path: str) -> bool:
+        """Remove upstream remote from a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.remove_upstream_remote()
+
+        except Exception as e:
+            self.logger.error(f"Error removing upstream remote for {path}: {e}")
+            return False
+
+    def update_upstream_remote(self, path: str, upstream_url: str) -> bool:
+        """Update upstream remote URL for a repository.
+
+        Args:
+            path: Path to the repository
+            upstream_url: New URL for the upstream repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.update_upstream_remote(upstream_url)
+
+        except Exception as e:
+            self.logger.error(f"Error updating upstream remote for {path}: {e}")
+            return False
+
+    def validate_upstream_remote(self, path: str) -> dict[str, any]:
+        """Validate upstream remote for a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            Dictionary with validation results.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                return {
+                    "has_upstream": False,
+                    "is_valid": False,
+                    "error": "Not a valid Git repository",
+                    "url": None,
+                }
+
+            return repository.validate_upstream_remote()
+
+        except Exception as e:
+            return {
+                "has_upstream": False,
+                "is_valid": False,
+                "error": str(e),
+                "url": None,
             }

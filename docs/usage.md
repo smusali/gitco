@@ -248,6 +248,72 @@ gitco validate-repo --path ~/code/django
 gitco validate-repo --recursive --detailed
 ```
 
+### `gitco upstream`
+
+Manage upstream remotes for repositories.
+
+#### `gitco upstream add`
+
+Add or update upstream remote for a repository.
+
+**Options:**
+- `--repo REPO`: Repository path (required)
+- `--url URL`: Upstream repository URL (required)
+
+**Examples:**
+```bash
+gitco upstream add --repo ~/code/django --url git@github.com:django/django.git
+```
+
+#### `gitco upstream remove`
+
+Remove upstream remote from a repository.
+
+**Options:**
+- `--repo REPO`: Repository path (required)
+
+**Examples:**
+```bash
+gitco upstream remove --repo ~/code/django
+```
+
+#### `gitco upstream update`
+
+Update upstream remote URL for a repository.
+
+**Options:**
+- `--repo REPO`: Repository path (required)
+- `--url URL`: New upstream repository URL (required)
+
+**Examples:**
+```bash
+gitco upstream update --repo ~/code/django --url git@github.com:new/django.git
+```
+
+#### `gitco upstream validate-upstream`
+
+Validate upstream remote configuration and accessibility.
+
+**Options:**
+- `--repo REPO`: Repository path (required)
+
+**Examples:**
+```bash
+gitco upstream validate-upstream --repo ~/code/django
+```
+
+#### `gitco upstream fetch`
+
+Fetch latest changes from upstream remote.
+
+**Options:**
+- `--repo REPO`: Repository path (required)
+
+**Examples:**
+```bash
+gitco upstream fetch --repo ~/code/django
+```
+
 ## Configuration Examples
 
 ### Basic Configuration

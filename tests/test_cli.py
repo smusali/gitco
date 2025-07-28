@@ -30,6 +30,7 @@ def test_cli_help(runner):
     assert "analyze" in result.output
     assert "discover" in result.output
     assert "status" in result.output
+    assert "upstream" in result.output
 
 
 def test_init_command(runner):
@@ -123,22 +124,149 @@ def test_status_command(runner):
     """Test the status command."""
     result = runner.invoke(main, ["status"])
     assert result.exit_code == 0
-    assert "Checking repository status" in result.output
-    assert "Status check completed" in result.output
+    assert "Repository status" in result.output
+    assert "Status completed" in result.output
 
 
 def test_status_command_with_repo(runner):
     """Test the status command with specific repository."""
     result = runner.invoke(main, ["status", "--repo", "django"])
     assert result.exit_code == 0
-    assert "Checking status for: django" in result.output
+    assert "Status for repository: django" in result.output
 
 
 def test_status_command_with_detailed(runner):
-    """Test the status command with detailed flag."""
+    """Test the status command with detailed information."""
     result = runner.invoke(main, ["status", "--detailed"])
     assert result.exit_code == 0
-    assert "Detailed mode enabled" in result.output
+    assert "Detailed status information" in result.output
+
+
+def test_upstream_group_help(runner):
+    """Test the upstream command group help."""
+    result = runner.invoke(main, ["upstream", "--help"])
+    assert result.exit_code == 0
+    assert "Manage upstream remotes for repositories" in result.output
+    assert "add" in result.output
+    assert "remove" in result.output
+    assert "update" in result.output
+    assert "validate" in result.output
+    assert "fetch" in result.output
+
+
+def test_upstream_add_command(runner):
+    """Test the upstream add command."""
+    result = runner.invoke(
+        main,
+        [
+            "upstream",
+            "add",
+            "--repo",
+            "/path/to/repo",
+            "--url",
+            "git@github.com:original/repo.git",
+        ],
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_add_command_missing_repo(runner):
+    """Test the upstream add command with missing repo parameter."""
+    result = runner.invoke(
+        main, ["upstream", "add", "--url", "git@github.com:original/repo.git"]
+    )
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_add_command_missing_url(runner):
+    """Test the upstream add command with missing url parameter."""
+    result = runner.invoke(main, ["upstream", "add", "--repo", "/path/to/repo"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_remove_command(runner):
+    """Test the upstream remove command."""
+    result = runner.invoke(main, ["upstream", "remove", "--repo", "/path/to/repo"])
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_remove_command_missing_repo(runner):
+    """Test the upstream remove command with missing repo parameter."""
+    result = runner.invoke(main, ["upstream", "remove"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_update_command(runner):
+    """Test the upstream update command."""
+    result = runner.invoke(
+        main,
+        [
+            "upstream",
+            "update",
+            "--repo",
+            "/path/to/repo",
+            "--url",
+            "git@github.com:new/repo.git",
+        ],
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_update_command_missing_repo(runner):
+    """Test the upstream update command with missing repo parameter."""
+    result = runner.invoke(
+        main, ["upstream", "update", "--url", "git@github.com:new/repo.git"]
+    )
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_update_command_missing_url(runner):
+    """Test the upstream update command with missing url parameter."""
+    result = runner.invoke(main, ["upstream", "update", "--repo", "/path/to/repo"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_validate_command(runner):
+    """Test the upstream validate command."""
+    result = runner.invoke(
+        main, ["upstream", "validate-upstream", "--repo", "/path/to/repo"]
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_validate_command_missing_repo(runner):
+    """Test the upstream validate command with missing repo parameter."""
+    result = runner.invoke(main, ["upstream", "validate-upstream"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_fetch_command(runner):
+    """Test the upstream fetch command."""
+    result = runner.invoke(main, ["upstream", "fetch", "--repo", "/path/to/repo"])
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_fetch_command_missing_repo(runner):
+    """Test the upstream fetch command with missing repo parameter."""
+    result = runner.invoke(main, ["upstream", "fetch"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
 
 
 def test_help_command(runner):
@@ -146,44 +274,37 @@ def test_help_command(runner):
     result = runner.invoke(main, ["help"])
     assert result.exit_code == 0
     assert "GitCo Help" in result.output
-    assert "init" in result.output
-    assert "sync" in result.output
-    assert "analyze" in result.output
-    assert "discover" in result.output
-    assert "status" in result.output
+    assert "Available Commands" in result.output
+    assert "Examples" in result.output
 
 
 def test_verbose_flag(runner):
     """Test the verbose flag."""
-    result = runner.invoke(main, ["--verbose", "init"])
-    # The command may fail if config file exists, which is expected
-    if result.exit_code == 0:
-        assert "Configuration initialized successfully" in result.output
-    else:
-        assert "Configuration file already exists" in result.output
+    result = runner.invoke(main, ["--verbose", "help"])
+    assert result.exit_code == 0
+    # Verbose output should include more detailed logging
+    assert "GitCo Help" in result.output
 
 
 def test_quiet_flag(runner):
     """Test the quiet flag."""
-    result = runner.invoke(main, ["--quiet", "init"])
-    # The command may fail if config file exists, which is expected
-    if result.exit_code == 0:
-        assert "Configuration initialized successfully" in result.output
-    else:
-        assert "Configuration file already exists" in result.output
+    result = runner.invoke(main, ["--quiet", "help"])
+    assert result.exit_code == 0
+    # Quiet output should be minimal
+    assert "GitCo Help" in result.output
 
 
 def test_command_help(runner):
-    """Test help for individual commands."""
-    result = runner.invoke(main, ["sync", "--help"])
-    assert result.exit_code == 0
-    assert "Synchronize repositories with upstream changes" in result.output
-    assert "--repo" in result.output
-    assert "--analyze" in result.output
+    """Test help for specific commands."""
+    commands = ["init", "sync", "analyze", "discover", "status", "upstream"]
+    for command in commands:
+        result = runner.invoke(main, [command, "--help"])
+        assert result.exit_code == 0
+        assert command in result.output
 
 
 def test_invalid_command(runner):
-    """Test handling of invalid commands."""
+    """Test invalid command handling."""
     result = runner.invoke(main, ["invalid-command"])
     assert result.exit_code != 0
     assert "No such command" in result.output

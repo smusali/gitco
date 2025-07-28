@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository status reporting with uncommitted changes detection
 - New validate-repo CLI command for repository validation
 - Integration of git validation into configuration validation
+- Upstream remote management functionality
+- Add, remove, update, and validate upstream remotes
+- Fetch latest changes from upstream repositories
+- Upstream remote accessibility testing and validation
+- CLI commands for upstream remote management (upstream add, remove, update, validate-upstream, fetch)
+- Comprehensive testing for upstream remote operations
+- Integration of upstream status into repository status reporting
 
 ### Fixed
 - Updated deprecated GitHub Actions to latest versions (actions/upload-artifact@v4, actions/download-artifact@v4, actions/cache@v4, codecov/codecov-action@v4)
