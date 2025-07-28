@@ -105,6 +105,13 @@ def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
 @click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.option("--log", "-l", help="Log to file")
 @click.option("--batch", "-b", is_flag=True, help="Process all repositories in batch")
+@click.option(
+    "--max-workers",
+    "-w",
+    type=int,
+    default=4,
+    help="Maximum concurrent workers for batch processing",
+)
 @click.pass_context
 def sync(
     ctx: click.Context,
@@ -114,37 +121,199 @@ def sync(
     quiet: bool,
     log: Optional[str],
     batch: bool,
+    max_workers: int,
 ) -> None:
     """Synchronize repositories with upstream changes.
 
     Fetches the latest changes from upstream repositories and merges them into your forks.
     """
-    click.echo("Synchronizing repositories...")
+    logger = get_logger()
+    log_operation_start(
+        "repository synchronization", repo=repo, batch=batch, analyze=analyze
+    )
 
-    # TODO: Implement repository synchronization
-    # This will be implemented in Commit 15
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
 
-    if repo:
-        click.echo(f"Syncing repository: {repo}")
-    else:
-        click.echo("Syncing all repositories")
+        # Initialize repository manager
+        repo_manager = GitRepositoryManager()
 
-    if analyze:
-        click.echo("AI analysis enabled")
+        # Track sync failures
+        failed = 0
 
-    if export:
-        click.echo(f"Exporting report to: {export}")
+        if repo:
+            # Sync specific repository
+            logger.info(f"Syncing specific repository: {repo}")
 
-    if quiet:
-        click.echo("Quiet mode enabled")
+            # Find repository in config
+            repo_config = None
+            for r in config.repositories:
+                if r.name == repo:
+                    repo_config = {
+                        "name": r.name,
+                        "local_path": r.local_path,
+                        "upstream": r.upstream,
+                        "fork": r.fork,
+                    }
+                    break
 
-    if log:
-        click.echo(f"Logging to: {log}")
+            if not repo_config:
+                error_msg = f"Repository '{repo}' not found in configuration"
+                log_operation_failure(
+                    "repository synchronization", Exception(error_msg)
+                )
+                click.echo(f"❌ {error_msg}")
+                sys.exit(1)
 
-    if batch:
-        click.echo("Batch processing enabled")
+            # Sync single repository
+            result = repo_manager._sync_single_repository(
+                repo_config["local_path"], repo_config
+            )
 
-    click.echo("✅ Repository synchronization completed!")
+            if result["success"]:
+                log_operation_success("repository synchronization", repo=repo)
+                click.echo(f"✅ Successfully synced repository: {repo}")
+                if result.get("stashed_changes"):
+                    click.echo("   📦 Uncommitted changes were stashed and restored")
+            else:
+                error_msg = result.get("message", "Unknown error")
+                log_operation_failure(
+                    "repository synchronization", Exception(error_msg), repo=repo
+                )
+                click.echo(f"❌ Failed to sync repository '{repo}': {error_msg}")
+                sys.exit(1)
+
+        else:
+            # Sync all repositories
+            logger.info("Syncing all repositories")
+
+            if batch:
+                # Use batch processing
+                logger.info(f"Using batch processing with {max_workers} workers")
+
+                # Convert repositories to list of dicts for batch processing
+                repositories = []
+                for r in config.repositories:
+                    repositories.append(
+                        {
+                            "name": r.name,
+                            "local_path": r.local_path,
+                            "upstream": r.upstream,
+                            "fork": r.fork,
+                            "skills": r.skills,
+                            "analysis_enabled": r.analysis_enabled,
+                        }
+                    )
+
+                # Process repositories in batch
+                results = repo_manager.batch_sync_repositories(
+                    repositories=repositories,
+                    max_workers=max_workers,
+                    show_progress=not quiet,
+                )
+
+                # Count successful and failed operations
+                successful = sum(1 for r in results if r.success)
+                failed = len(results) - successful
+
+                if failed == 0:
+                    log_operation_success(
+                        "batch repository synchronization", total=len(results)
+                    )
+                    click.echo(
+                        f"\n✅ Successfully synced all {len(results)} repositories!"
+                    )
+                else:
+                    error_msg = f"{failed} repositories failed"
+                    log_operation_failure(
+                        "batch repository synchronization",
+                        Exception(error_msg),
+                        total=len(results),
+                        failed=failed,
+                    )
+                    click.echo(
+                        f"\n⚠️  Synced {successful} repositories, {failed} failed"
+                    )
+
+            else:
+                # Process repositories sequentially
+                logger.info("Processing repositories sequentially")
+
+                successful = 0
+                failed = 0
+
+                for r in config.repositories:
+                    repo_config = {
+                        "name": r.name,
+                        "local_path": r.local_path,
+                        "upstream": r.upstream,
+                        "fork": r.fork,
+                    }
+
+                    if not quiet:
+                        click.echo(f"🔄 Syncing {r.name}...")
+
+                    result = repo_manager._sync_single_repository(
+                        r.local_path, repo_config
+                    )
+
+                    if result["success"]:
+                        successful += 1
+                        if not quiet:
+                            click.echo(
+                                f"✅ {r.name}: {result.get('message', 'Sync completed')}"
+                            )
+                    else:
+                        failed += 1
+                        if not quiet:
+                            click.echo(
+                                f"❌ {r.name}: {result.get('message', 'Sync failed')}"
+                            )
+
+                if failed == 0:
+                    log_operation_success(
+                        "sequential repository synchronization",
+                        total=len(config.repositories),
+                    )
+                    click.echo(
+                        f"\n✅ Successfully synced all {len(config.repositories)} repositories!"
+                    )
+                else:
+                    error_msg = f"{failed} repositories failed"
+                    log_operation_failure(
+                        "sequential repository synchronization",
+                        Exception(error_msg),
+                        total=len(config.repositories),
+                        failed=failed,
+                    )
+                    click.echo(
+                        f"\n⚠️  Synced {successful} repositories, {failed} failed"
+                    )
+
+        # Handle analysis if requested
+        if analyze:
+            logger.info("AI analysis requested")
+            click.echo("\n🤖 AI analysis will be implemented in Commit 22")
+
+        # Handle export if requested
+        if export:
+            logger.info(f"Export requested to: {export}")
+            click.echo("\n📊 Export functionality will be implemented in Commit 35")
+
+        # Exit with error code if there were failures
+        if not repo and failed > 0:
+            sys.exit(1)
+
+    except FileNotFoundError as e:
+        log_operation_failure("repository synchronization", e)
+        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        sys.exit(1)
+    except Exception as e:
+        log_operation_failure("repository synchronization", e)
+        click.echo(f"❌ Error during synchronization: {e}")
+        sys.exit(1)
 
 
 @main.command()

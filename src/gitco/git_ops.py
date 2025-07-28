@@ -3,10 +3,222 @@
 import os
 import re
 import subprocess
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 from .utils import GitOperationError, get_logger
+
+
+@dataclass
+class BatchResult:
+    """Result of a batch operation on a repository."""
+
+    repository_name: str
+    repository_path: str
+    success: bool
+    operation: str
+    message: str
+    details: dict[str, Any]
+    duration: float
+    error: Optional[Exception] = None
+
+
+class BatchProcessor:
+    """Handles batch processing of multiple repositories."""
+
+    def __init__(self, max_workers: int = 4, rate_limit_delay: float = 1.0):
+        """Initialize batch processor.
+
+        Args:
+            max_workers: Maximum number of concurrent workers
+            rate_limit_delay: Delay between operations to respect rate limits
+        """
+        self.max_workers = max_workers
+        self.rate_limit_delay = rate_limit_delay
+        self.logger = get_logger()
+
+    def process_repositories(
+        self,
+        repositories: list[dict[str, Any]],
+        operation_func: Callable[[str, dict[str, Any]], dict[str, Any]],
+        operation_name: str = "sync",
+        show_progress: bool = True,
+    ) -> list[BatchResult]:
+        """Process multiple repositories in batch.
+
+        Args:
+            repositories: List of repository configurations
+            operation_func: Function to execute on each repository
+            operation_name: Name of the operation for logging
+            show_progress: Whether to show progress indicators
+
+        Returns:
+            List of batch results for each repository
+        """
+        self.logger.info(
+            f"Starting batch {operation_name} for {len(repositories)} repositories"
+        )
+
+        results = []
+        start_time = time.time()
+
+        if show_progress:
+            self._print_batch_header(operation_name, len(repositories))
+
+        # Process repositories with thread pool for concurrent execution
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all tasks
+            future_to_repo = {
+                executor.submit(
+                    self._process_single_repository,
+                    repo,
+                    operation_func,
+                    operation_name,
+                ): repo
+                for repo in repositories
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_repo):
+                repo = future_to_repo[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+
+                    if show_progress:
+                        self._print_repository_result(result)
+
+                except Exception as e:
+                    # Handle unexpected errors in the future
+                    error_result = BatchResult(
+                        repository_name=repo.get("name", "unknown"),
+                        repository_path=repo.get("local_path", "unknown"),
+                        success=False,
+                        operation=operation_name,
+                        message=f"Unexpected error: {str(e)}",
+                        details={},
+                        duration=0.0,
+                        error=e,
+                    )
+                    results.append(error_result)
+
+                    if show_progress:
+                        self._print_repository_result(error_result)
+
+        total_duration = time.time() - start_time
+        self._print_batch_summary(results, operation_name, total_duration)
+
+        return results
+
+    def _process_single_repository(
+        self,
+        repo_config: dict[str, Any],
+        operation_func: Callable[[str, dict[str, Any]], dict[str, Any]],
+        operation_name: str,
+    ) -> BatchResult:
+        """Process a single repository.
+
+        Args:
+            repo_config: Repository configuration
+            operation_func: Function to execute
+            operation_name: Name of the operation
+
+        Returns:
+            Batch result for the repository
+        """
+        repo_name = repo_config.get("name", "unknown")
+        repo_path = repo_config.get("local_path", "unknown")
+
+        start_time = time.time()
+
+        try:
+            # Add rate limiting delay
+            if self.rate_limit_delay > 0:
+                time.sleep(self.rate_limit_delay)
+
+            # Execute the operation
+            result = operation_func(repo_path, repo_config)
+
+            duration = time.time() - start_time
+
+            return BatchResult(
+                repository_name=repo_name,
+                repository_path=repo_path,
+                success=result.get("success", False),
+                operation=operation_name,
+                message=result.get("message", "Operation completed"),
+                details=result,
+                duration=duration,
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+
+            return BatchResult(
+                repository_name=repo_name,
+                repository_path=repo_path,
+                success=False,
+                operation=operation_name,
+                message=f"Error during {operation_name}: {str(e)}",
+                details={"error": str(e)},
+                duration=duration,
+                error=e,
+            )
+
+    def _print_batch_header(self, operation_name: str, total_repos: int) -> None:
+        """Print batch processing header.
+
+        Args:
+            operation_name: Name of the operation
+            total_repos: Total number of repositories
+        """
+        print(f"\n🔄 Starting batch {operation_name} for {total_repos} repositories")
+        print("=" * 60)
+
+    def _print_repository_result(self, result: BatchResult) -> None:
+        """Print result for a single repository.
+
+        Args:
+            result: Batch result to print
+        """
+        status_icon = "✅" if result.success else "❌"
+        duration_str = f"{result.duration:.2f}s"
+
+        print(
+            f"{status_icon} {result.repository_name:<20} {duration_str:>8} - {result.message}"
+        )
+
+    def _print_batch_summary(
+        self, results: list[BatchResult], operation_name: str, total_duration: float
+    ) -> None:
+        """Print batch processing summary.
+
+        Args:
+            results: List of batch results
+            operation_name: Name of the operation
+            total_duration: Total duration of the batch
+        """
+        successful = sum(1 for r in results if r.success)
+        failed = len(results) - successful
+
+        print("\n" + "=" * 60)
+        print(f"📊 Batch {operation_name} Summary")
+        print(f"   Total repositories: {len(results)}")
+        print(f"   Successful: {successful}")
+        print(f"   Failed: {failed}")
+        print(f"   Total duration: {total_duration:.2f}s")
+        print(f"   Average per repo: {total_duration / len(results):.2f}s")
+
+        if failed > 0:
+            print("\n❌ Failed repositories:")
+            for result in results:
+                if not result.success:
+                    print(f"   - {result.repository_name}: {result.message}")
+
+        print("=" * 60)
 
 
 class GitRepository:
@@ -858,11 +1070,222 @@ class GitRepository:
 
 
 class GitRepositoryManager:
-    """Manages Git repository operations and validation."""
+    """Manages multiple Git repositories."""
 
     def __init__(self) -> None:
         """Initialize GitRepositoryManager."""
         self.logger = get_logger()
+        self.batch_processor = BatchProcessor()
+
+    def batch_sync_repositories(
+        self,
+        repositories: list[dict[str, Any]],
+        max_workers: int = 4,
+        show_progress: bool = True,
+    ) -> list[BatchResult]:
+        """Synchronize multiple repositories in batch.
+
+        Args:
+            repositories: List of repository configurations
+            max_workers: Maximum number of concurrent workers
+            show_progress: Whether to show progress indicators
+
+        Returns:
+            List of batch results for each repository
+        """
+        self.batch_processor.max_workers = max_workers
+
+        return self.batch_processor.process_repositories(
+            repositories=repositories,
+            operation_func=self._sync_single_repository,
+            operation_name="sync",
+            show_progress=show_progress,
+        )
+
+    def batch_fetch_repositories(
+        self,
+        repositories: list[dict[str, Any]],
+        max_workers: int = 4,
+        show_progress: bool = True,
+    ) -> list[BatchResult]:
+        """Fetch updates for multiple repositories in batch.
+
+        Args:
+            repositories: List of repository configurations
+            max_workers: Maximum number of concurrent workers
+            show_progress: Whether to show progress indicators
+
+        Returns:
+            List of batch results for each repository
+        """
+        self.batch_processor.max_workers = max_workers
+
+        return self.batch_processor.process_repositories(
+            repositories=repositories,
+            operation_func=self._fetch_single_repository,
+            operation_name="fetch",
+            show_progress=show_progress,
+        )
+
+    def batch_validate_repositories(
+        self,
+        repositories: list[dict[str, Any]],
+        max_workers: int = 4,
+        show_progress: bool = True,
+    ) -> list[BatchResult]:
+        """Validate multiple repositories in batch.
+
+        Args:
+            repositories: List of repository configurations
+            max_workers: Maximum number of concurrent workers
+            show_progress: Whether to show progress indicators
+
+        Returns:
+            List of batch results for each repository
+        """
+        self.batch_processor.max_workers = max_workers
+
+        return self.batch_processor.process_repositories(
+            repositories=repositories,
+            operation_func=self._validate_single_repository,
+            operation_name="validate",
+            show_progress=show_progress,
+        )
+
+    def _sync_single_repository(
+        self, repo_path: str, repo_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Synchronize a single repository with upstream.
+
+        Args:
+            repo_path: Path to the repository
+            repo_config: Repository configuration
+
+        Returns:
+            Dictionary with sync result information
+        """
+        try:
+            # Validate repository first
+            is_valid, errors = self.validate_repository_path(repo_path)
+            if not is_valid:
+                return {
+                    "success": False,
+                    "message": f"Repository validation failed: {', '.join(errors)}",
+                    "errors": errors,
+                }
+
+            # Check if repository has uncommitted changes
+            has_changes = self.has_uncommitted_changes(repo_path)
+            stash_ref = None
+
+            if has_changes:
+                # Stash changes before sync
+                stash_ref = self.safe_stash_changes(repo_path)
+                if not stash_ref:
+                    return {
+                        "success": False,
+                        "message": "Failed to stash uncommitted changes",
+                    }
+
+            # Perform sync operation
+            sync_result = self.sync_repository_with_upstream(repo_path)
+
+            # Restore stashed changes if any
+            if stash_ref:
+                self.restore_stash(repo_path, stash_ref)
+
+            return {
+                "success": sync_result.get("success", False),
+                "message": sync_result.get("message", "Sync completed"),
+                "details": sync_result,
+                "stashed_changes": stash_ref is not None,
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error during sync: {str(e)}",
+                "error": str(e),
+            }
+
+    def _fetch_single_repository(
+        self, repo_path: str, repo_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fetch updates for a single repository.
+
+        Args:
+            repo_path: Path to the repository
+            repo_config: Repository configuration
+
+        Returns:
+            Dictionary with fetch result information
+        """
+        try:
+            # Validate repository first
+            is_valid, errors = self.validate_repository_path(repo_path)
+            if not is_valid:
+                return {
+                    "success": False,
+                    "message": f"Repository validation failed: {', '.join(errors)}",
+                    "errors": errors,
+                }
+
+            # Fetch upstream changes
+            fetch_success = self.fetch_upstream(repo_path)
+
+            if fetch_success:
+                return {
+                    "success": True,
+                    "message": "Successfully fetched upstream changes",
+                }
+            else:
+                return {"success": False, "message": "Failed to fetch upstream changes"}
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error during fetch: {str(e)}",
+                "error": str(e),
+            }
+
+    def _validate_single_repository(
+        self, repo_path: str, repo_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Validate a single repository.
+
+        Args:
+            repo_path: Path to the repository
+            repo_config: Repository configuration
+
+        Returns:
+            Dictionary with validation result information
+        """
+        try:
+            # Validate repository path
+            is_valid, errors = self.validate_repository_path(repo_path)
+
+            if not is_valid:
+                return {
+                    "success": False,
+                    "message": f"Repository validation failed: {', '.join(errors)}",
+                    "errors": errors,
+                }
+
+            # Get repository info
+            repo_info = self.get_repository_info(repo_path)
+
+            return {
+                "success": True,
+                "message": "Repository validation passed",
+                "details": repo_info,
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error during validation: {str(e)}",
+                "error": str(e),
+            }
 
     def detect_repositories(self, base_path: str) -> list[GitRepository]:
         """Detect Git repositories in a directory tree.
