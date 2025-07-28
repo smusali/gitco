@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python package setup with pyproject.toml
 - Development environment configuration
 - Basic documentation structure
+- CLI framework with Click and basic command structure
+- Command-line interface with init, sync, analyze, discover, status, and help commands
+- Comprehensive CLI testing with pytest
+- Global options for verbose and quiet output
 
 ## [0.1.0] - 2025-01-XX
 

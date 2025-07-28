@@ -14,6 +14,8 @@ gitco init
 
 This creates a `gitco-config.yml` file in your current directory.
 
+**Note:** The CLI framework is implemented with basic command structure. Full functionality will be added in subsequent commits.
+
 ### Sync Repositories
 
 Synchronize your repositories with upstream changes:

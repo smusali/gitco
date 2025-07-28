@@ -65,6 +65,8 @@ gitco init
 
 This creates a `gitco-config.yml` file in your current directory.
 
+**Note:** The CLI framework is now implemented with basic command structure. Full functionality will be added in subsequent commits.
+
 ### 2. Configure Your Repositories
 Edit `gitco-config.yml` to add your repositories:
 

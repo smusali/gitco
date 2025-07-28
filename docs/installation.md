@@ -48,7 +48,12 @@ gitco --help
 
 # Check version
 gitco --version
+
+# Test basic commands
+gitco init
 ```
+
+**Note:** The CLI framework is implemented with basic command structure. Full functionality will be added in subsequent commits.
 
 ## Configuration
 
