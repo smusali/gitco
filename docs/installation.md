@@ -53,7 +53,7 @@ gitco --version
 gitco init
 ```
 
-**Note:** The CLI framework is implemented with basic command structure. Full functionality will be added in subsequent commits.
+**Note:** The CLI framework and configuration management are implemented. Full functionality will be added in subsequent commits.
 
 ## Configuration
 

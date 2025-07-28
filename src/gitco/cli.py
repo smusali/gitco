@@ -5,6 +5,7 @@ import sys
 from typing import Optional
 
 from . import __version__
+from .config import ConfigManager, create_sample_config
 
 
 @click.group()
@@ -55,20 +56,35 @@ def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
     """
     click.echo("Initializing GitCo configuration...")
     
-    # TODO: Implement configuration initialization
-    # This will be implemented in Commit 4
-    
-    if force:
-        click.echo("Force flag specified - will overwrite existing configuration")
-    
-    if template:
-        click.echo(f"Using custom template: {template}")
-    
-    click.echo("✅ Configuration initialized successfully!")
-    click.echo("Next steps:")
-    click.echo("1. Edit gitco-config.yml to add your repositories")
-    click.echo("2. Set up your LLM API key")
-    click.echo("3. Run 'gitco sync' to start managing your forks")
+    try:
+        config_manager = ConfigManager()
+        
+        if template:
+            click.echo(f"Using custom template: {template}")
+            # TODO: Implement custom template loading
+        else:
+            # Create default configuration
+            config = config_manager.create_default_config(force=force)
+            
+            # Add sample repositories if force or new file
+            if force or not config_manager.config_path:
+                sample_data = create_sample_config()
+                config = config_manager._parse_config(sample_data)
+                config_manager.save_config(config)
+        
+        click.echo("✅ Configuration initialized successfully!")
+        click.echo(f"Configuration file created: {config_manager.config_path}")
+        click.echo("Next steps:")
+        click.echo("1. Edit gitco-config.yml to add your repositories")
+        click.echo("2. Set up your LLM API key")
+        click.echo("3. Run 'gitco sync' to start managing your forks")
+        
+    except FileExistsError:
+        click.echo("❌ Configuration file already exists. Use --force to overwrite.")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error initializing configuration: {e}")
+        sys.exit(1)
 
 
 @main.command()
@@ -275,6 +291,7 @@ def help(ctx: click.Context) -> None:
     click.echo()
     click.echo("Basic Commands:")
     click.echo("  init      Initialize configuration")
+    click.echo("  config    Validate configuration")
     click.echo("  sync      Synchronize repositories")
     click.echo("  analyze   Analyze changes with AI")
     click.echo("  discover  Find contribution opportunities")
@@ -286,10 +303,84 @@ def help(ctx: click.Context) -> None:
     click.echo()
     click.echo("Examples:")
     click.echo("  gitco init")
+    click.echo("  gitco config validate")
     click.echo("  gitco sync --repo django")
     click.echo("  gitco analyze --repo fastapi")
     click.echo("  gitco discover --skill python")
     click.echo("  gitco status --detailed")
+
+
+@main.group()
+@click.pass_context
+def config(ctx: click.Context) -> None:
+    """Configuration management commands."""
+    pass
+
+
+@config.command()
+@click.pass_context
+def validate(ctx: click.Context) -> None:
+    """Validate configuration file.
+    
+    Checks the configuration file for errors and displays validation results.
+    """
+    click.echo("Validating configuration...")
+    
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        
+        errors = config_manager.validate_config(config)
+        
+        if not errors:
+            click.echo("✅ Configuration is valid!")
+            click.echo(f"Found {len(config.repositories)} repositories")
+            click.echo(f"LLM provider: {config.settings.llm_provider}")
+        else:
+            click.echo("❌ Configuration has errors:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+            
+    except FileNotFoundError:
+        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error validating configuration: {e}")
+        sys.exit(1)
+
+
+@config.command()
+@click.pass_context
+def status(ctx: click.Context) -> None:
+    """Show configuration status.
+    
+    Displays information about the current configuration.
+    """
+    click.echo("Configuration Status")
+    click.echo("===================")
+    
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        
+        click.echo(f"Configuration file: {config_manager.config_path}")
+        click.echo(f"Repositories: {len(config.repositories)}")
+        click.echo(f"LLM provider: {config.settings.llm_provider}")
+        click.echo(f"Analysis enabled: {config.settings.analysis_enabled}")
+        click.echo(f"Max repos per batch: {config.settings.max_repos_per_batch}")
+        
+        if config.repositories:
+            click.echo("\nRepositories:")
+            for repo in config.repositories:
+                click.echo(f"  - {repo.name}: {repo.fork} -> {repo.upstream}")
+        
+    except FileNotFoundError:
+        click.echo("❌ Configuration file not found. Run 'gitco init' to create one.")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error reading configuration: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
