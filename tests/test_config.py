@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -202,8 +203,12 @@ def test_config_manager_validate_config():
     settings = Settings(llm_provider="openai")
     config = Config(repositories=[repo], settings=settings)
 
-    errors = manager.validate_config(config)
-    assert len(errors) == 0
+    # Mock git repository validation to return valid
+    with patch("gitco.config.GitRepositoryManager") as mock_git_manager:
+        mock_instance = mock_git_manager.return_value
+        mock_instance.validate_repository_path.return_value = (True, [])
+        errors = manager.validate_config(config)
+        assert len(errors) == 0
 
     # Invalid config - missing name
     invalid_repo = Repository(
@@ -229,9 +234,13 @@ def test_config_manager_validate_config_duplicate_names():
     settings = Settings()
     config = Config(repositories=[repo1, repo2], settings=settings)
 
-    errors = manager.validate_config(config)
-    assert len(errors) > 0
-    assert "Duplicate repository name: test" in errors[0]
+    # Mock git repository validation to return valid
+    with patch("gitco.config.GitRepositoryManager") as mock_git_manager:
+        mock_instance = mock_git_manager.return_value
+        mock_instance.validate_repository_path.return_value = (True, [])
+        errors = manager.validate_config(config)
+        assert len(errors) > 0
+        assert "Duplicate repository name: test" in errors[0]
 
 
 def test_config_manager_validate_config_invalid_llm_provider():
@@ -244,9 +253,13 @@ def test_config_manager_validate_config_invalid_llm_provider():
     settings = Settings(llm_provider="invalid_provider")
     config = Config(repositories=[repo], settings=settings)
 
-    errors = manager.validate_config(config)
-    assert len(errors) > 0
-    assert "Invalid LLM provider" in errors[0]
+    # Mock git repository validation to return valid
+    with patch("gitco.config.GitRepositoryManager") as mock_git_manager:
+        mock_instance = mock_git_manager.return_value
+        mock_instance.validate_repository_path.return_value = (True, [])
+        errors = manager.validate_config(config)
+        assert len(errors) > 0
+        assert "Invalid LLM provider" in errors[0]
 
 
 def test_config_manager_get_repository():

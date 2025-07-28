@@ -80,6 +80,27 @@ gitco status --repo django
 
 # Show detailed status
 gitco status --detailed
+
+### Validate Repositories
+
+Validate Git repositories and check their status:
+
+```bash
+# Validate current directory
+gitco validate-repo
+
+# Validate specific path
+gitco validate-repo --path ~/code/django
+
+# Find all repositories recursively
+gitco validate-repo --recursive
+
+# Get detailed repository information
+gitco validate-repo --detailed
+
+# Combine recursive search with detailed info
+gitco validate-repo --recursive --detailed
+```
 ```
 
 ## Advanced Usage
@@ -209,6 +230,22 @@ Show repository status.
 ```bash
 gitco status
 gitco status --repo django --detailed
+```
+
+### `gitco validate-repo`
+
+Validate Git repositories and check their status.
+
+**Options:**
+- `--path PATH`: Path to validate (default: current directory)
+- `--recursive`: Recursively find repositories
+- `--detailed`: Show detailed repository information
+
+**Examples:**
+```bash
+gitco validate-repo
+gitco validate-repo --path ~/code/django
+gitco validate-repo --recursive --detailed
 ```
 
 ## Configuration Examples

@@ -144,6 +144,10 @@ gitco status
 
 # Get help
 gitco help
+
+# Validate Git repositories
+gitco validate-repo --path ~/code/django
+gitco validate-repo --recursive --detailed
 ```
 
 ### Advanced Usage
@@ -160,6 +164,9 @@ gitco sync --export report.json
 
 # Schedule sync (cron-friendly)
 gitco sync --quiet --log sync.log
+
+# Validate repositories recursively
+gitco validate-repo --recursive --detailed
 ```
 
 ## 🔧 Configuration

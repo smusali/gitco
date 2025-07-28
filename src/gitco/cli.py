@@ -7,6 +7,7 @@ import click
 
 from . import __version__
 from .config import ConfigManager, create_sample_config
+from .git_ops import GitRepositoryManager
 from .utils import (
     ValidationError,
     get_logger,
@@ -283,6 +284,8 @@ def help(ctx: click.Context) -> None:
     click.echo("  gitco analyze --repo fastapi")
     click.echo("  gitco discover --skill python")
     click.echo("  gitco status --detailed")
+    click.echo("  gitco validate-repo --path ~/code/django")
+    click.echo("  gitco validate-repo --recursive --detailed")
 
 
 @main.group()
@@ -373,6 +376,110 @@ def config_status(ctx: click.Context) -> None:
     except Exception as e:
         log_operation_failure("configuration status", e)
         click.echo(f"❌ Error reading configuration: {e}")
+        sys.exit(1)
+
+
+@main.command()
+@click.option("--path", "-p", help="Path to validate (default: current directory)")
+@click.option("--recursive", "-r", is_flag=True, help="Recursively find repositories")
+@click.option(
+    "--detailed", "-d", is_flag=True, help="Show detailed repository information"
+)
+@click.pass_context
+def validate_repo(
+    ctx: click.Context, path: Optional[str], recursive: bool, detailed: bool
+) -> None:
+    """Validate Git repositories.
+
+    Checks if the specified path is a valid Git repository and provides detailed
+    information about its status, remotes, and sync state.
+    """
+    log_operation_start("repository validation", path=path, recursive=recursive)
+
+    try:
+        git_manager = GitRepositoryManager()
+        target_path = path or "."
+
+        if recursive:
+            # Find all repositories in the directory tree
+            repositories = git_manager.detect_repositories(target_path)
+
+            if not repositories:
+                log_operation_failure(
+                    "repository validation", Exception("No Git repositories found")
+                )
+                click.echo("❌ No Git repositories found in the specified path.")
+                sys.exit(1)
+
+            log_operation_success("repository validation", repo_count=len(repositories))
+            click.echo(f"Found {len(repositories)} Git repositories:")
+            click.echo()
+
+            for repo in repositories:
+                status = repo.get_repository_status()
+                click.echo(f"📁 {status['path']}")
+                click.echo(f"   Branch: {status['current_branch'] or 'unknown'}")
+                click.echo(f"   Default: {status['default_branch'] or 'unknown'}")
+                click.echo(f"   Remotes: {len(status['remotes'])}")
+                click.echo(f"   Clean: {'✅' if status['is_clean'] else '❌'}")
+
+                if detailed:
+                    sync_status = git_manager.check_repository_sync_status(
+                        str(repo.path)
+                    )
+                    if sync_status["is_syncable"]:
+                        click.echo(
+                            f"   Sync: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead"
+                        )
+                    else:
+                        click.echo(f"   Sync: {sync_status['error']}")
+
+                click.echo()
+
+        else:
+            # Validate single repository
+            is_valid, errors = git_manager.validate_repository_path(target_path)
+
+            if is_valid:
+                log_operation_success("repository validation", path=target_path)
+                click.echo("✅ Valid Git repository!")
+
+                if detailed:
+                    status = git_manager.get_repository_info(target_path)
+                    sync_status = git_manager.check_repository_sync_status(target_path)
+
+                    click.echo(f"Path: {status['path']}")
+                    click.echo(f"Current branch: {status['current_branch']}")
+                    click.echo(f"Default branch: {status['default_branch']}")
+                    click.echo(f"Remotes: {', '.join(status['remotes'].keys())}")
+                    click.echo(
+                        f"Has uncommitted changes: {'Yes' if status['has_uncommitted_changes'] else 'No'}"
+                    )
+                    click.echo(
+                        f"Has untracked files: {'Yes' if status['has_untracked_files'] else 'No'}"
+                    )
+
+                    if sync_status["is_syncable"]:
+                        click.echo(
+                            f"Sync status: {sync_status['behind_upstream']} behind, {sync_status['ahead_upstream']} ahead"
+                        )
+                        if sync_status["diverged"]:
+                            click.echo("⚠️  Repository has diverged from upstream")
+                    else:
+                        click.echo(f"Sync status: {sync_status['error']}")
+            else:
+                log_operation_failure(
+                    "repository validation",
+                    ValidationError("Repository validation failed"),
+                )
+                click.echo("❌ Invalid Git repository:")
+                for error in errors:
+                    click.echo(f"  - {error}")
+                sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("repository validation", e)
+        click.echo(f"❌ Error validating repository: {e}")
         sys.exit(1)
 
 

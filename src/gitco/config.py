@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 import yaml
 
+from .git_ops import GitRepositoryManager
 from .utils import (
     ConfigurationError,
     get_logger,
@@ -155,6 +156,8 @@ class ConfigManager:
 
         # Validate repositories
         repo_names = set()
+        git_manager = GitRepositoryManager()
+
         for repo in config.repositories:
             if not repo.name:
                 errors.append("Repository name is required")
@@ -202,9 +205,28 @@ class ConfigManager:
                     f"Repository {repo.name} missing local path",
                 )
             else:
-                log_validation_result(
-                    "repository local_path", True, f"Repository {repo.name}"
+                # Validate git repository at local path
+                is_valid, repo_errors = git_manager.validate_repository_path(
+                    repo.local_path
                 )
+                if not is_valid:
+                    errors.extend(
+                        [f"Repository {repo.name}: {error}" for error in repo_errors]
+                    )
+                    log_validation_result(
+                        "repository git validation",
+                        False,
+                        f"Repository {repo.name} at {repo.local_path}",
+                    )
+                else:
+                    log_validation_result(
+                        "repository git validation",
+                        True,
+                        f"Repository {repo.name} at {repo.local_path}",
+                    )
+                    log_validation_result(
+                        "repository local_path", True, f"Repository {repo.name}"
+                    )
 
         # Validate settings
         if config.settings.llm_provider not in [
