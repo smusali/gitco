@@ -256,6 +256,8 @@ mypy src/
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
+This project adheres to our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We as members, contributors, and leaders pledge to make participation in our
+We as members, contributors, and leaders of the GitCo community pledge to make participation in our
 community a harassment-free experience for everyone, regardless of age, body
 size, visible or invisible disability, ethnicity, sex characteristics, gender
 identity and expression, level of experience, education, socio-economic status,
@@ -57,7 +57,7 @@ an individual is officially representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-[INSERT CONTACT METHOD].
+[INSERT CONTACT METHOD] or by creating a private issue on GitHub.
 
 All complaints will be reviewed and investigated promptly and fairly.
 
@@ -122,3 +122,11 @@ enforcement ladder](https://github.com/mozilla/diversity).
 For answers to common questions about this code of conduct, see the FAQ at
 https://www.contributor-covenant.org/faq. Translations are available at
 https://www.contributor-covenant.org/translations.
+
+## GitCo Community Values
+
+As a tool focused on OSS contribution and collaboration, we value:
+- **Openness**: Sharing knowledge and helping others contribute effectively
+- **Respect**: Valuing diverse perspectives and experiences in open source
+- **Learning**: Supporting contributors at all levels of experience
+- **Impact**: Making meaningful contributions to the broader OSS ecosystem

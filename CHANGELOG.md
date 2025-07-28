@@ -47,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conventional commit message validation
 - YAML syntax validation and formatting
 - Merge conflict detection and prevention
+- CONTRIBUTING.md with GitCo-specific guidelines
+- CODE_OF_CONDUCT.md with community values
+
+### Fixed
+- Updated deprecated GitHub Actions to latest versions (actions/upload-artifact@v4, actions/download-artifact@v4, actions/cache@v4, codecov/codecov-action@v4)
+- Fixed import sorting issues in test files (test_cli.py, test_config.py, test_utils.py)
+- Fixed YAML linting issues in .codecov.yml (truthy values)
+- Fixed trailing whitespace and end-of-file issues in .yamllint
+- Updated pre-commit ruff version to v0.12.5 to match local ruff version and ensure consistency
 
 ## [0.1.0] - 2025-01-XX
 

@@ -1,6 +1,6 @@
 # Contributing to GitCo
 
-Thank you for your interest in contributing to GitCo! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to GitCo! This document provides guidelines and information for contributors to our intelligent OSS fork management tool.
 
 ## Getting Started
 
@@ -9,12 +9,14 @@ Thank you for your interest in contributing to GitCo! This document provides gui
 - Python 3.9 or higher
 - Git
 - pip
+- GitHub account (for API access)
+- LLM API key (OpenAI, Anthropic, or local setup)
 
 ### Development Setup
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone https://github.com/your-username/gitco.git
+   git clone https://github.com/41technologies/gitco.git
    cd gitco
    ```
 
@@ -136,6 +138,8 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 - `discovery`: Issue discovery
 - `reporter`: Status and reporting
 - `utils`: Utility functions
+- `github`: GitHub API integration
+- `llm`: LLM provider integrations
 
 ### Examples
 
@@ -145,6 +149,8 @@ fix(sync): resolve merge conflict handling
 docs(readme): update installation instructions
 test(analyzer): add unit tests for LLM integration
 chore(ci): update GitHub Actions workflow
+feat(github): add issue discovery functionality
+feat(llm): integrate OpenAI API for change analysis
 ```
 
 ## Pull Request Guidelines
@@ -217,6 +223,9 @@ Brief description of the changes
 - Test CLI commands end-to-end
 - Test configuration file handling
 - Test API integrations
+- Test Git operations with real repositories
+- Test LLM provider integrations
+- Test GitHub API interactions
 
 ### Test Structure
 
@@ -259,6 +268,8 @@ Include:
 - Expected vs actual behavior
 - Environment information
 - Error messages/logs
+- GitCo configuration (if relevant)
+- Repository setup details (if relevant)
 
 ### Feature Requests
 
@@ -267,6 +278,8 @@ Include:
 - Use cases and benefits
 - Implementation suggestions (if any)
 - Priority level
+- Impact on existing workflows
+- Compatibility with current LLM providers
 
 ## Community Guidelines
 
@@ -322,3 +335,25 @@ Include:
 4. **Have fun** - enjoy the process!
 
 Thank you for contributing to GitCo! 🚀
+
+## GitCo-Specific Guidelines
+
+### Repository Management
+- Test with real OSS repositories when possible
+- Consider the impact on users managing multiple forks
+- Ensure backward compatibility with existing configurations
+
+### LLM Integration
+- Test with multiple LLM providers (OpenAI, Anthropic, local)
+- Consider API rate limits and costs
+- Validate prompt engineering for different use cases
+
+### Git Operations
+- Always test with safe repository operations
+- Consider edge cases in merge conflicts
+- Validate upstream remote management
+
+### GitHub Integration
+- Respect GitHub API rate limits
+- Test with various repository permissions
+- Consider private vs public repository handling

@@ -5,6 +5,7 @@ import os
 import tempfile
 
 import pytest
+
 from gitco.utils import (
     APIError,
     ConfigurationError,
