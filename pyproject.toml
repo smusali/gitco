@@ -1,0 +1,210 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitco"
+version = "0.1.0"
+description = "A simple CLI tool for intelligent OSS fork management and contribution discovery"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "FortyOne Technologies Inc.", email = "fortyone.technologies@gmail.com"}
+]
+maintainers = [
+    {name = "FortyOne Technologies Inc.", email = "fortyone.technologies@gmail.com"}
+]
+keywords = ["git", "cli", "oss", "forks", "contributions", "ai", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "gitpython>=3.1.0",
+    "requests>=2.28.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
+    "openai>=1.0.0",
+    "anthropic>=0.7.0",
+    "ollama>=0.1.0",
+    "tiktoken>=0.5.0",
+    "pygithub>=1.59.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "check-manifest>=0.49",
+    "pip-audit>=2.6.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+]
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "myst-parser>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/41technologies/gitco"
+Documentation = "https://github.com/41technologies/gitco#readme"
+Repository = "https://github.com/41technologies/gitco"
+"Bug Tracker" = "https://github.com/41technologies/gitco/issues"
+"Changelog" = "https://github.com/41technologies/gitco/blob/main/CHANGELOG.md"
+
+[project.scripts]
+gitco = "gitco.cli:main"
+
+[project.entry-points."console_scripts"]
+gitco = "gitco.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+gitco = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "*.pyo", "*.pyd", "__pycache__", "*.so"]
+
+[tool.setuptools.dynamic]
+version = {attr = "gitco.__version__"}
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "click.*",
+    "git.*",
+    "yaml.*",
+    "requests.*",
+    "rich.*",
+    "typer.*",
+    "openai.*",
+    "anthropic.*",
+    "ollama.*",
+    "tiktoken.*",
+    "github.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml" 
