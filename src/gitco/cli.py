@@ -625,6 +625,147 @@ def fetch(ctx: click.Context, repo: str) -> None:
         sys.exit(1)
 
 
+@upstream.command()
+@click.option("--repo", "-r", required=True, help="Repository path")
+@click.option("--branch", "-b", help="Branch to merge (default: default branch)")
+@click.option(
+    "--strategy",
+    "-s",
+    type=click.Choice(["ours", "theirs", "manual"]),
+    default="ours",
+    help="Conflict resolution strategy",
+)
+@click.option("--abort", "-a", is_flag=True, help="Abort current merge")
+@click.option("--resolve", is_flag=True, help="Resolve conflicts automatically")
+@click.pass_context
+def merge(
+    ctx: click.Context,
+    repo: str,
+    branch: Optional[str],
+    strategy: str,
+    abort: bool,
+    resolve: bool,
+) -> None:
+    """Merge upstream changes into current branch.
+
+    Merges the latest changes from upstream into the current branch with conflict detection.
+    """
+    log_operation_start("upstream merge", repo=repo, branch=branch, strategy=strategy)
+
+    try:
+        git_manager = GitRepositoryManager()
+
+        # Validate repository path
+        is_valid, errors = git_manager.validate_repository_path(repo)
+        if not is_valid:
+            log_operation_failure(
+                "upstream merge", ValidationError("Invalid repository path")
+            )
+            click.echo("❌ Invalid repository path:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            sys.exit(1)
+
+        # Get repository instance
+        repository = git_manager.get_repository_info(repo)
+        if not repository["is_git_repository"]:
+            log_operation_failure(
+                "upstream merge", Exception("Not a valid Git repository")
+            )
+            click.echo("❌ Not a valid Git repository")
+            sys.exit(1)
+
+        git_repo = GitRepository(repo)
+
+        # Check merge status first
+        merge_status = git_repo.get_merge_status()
+
+        if abort:
+            # Abort current merge
+            if merge_status["in_merge"]:
+                success = git_repo.abort_merge()
+                if success:
+                    log_operation_success("upstream merge abort", repo=repo)
+                    click.echo("✅ Successfully aborted merge!")
+                else:
+                    log_operation_failure(
+                        "upstream merge abort", Exception("Failed to abort merge")
+                    )
+                    click.echo("❌ Failed to abort merge")
+                    sys.exit(1)
+            else:
+                click.echo("ℹ️  No active merge to abort")
+            return
+
+        if resolve:
+            # Resolve conflicts
+            if merge_status["in_merge"] and merge_status["conflicts"]:
+                success = git_repo.resolve_conflicts(strategy)
+                if success:
+                    log_operation_success(
+                        "upstream merge resolve", repo=repo, strategy=strategy
+                    )
+                    click.echo(
+                        f"✅ Successfully resolved conflicts using {strategy} strategy!"
+                    )
+                else:
+                    log_operation_failure(
+                        "upstream merge resolve",
+                        Exception("Failed to resolve conflicts"),
+                    )
+                    click.echo("❌ Failed to resolve conflicts")
+                    sys.exit(1)
+            else:
+                click.echo("ℹ️  No conflicts to resolve")
+            return
+
+        # Perform merge operation
+        merge_result = git_repo.merge_upstream_branch(branch)
+
+        if merge_result["success"]:
+            log_operation_success("upstream merge", repo=repo, branch=branch)
+            click.echo("✅ Successfully merged upstream changes!")
+            click.echo(f"Repository: {repo}")
+            if merge_result.get("message"):
+                click.echo(f"Message: {merge_result['message']}")
+            if merge_result.get("merge_commit"):
+                click.echo(f"Merge commit: {merge_result['merge_commit']}")
+        else:
+            if merge_result.get("conflicts"):
+                log_operation_failure(
+                    "upstream merge", Exception("Merge conflicts detected")
+                )
+                click.echo("⚠️  Merge conflicts detected!")
+                click.echo(f"Repository: {repo}")
+                click.echo("Conflicted files:")
+                for conflict in merge_result["conflicts"]:
+                    click.echo(f"  - {conflict}")
+                click.echo()
+                click.echo("To resolve conflicts, use:")
+                click.echo(
+                    f"  gitco upstream merge --repo {repo} --resolve --strategy ours"
+                )
+                click.echo(
+                    f"  gitco upstream merge --repo {repo} --resolve --strategy theirs"
+                )
+                click.echo("Or abort the merge with:")
+                click.echo(f"  gitco upstream merge --repo {repo} --abort")
+            else:
+                log_operation_failure(
+                    "upstream merge",
+                    Exception(merge_result.get("error", "Unknown error")),
+                )
+                click.echo(
+                    f"❌ Merge failed: {merge_result.get('error', 'Unknown error')}"
+                )
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("upstream merge", e)
+        click.echo(f"❌ Error merging upstream changes: {e}")
+        sys.exit(1)
+
+
 @main.command()
 @click.option("--path", "-p", help="Path to validate (default: current directory)")
 @click.option("--recursive", "-r", is_flag=True, help="Recursively find repositories")

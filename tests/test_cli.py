@@ -124,22 +124,22 @@ def test_status_command(runner):
     """Test the status command."""
     result = runner.invoke(main, ["status"])
     assert result.exit_code == 0
-    assert "Repository status" in result.output
-    assert "Status completed" in result.output
+    assert "Checking repository status" in result.output
+    assert "Status check completed" in result.output
 
 
 def test_status_command_with_repo(runner):
     """Test the status command with specific repository."""
     result = runner.invoke(main, ["status", "--repo", "django"])
     assert result.exit_code == 0
-    assert "Status for repository: django" in result.output
+    assert "Checking status for: django" in result.output
 
 
 def test_status_command_with_detailed(runner):
     """Test the status command with detailed information."""
     result = runner.invoke(main, ["status", "--detailed"])
     assert result.exit_code == 0
-    assert "Detailed status information" in result.output
+    assert "Detailed mode enabled" in result.output
 
 
 def test_upstream_group_help(runner):
@@ -274,7 +274,7 @@ def test_help_command(runner):
     result = runner.invoke(main, ["help"])
     assert result.exit_code == 0
     assert "GitCo Help" in result.output
-    assert "Available Commands" in result.output
+    assert "Basic Commands" in result.output
     assert "Examples" in result.output
 
 
@@ -308,3 +308,79 @@ def test_invalid_command(runner):
     result = runner.invoke(main, ["invalid-command"])
     assert result.exit_code != 0
     assert "No such command" in result.output
+
+
+def test_upstream_merge_command(runner):
+    """Test the upstream merge command."""
+    result = runner.invoke(main, ["upstream", "merge", "--repo", "/path/to/repo"])
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_merge_command_missing_repo(runner):
+    """Test the upstream merge command with missing repo parameter."""
+    result = runner.invoke(main, ["upstream", "merge"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_upstream_merge_command_with_branch(runner):
+    """Test the upstream merge command with branch parameter."""
+    result = runner.invoke(
+        main, ["upstream", "merge", "--repo", "/path/to/repo", "--branch", "develop"]
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_merge_command_with_strategy(runner):
+    """Test the upstream merge command with strategy parameter."""
+    result = runner.invoke(
+        main, ["upstream", "merge", "--repo", "/path/to/repo", "--strategy", "theirs"]
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_merge_command_abort(runner):
+    """Test the upstream merge command with abort flag."""
+    result = runner.invoke(
+        main, ["upstream", "merge", "--repo", "/path/to/repo", "--abort"]
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_merge_command_resolve(runner):
+    """Test the upstream merge command with resolve flag."""
+    result = runner.invoke(
+        main,
+        [
+            "upstream",
+            "merge",
+            "--repo",
+            "/path/to/repo",
+            "--resolve",
+            "--strategy",
+            "ours",
+        ],
+    )
+    # Should fail because the repository path doesn't exist
+    assert result.exit_code == 1
+    assert "Invalid repository path" in result.output
+
+
+def test_upstream_merge_command_help(runner):
+    """Test help for the upstream merge command."""
+    result = runner.invoke(main, ["upstream", "merge", "--help"])
+    assert result.exit_code == 0
+    assert "Merge upstream changes into current branch" in result.output
+    assert "--repo" in result.output
+    assert "--branch" in result.output
+    assert "--strategy" in result.output
+    assert "--abort" in result.output
+    assert "--resolve" in result.output

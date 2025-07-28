@@ -251,6 +251,246 @@ class GitRepository:
             self.logger.error(f"Error fetching from upstream for {self.path}: {e}")
             return False
 
+    def merge_upstream_branch(self, branch: Optional[str] = None) -> dict[str, Any]:
+        """Merge upstream branch into current branch.
+
+        Args:
+            branch: Branch to merge from upstream. Defaults to default branch.
+
+        Returns:
+            Dictionary with merge result information including conflict status.
+        """
+        try:
+            # Get the branch to merge from
+            if branch is None:
+                branch = self.get_default_branch()
+                if branch is None:
+                    return {
+                        "success": False,
+                        "error": "Could not determine default branch",
+                        "conflicts": [],
+                        "merge_commit": None,
+                    }
+
+            # Check if we're on the correct branch
+            current_branch = self.get_current_branch()
+            if current_branch != branch:
+                self.logger.warning(
+                    f"Current branch ({current_branch}) differs from target branch ({branch})"
+                )
+
+            # Check if there are any uncommitted changes
+            if self.has_uncommitted_changes():
+                return {
+                    "success": False,
+                    "error": "Repository has uncommitted changes",
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            # Check if merge is needed
+            upstream_ref = f"upstream/{branch}"
+            result = self._run_git_command(
+                ["rev-list", "--count", f"HEAD..{upstream_ref}"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Failed to check upstream status: {result.stderr}",
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            commits_ahead = int(result.stdout.strip())
+            if commits_ahead == 0:
+                return {
+                    "success": True,
+                    "message": "Already up to date",
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            self.logger.info(f"Merging {upstream_ref} into {current_branch}")
+            result = self._run_git_command(
+                ["merge", "--no-edit", upstream_ref], capture_output=True, text=True
+            )
+
+            if result.returncode == 0:
+                # Get the merge commit hash
+                merge_commit = self._get_last_commit_hash()
+                return {
+                    "success": True,
+                    "message": f"Successfully merged {commits_ahead} commits",
+                    "conflicts": [],
+                    "merge_commit": merge_commit,
+                }
+            else:
+                # Check for conflicts
+                conflicts = self._detect_merge_conflicts()
+                return {
+                    "success": False,
+                    "error": f"Merge failed: {result.stderr}",
+                    "conflicts": conflicts,
+                    "merge_commit": None,
+                }
+
+        except Exception as e:
+            self.logger.error(f"Error merging upstream branch for {self.path}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "conflicts": [],
+                "merge_commit": None,
+            }
+
+    def _detect_merge_conflicts(self) -> list[str]:
+        """Detect files with merge conflicts.
+
+        Returns:
+            List of conflicted file paths.
+        """
+        try:
+            result = self._run_git_command(
+                ["diff", "--name-only", "--diff-filter=U"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                return str(result.stdout.strip()).split("\n")
+            return []
+
+        except Exception as e:
+            self.logger.debug(f"Error detecting merge conflicts for {self.path}: {e}")
+            return []
+
+    def _get_last_commit_hash(self) -> Optional[str]:
+        """Get the hash of the last commit.
+
+        Returns:
+            Commit hash or None if error.
+        """
+        try:
+            result = self._run_git_command(
+                ["rev-parse", "HEAD"], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return str(result.stdout.strip())
+            return None
+        except Exception as e:
+            self.logger.debug(f"Error getting last commit hash for {self.path}: {e}")
+            return None
+
+    def abort_merge(self) -> bool:
+        """Abort the current merge operation.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            result = self._run_git_command(["merge", "--abort"])
+            if result.returncode == 0:
+                self.logger.info("Successfully aborted merge")
+                return True
+            else:
+                self.logger.error(f"Failed to abort merge: {result.stderr}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error aborting merge for {self.path}: {e}")
+            return False
+
+    def resolve_conflicts(self, strategy: str = "ours") -> bool:
+        """Resolve merge conflicts using specified strategy.
+
+        Args:
+            strategy: Conflict resolution strategy ('ours', 'theirs', or 'manual').
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            conflicts = self._detect_merge_conflicts()
+            if not conflicts:
+                self.logger.info("No conflicts to resolve")
+                return True
+
+            self.logger.info(
+                f"Resolving {len(conflicts)} conflicts using {strategy} strategy"
+            )
+
+            if strategy == "ours":
+                result = self._run_git_command(["checkout", "--ours", "--", "."])
+            elif strategy == "theirs":
+                result = self._run_git_command(["checkout", "--theirs", "--", "."])
+            elif strategy == "manual":
+                self.logger.info("Manual conflict resolution required")
+                return True
+            else:
+                self.logger.error(f"Unknown conflict resolution strategy: {strategy}")
+                return False
+
+            if result.returncode == 0:
+                # Add resolved files
+                add_result = self._run_git_command(["add", "."])
+                if add_result.returncode == 0:
+                    self.logger.info("Successfully resolved conflicts")
+                    return True
+                else:
+                    self.logger.error(
+                        f"Failed to add resolved files: {add_result.stderr}"
+                    )
+                    return False
+            else:
+                self.logger.error(f"Failed to resolve conflicts: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error resolving conflicts for {self.path}: {e}")
+            return False
+
+    def get_merge_status(self) -> dict[str, Any]:
+        """Get the current merge status.
+
+        Returns:
+            Dictionary with merge status information.
+        """
+        try:
+            result = self._run_git_command(
+                ["status", "--porcelain"], capture_output=True, text=True
+            )
+
+            if result.returncode != 0:
+                return {"in_merge": False, "conflicts": [], "status": "unknown"}
+
+            lines = result.stdout.strip().split("\n")
+            conflicts = []
+            in_merge = False
+
+            for line in lines:
+                if (
+                    line.startswith("UU")
+                    or line.startswith("AA")
+                    or line.startswith("DD")
+                ):
+                    conflicts.append(line[3:])  # Remove status prefix
+                    in_merge = True
+
+            if in_merge:
+                return {
+                    "in_merge": True,
+                    "conflicts": conflicts,
+                    "status": "conflicted" if conflicts else "in_progress",
+                }
+            else:
+                return {"in_merge": False, "conflicts": [], "status": "clean"}
+
+        except Exception as e:
+            self.logger.debug(f"Error getting merge status for {self.path}: {e}")
+            return {"in_merge": False, "conflicts": [], "status": "unknown"}
+
     def get_current_branch(self) -> Optional[str]:
         """Get the current branch name.
 
@@ -1045,3 +1285,192 @@ class GitRepositoryManager:
                 f"Error in safe stash and restore operation for {path}: {e}"
             )
             return False, None
+
+    def fetch_upstream(self, path: str) -> bool:
+        """Fetch latest changes from upstream for a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.fetch_upstream()
+
+        except Exception as e:
+            self.logger.error(f"Error fetching upstream for {path}: {e}")
+            return False
+
+    def merge_upstream_branch(
+        self, path: str, branch: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Merge upstream branch into current branch for a repository.
+
+        Args:
+            path: Path to the repository
+            branch: Branch to merge from upstream. Defaults to default branch.
+
+        Returns:
+            Dictionary with merge result information including conflict status.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return {
+                    "success": False,
+                    "error": "Not a valid Git repository",
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            return repository.merge_upstream_branch(branch)
+
+        except Exception as e:
+            self.logger.error(f"Error merging upstream branch for {path}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "conflicts": [],
+                "merge_commit": None,
+            }
+
+    def abort_merge(self, path: str) -> bool:
+        """Abort the current merge operation for a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.abort_merge()
+
+        except Exception as e:
+            self.logger.error(f"Error aborting merge for {path}: {e}")
+            return False
+
+    def resolve_conflicts(self, path: str, strategy: str = "ours") -> bool:
+        """Resolve merge conflicts using specified strategy for a repository.
+
+        Args:
+            path: Path to the repository
+            strategy: Conflict resolution strategy ('ours', 'theirs', or 'manual').
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.resolve_conflicts(strategy)
+
+        except Exception as e:
+            self.logger.error(f"Error resolving conflicts for {path}: {e}")
+            return False
+
+    def get_merge_status(self, path: str) -> dict[str, Any]:
+        """Get the current merge status for a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            Dictionary with merge status information.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return {"in_merge": False, "conflicts": [], "status": "unknown"}
+
+            return repository.get_merge_status()
+
+        except Exception as e:
+            self.logger.error(f"Error getting merge status for {path}: {e}")
+            return {"in_merge": False, "conflicts": [], "status": "unknown"}
+
+    def sync_repository_with_upstream(
+        self, path: str, branch: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Sync a repository with upstream changes including fetch and merge.
+
+        Args:
+            path: Path to the repository
+            branch: Branch to sync. Defaults to default branch.
+
+        Returns:
+            Dictionary with sync result information.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return {
+                    "success": False,
+                    "error": "Not a valid Git repository",
+                    "fetch_success": False,
+                    "merge_success": False,
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            # Step 1: Fetch from upstream
+            self.logger.info(f"Fetching upstream changes for {path}")
+            fetch_success = repository.fetch_upstream()
+
+            if not fetch_success:
+                return {
+                    "success": False,
+                    "error": "Failed to fetch from upstream",
+                    "fetch_success": False,
+                    "merge_success": False,
+                    "conflicts": [],
+                    "merge_commit": None,
+                }
+
+            # Step 2: Merge upstream branch
+            self.logger.info(f"Merging upstream changes for {path}")
+            merge_result = repository.merge_upstream_branch(branch)
+
+            return {
+                "success": merge_result["success"],
+                "error": merge_result.get("error"),
+                "fetch_success": True,
+                "merge_success": merge_result["success"],
+                "conflicts": merge_result.get("conflicts", []),
+                "merge_commit": merge_result.get("merge_commit"),
+                "message": merge_result.get("message"),
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error syncing repository with upstream for {path}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "fetch_success": False,
+                "merge_success": False,
+                "conflicts": [],
+                "merge_commit": None,
+            }

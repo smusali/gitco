@@ -455,3 +455,356 @@ class TestGitRepositoryManager:
                 )
                 assert not success
                 assert stash_ref is None
+
+    # Merge operation tests
+    @patch("gitco.git_ops.subprocess.run")
+    def test_merge_upstream_branch_success(self, mock_run):
+        """Test merge_upstream_branch method success."""
+        # Mock git commands for successful merge
+        mock_results = [
+            Mock(returncode=0, stdout="main"),  # get_current_branch
+            Mock(returncode=0, stdout=""),  # has_uncommitted_changes
+            Mock(returncode=0, stdout="5"),  # rev-list count
+            Mock(returncode=0, stdout=""),  # merge
+            Mock(returncode=0, stdout="abc123"),  # rev-parse HEAD
+        ]
+        mock_run.side_effect = mock_results
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "get_default_branch", return_value="main"):
+                with patch.object(
+                    repo,
+                    "validate_upstream_remote",
+                    return_value={
+                        "has_upstream": True,
+                        "is_valid": True,
+                        "error": None,
+                    },
+                ):
+                    result = repo.merge_upstream_branch()
+                    assert result["success"]
+                    assert result["message"] == "Successfully merged 5 commits"
+                    assert result["merge_commit"] == "abc123"
+                    assert result["conflicts"] == []
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_merge_upstream_branch_conflicts(self, mock_run):
+        """Test merge_upstream_branch method with conflicts."""
+        # Mock git commands for merge with conflicts
+        mock_results = [
+            Mock(returncode=0, stdout="main"),  # get_current_branch
+            Mock(returncode=0, stdout=""),  # has_uncommitted_changes
+            Mock(returncode=0, stdout="3"),  # rev-list count
+            Mock(returncode=1, stderr="Merge conflict"),  # merge fails
+            Mock(returncode=0, stdout="file1.txt\nfile2.txt"),  # detect conflicts
+        ]
+        mock_run.side_effect = mock_results
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "get_default_branch", return_value="main"):
+                with patch.object(
+                    repo,
+                    "validate_upstream_remote",
+                    return_value={
+                        "has_upstream": True,
+                        "is_valid": True,
+                        "error": None,
+                    },
+                ):
+                    result = repo.merge_upstream_branch()
+                    assert not result["success"]
+                    assert "Merge conflict" in result["error"]
+                    assert result["conflicts"] == ["file1.txt", "file2.txt"]
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_merge_upstream_branch_already_up_to_date(self, mock_run):
+        """Test merge_upstream_branch method when already up to date."""
+        # Mock git commands for already up to date
+        mock_results = [
+            Mock(returncode=0, stdout="main"),  # get_current_branch
+            Mock(returncode=0, stdout=""),  # has_uncommitted_changes
+            Mock(returncode=0, stdout="0"),  # rev-list count (no commits ahead)
+        ]
+        mock_run.side_effect = mock_results
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "get_default_branch", return_value="main"):
+                with patch.object(
+                    repo,
+                    "validate_upstream_remote",
+                    return_value={
+                        "has_upstream": True,
+                        "is_valid": True,
+                        "error": None,
+                    },
+                ):
+                    result = repo.merge_upstream_branch()
+                    assert result["success"]
+                    assert result["message"] == "Already up to date"
+                    assert result["conflicts"] == []
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_abort_merge_success(self, mock_run):
+        """Test abort_merge method success."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            success = repo.abort_merge()
+            assert success
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_abort_merge_failure(self, mock_run):
+        """Test abort_merge method failure."""
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "No merge in progress"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            success = repo.abort_merge()
+            assert not success
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_resolve_conflicts_ours_strategy(self, mock_run):
+        """Test resolve_conflicts method with ours strategy."""
+        # Mock git commands for conflict resolution
+        mock_results = [
+            Mock(returncode=0, stdout="file1.txt\nfile2.txt"),  # detect conflicts
+            Mock(returncode=0, stdout=""),  # checkout --ours
+            Mock(returncode=0, stdout=""),  # add .
+        ]
+        mock_run.side_effect = mock_results
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            success = repo.resolve_conflicts("ours")
+            assert success
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_resolve_conflicts_theirs_strategy(self, mock_run):
+        """Test resolve_conflicts method with theirs strategy."""
+        # Mock git commands for conflict resolution
+        mock_results = [
+            Mock(returncode=0, stdout="file1.txt\nfile2.txt"),  # detect conflicts
+            Mock(returncode=0, stdout=""),  # checkout --theirs
+            Mock(returncode=0, stdout=""),  # add .
+        ]
+        mock_run.side_effect = mock_results
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            success = repo.resolve_conflicts("theirs")
+            assert success
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_resolve_conflicts_no_conflicts(self, mock_run):
+        """Test resolve_conflicts method when no conflicts exist."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""  # No conflicts
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            success = repo.resolve_conflicts("ours")
+            assert success
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_get_merge_status_clean(self, mock_run):
+        """Test get_merge_status method when repository is clean."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""  # Clean status
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            status = repo.get_merge_status()
+            assert not status["in_merge"]
+            assert status["conflicts"] == []
+            assert status["status"] == "clean"
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_get_merge_status_conflicted(self, mock_run):
+        """Test get_merge_status method when merge has conflicts."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "UU file1.txt\nAA file2.txt"  # Conflicted status
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            status = repo.get_merge_status()
+            assert status["in_merge"]
+            assert "file1.txt" in status["conflicts"]
+            assert "file2.txt" in status["conflicts"]
+            assert status["status"] == "conflicted"
+
+    # GitRepositoryManager merge tests
+    def test_fetch_upstream_success(self):
+        """Test fetch_upstream method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "fetch_upstream", return_value=True):
+                    success = manager.fetch_upstream(temp_dir)
+                    assert success
+
+    def test_fetch_upstream_invalid_repo(self):
+        """Test fetch_upstream method with invalid repository."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
+                success = manager.fetch_upstream(temp_dir)
+                assert not success
+
+    def test_manager_merge_upstream_branch_success(self):
+        """Test merge_upstream_branch method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository,
+                    "merge_upstream_branch",
+                    return_value={
+                        "success": True,
+                        "message": "Successfully merged 5 commits",
+                        "conflicts": [],
+                        "merge_commit": "abc123",
+                    },
+                ):
+                    result = manager.merge_upstream_branch(temp_dir)
+                    assert result["success"]
+                    assert result["message"] == "Successfully merged 5 commits"
+
+    def test_merge_upstream_branch_invalid_repo(self):
+        """Test merge_upstream_branch method with invalid repository."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
+                result = manager.merge_upstream_branch(temp_dir)
+                assert not result["success"]
+                assert result["error"] == "Not a valid Git repository"
+
+    def test_manager_abort_merge_success(self):
+        """Test abort_merge method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "abort_merge", return_value=True):
+                    success = manager.abort_merge(temp_dir)
+                    assert success
+
+    def test_resolve_conflicts_success(self):
+        """Test resolve_conflicts method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository, "resolve_conflicts", return_value=True
+                ):
+                    success = manager.resolve_conflicts(temp_dir, "ours")
+                    assert success
+
+    def test_get_merge_status_success(self):
+        """Test get_merge_status method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository,
+                    "get_merge_status",
+                    return_value={
+                        "in_merge": False,
+                        "conflicts": [],
+                        "status": "clean",
+                    },
+                ):
+                    status = manager.get_merge_status(temp_dir)
+                    assert not status["in_merge"]
+                    assert status["status"] == "clean"
+
+    def test_sync_repository_with_upstream_success(self):
+        """Test sync_repository_with_upstream method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "fetch_upstream", return_value=True):
+                    with patch.object(
+                        GitRepository,
+                        "merge_upstream_branch",
+                        return_value={
+                            "success": True,
+                            "message": "Successfully merged 5 commits",
+                            "conflicts": [],
+                            "merge_commit": "abc123",
+                        },
+                    ):
+                        result = manager.sync_repository_with_upstream(temp_dir)
+                        assert result["success"]
+                        assert result["fetch_success"]
+                        assert result["merge_success"]
+                        assert result["message"] == "Successfully merged 5 commits"
+
+    def test_sync_repository_with_upstream_fetch_failure(self):
+        """Test sync_repository_with_upstream method with fetch failure."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "fetch_upstream", return_value=False):
+                    result = manager.sync_repository_with_upstream(temp_dir)
+                    assert not result["success"]
+                    assert not result["fetch_success"]
+                    assert not result["merge_success"]
+                    assert "Failed to fetch from upstream" in result["error"]

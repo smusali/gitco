@@ -75,6 +75,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safe stash-and-restore pattern for atomic operations
 - Integration of stashing into repository sync operations
 - Comprehensive testing for all stashing functionality
+- Git fetch and merge operations with conflict detection
+- Merge upstream branch functionality with automatic conflict detection
+- Conflict resolution strategies (ours, theirs, manual)
+- Merge abort functionality for failed merge operations
+- Merge status detection and reporting
+- Comprehensive merge result reporting with commit information
+- Integration of fetch and merge into unified sync operations
+- CLI merge command with conflict resolution options
+- Merge conflict detection and detailed conflict reporting
+- Automatic merge commit tracking and reporting
+- Comprehensive testing for all merge functionality
 
 ### Fixed
 - Updated deprecated GitHub Actions to latest versions (actions/upload-artifact@v4, actions/download-artifact@v4, actions/cache@v4, codecov/codecov-action@v4)

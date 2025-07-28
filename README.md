@@ -177,7 +177,45 @@ gitco upstream validate-upstream --repo ~/code/django
 
 # Fetch latest changes from upstream
 gitco upstream fetch --repo ~/code/django
+
+# Merge upstream changes into current branch
+gitco upstream merge --repo ~/code/django
+
+# Merge specific branch from upstream
+gitco upstream merge --repo ~/code/django --branch develop
+
+# Resolve merge conflicts automatically
+gitco upstream merge --repo ~/code/django --resolve --strategy ours
+gitco upstream merge --repo ~/code/django --resolve --strategy theirs
+
+# Abort current merge operation
+gitco upstream merge --repo ~/code/django --abort
 ```
+
+### Merge Operations and Conflict Resolution
+
+GitCo provides advanced merge functionality with automatic conflict detection and resolution:
+
+**Key Features:**
+- **Conflict Detection**: Automatically detects merge conflicts and reports conflicted files
+- **Resolution Strategies**: Supports 'ours', 'theirs', and 'manual' conflict resolution
+- **Safe Operations**: Checks for uncommitted changes before merging
+- **Detailed Reporting**: Provides comprehensive merge result information including commit hashes
+- **Error Recovery**: Allows aborting failed merges to restore repository state
+
+**Conflict Resolution Strategies:**
+- **`ours`**: Keep your local changes in conflicted files
+- **`theirs`**: Keep upstream changes in conflicted files
+- **`manual`**: Leave conflicts for manual resolution
+
+**How It Works:**
+1. Validates repository and upstream remote configuration
+2. Checks for uncommitted changes (prevents data loss)
+3. Fetches latest changes from upstream
+4. Attempts to merge upstream branch into current branch
+5. Detects and reports any merge conflicts
+6. Provides options for automatic or manual conflict resolution
+7. Reports merge success with commit information
 
 ### Safe Stashing and Change Management
 
