@@ -12,6 +12,9 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Automatic detection of default branches (main/master)
 - Batch processing with colored, informative output
 - Built-in error handling and recovery mechanisms
+- Comprehensive stash management with automatic restoration
+- Detection of uncommitted changes before operations
+- Atomic stash-and-restore operations for data safety
 
 ### 🧠 **AI-Powered Change Analysis**
 - Generates human-readable summaries of upstream changes
@@ -175,6 +178,35 @@ gitco upstream validate-upstream --repo ~/code/django
 # Fetch latest changes from upstream
 gitco upstream fetch --repo ~/code/django
 ```
+
+### Safe Stashing and Change Management
+
+GitCo provides comprehensive stashing functionality to safely handle local changes during operations:
+
+```bash
+# Check for uncommitted changes in a repository
+gitco validate-repo --path ~/code/django
+
+# The system automatically detects and stashes changes before sync operations
+gitco sync --repo django  # Changes are automatically stashed and restored
+
+# Manual stash management (if needed)
+# Note: GitCo handles stashing automatically during sync operations
+```
+
+**Key Features:**
+- **Automatic Detection**: Detects uncommitted changes before any operation
+- **Safe Stashing**: Creates stashes with descriptive messages for easy identification
+- **Automatic Restoration**: Restores stashed changes after successful operations
+- **Error Recovery**: Attempts to restore stashes even if operations fail
+- **Stash Management**: Provides tools to list, apply, and drop stashes when needed
+
+**How It Works:**
+1. Before any sync operation, GitCo checks for uncommitted changes
+2. If changes exist, they are automatically stashed with a descriptive message
+3. The sync operation proceeds with a clean working directory
+4. After successful completion, stashed changes are automatically restored
+5. If the operation fails, GitCo attempts to restore the stash to preserve your work
 
 ### Advanced Usage
 

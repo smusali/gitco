@@ -101,7 +101,55 @@ gitco validate-repo --detailed
 # Combine recursive search with detailed info
 gitco validate-repo --recursive --detailed
 ```
+
+### Safe Stashing and Change Management
+
+GitCo provides comprehensive stashing functionality to safely handle local changes during operations. This ensures your work is never lost during sync operations.
+
+#### Automatic Stashing
+
+GitCo automatically detects and handles uncommitted changes:
+
+```bash
+# GitCo automatically stashes changes before sync operations
+gitco sync --repo django
+
+# Check if a repository has uncommitted changes
+gitco validate-repo --path ~/code/django
 ```
+
+#### How Automatic Stashing Works
+
+1. **Detection**: Before any sync operation, GitCo checks for uncommitted changes
+2. **Stashing**: If changes exist, they are automatically stashed with a descriptive message
+3. **Operation**: The sync operation proceeds with a clean working directory
+4. **Restoration**: After successful completion, stashed changes are automatically restored
+5. **Recovery**: If the operation fails, GitCo attempts to restore the stash
+
+#### Stash Management
+
+While GitCo handles stashing automatically, you can manage stashes manually if needed:
+
+```bash
+# The system provides stash management through the GitRepository class
+# Stashes are created with descriptive messages like "GitCo: Auto-stash before sync"
+# Stash references are tracked and restored automatically
+```
+
+#### Key Features
+
+- **Automatic Detection**: Detects uncommitted changes before any operation
+- **Safe Stashing**: Creates stashes with descriptive messages for easy identification
+- **Automatic Restoration**: Restores stashed changes after successful operations
+- **Error Recovery**: Attempts to restore stashes even if operations fail
+- **Stash Management**: Provides tools to list, apply, and drop stashes when needed
+
+#### Best Practices
+
+1. **Trust the automation**: GitCo's stashing is designed to be safe and reliable
+2. **Check before operations**: Use `gitco validate-repo` to see repository status
+3. **Review stashes**: If needed, use standard git commands to review stashes
+4. **Backup important work**: Always commit important changes before major operations
 
 ## Advanced Usage
 

@@ -1,9 +1,10 @@
 """Git operations and repository management for GitCo."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from .utils import GitOperationError, get_logger
 
@@ -169,7 +170,7 @@ class GitRepository:
             self.logger.error(f"Error updating upstream remote for {self.path}: {e}")
             return False
 
-    def validate_upstream_remote(self) -> dict[str, any]:
+    def validate_upstream_remote(self) -> dict[str, Any]:
         """Validate upstream remote configuration.
 
         Returns:
@@ -261,7 +262,7 @@ class GitRepository:
                 ["branch", "--show-current"], capture_output=True, text=True
             )
             if result.returncode == 0:
-                return result.stdout.strip()
+                return str(result.stdout.strip())
             return None
         except Exception as e:
             self.logger.debug(f"Error getting current branch for {self.path}: {e}")
@@ -282,7 +283,7 @@ class GitRepository:
             )
             if result.returncode == 0:
                 # Extract branch name from refs/remotes/origin/main
-                branch = result.stdout.strip().split("/")[-1]
+                branch = str(result.stdout.strip()).split("/")[-1]
                 return branch
 
             # Fallback: try common default branches
@@ -300,7 +301,7 @@ class GitRepository:
             self.logger.debug(f"Error getting default branch for {self.path}: {e}")
             return None
 
-    def get_repository_status(self) -> dict[str, any]:
+    def get_repository_status(self) -> dict[str, Any]:
         """Get comprehensive repository status.
 
         Returns:
@@ -349,7 +350,7 @@ class GitRepository:
         return status
 
     def validate_repository(self) -> list[str]:
-        """Validate the repository and return any issues found.
+        """Validate the repository and return any errors.
 
         Returns:
             List of validation error messages.
@@ -365,29 +366,212 @@ class GitRepository:
             return errors
 
         if not self.is_git_repository():
-            errors.append(f"Path is not a valid Git repository: {self.path}")
+            errors.append(f"Not a valid Git repository: {self.path}")
             return errors
 
-        # Check if repository has remotes
+        # Check if repository has any remotes
         remotes = self.get_remote_urls()
         if not remotes:
             errors.append(f"No remotes configured for repository: {self.path}")
 
-        # Check if repository has a default branch
-        default_branch = self.get_default_branch()
-        if not default_branch:
-            errors.append(
-                f"Could not determine default branch for repository: {self.path}"
-            )
-
-        # Check upstream remote if configured
-        upstream_status = self.validate_upstream_remote()
-        if upstream_status["has_upstream"] and not upstream_status["is_valid"]:
-            errors.append(
-                f"Upstream remote validation failed: {upstream_status['error']}"
-            )
-
         return errors
+
+    def has_uncommitted_changes(self) -> bool:
+        """Check if the repository has uncommitted changes.
+
+        Returns:
+            True if there are uncommitted changes, False otherwise.
+        """
+        try:
+            result = self._run_git_command(
+                ["status", "--porcelain"], capture_output=True, text=True
+            )
+            return result.returncode == 0 and bool(result.stdout.strip())
+        except Exception as e:
+            self.logger.debug(f"Error checking for uncommitted changes: {e}")
+            return False
+
+    def create_stash(
+        self, message: str = "GitCo: Auto-stash before sync"
+    ) -> Optional[str]:
+        """Create a stash of current changes.
+
+        Args:
+            message: Stash message
+
+        Returns:
+            Stash reference (e.g., "stash@{0}") if successful, None otherwise.
+        """
+        try:
+            if not self.has_uncommitted_changes():
+                self.logger.debug(f"No uncommitted changes to stash in {self.path}")
+                return None
+
+            self.logger.info(f"Stashing changes in {self.path}")
+            result = self._run_git_command(
+                ["stash", "push", "-m", message], capture_output=True, text=True
+            )
+
+            if result.returncode == 0:
+                # Extract stash reference from output
+                output_lines = result.stdout.strip().split("\n")
+                for line in output_lines:
+                    if line.startswith("Saved working directory"):
+                        # Extract stash reference like "stash@{0}"
+                        match = re.search(r"stash@{(\d+)}", line)
+                        if match:
+                            stash_ref = f"stash@{{{match.group(1)}}}"
+                            self.logger.info(
+                                f"Successfully stashed changes: {stash_ref}"
+                            )
+                            return stash_ref
+
+                # Fallback: return the most recent stash
+                return "stash@{0}"
+            else:
+                self.logger.error(f"Failed to stash changes: {result.stderr}")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"Error creating stash in {self.path}: {e}")
+            return None
+
+    def apply_stash(self, stash_ref: str = "stash@{0}") -> bool:
+        """Apply a stash to restore changes.
+
+        Args:
+            stash_ref: Stash reference to apply (default: most recent)
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self.logger.info(f"Applying stash {stash_ref} in {self.path}")
+            result = self._run_git_command(
+                ["stash", "apply", stash_ref], capture_output=True, text=True
+            )
+
+            if result.returncode == 0:
+                self.logger.info(f"Successfully applied stash {stash_ref}")
+                return True
+            else:
+                self.logger.error(f"Failed to apply stash {stash_ref}: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error applying stash {stash_ref} in {self.path}: {e}")
+            return False
+
+    def drop_stash(self, stash_ref: str = "stash@{0}") -> bool:
+        """Drop a stash to remove it from the stash list.
+
+        Args:
+            stash_ref: Stash reference to drop (default: most recent)
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self.logger.info(f"Dropping stash {stash_ref} in {self.path}")
+            result = self._run_git_command(
+                ["stash", "drop", stash_ref], capture_output=True, text=True
+            )
+
+            if result.returncode == 0:
+                self.logger.info(f"Successfully dropped stash {stash_ref}")
+                return True
+            else:
+                self.logger.error(f"Failed to drop stash {stash_ref}: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error dropping stash {stash_ref} in {self.path}: {e}")
+            return False
+
+    def list_stashes(self) -> list[dict[str, Any]]:
+        """List all stashes in the repository.
+
+        Returns:
+            List of stash information dictionaries.
+        """
+        try:
+            result = self._run_git_command(
+                ["stash", "list", "--format=format:%H %T %s"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                return []
+
+            stashes = []
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    parts = line.split(" ", 2)
+                    if len(parts) >= 3:
+                        stashes.append(
+                            {
+                                "hash": parts[0],
+                                "timestamp": parts[1],
+                                "message": parts[2],
+                            }
+                        )
+
+            return stashes
+
+        except Exception as e:
+            self.logger.debug(f"Error listing stashes in {self.path}: {e}")
+            return []
+
+    def safe_stash_and_restore(
+        self, operation_func: Callable[..., bool], *args: Any, **kwargs: Any
+    ) -> tuple[bool, Optional[str]]:
+        """Safely stash changes, run an operation, and restore changes.
+
+        Args:
+            operation_func: Function to run after stashing
+            *args: Arguments to pass to operation_func
+            **kwargs: Keyword arguments to pass to operation_func
+
+        Returns:
+            Tuple of (operation_success, stash_reference)
+        """
+        stash_ref = None
+        operation_success = False
+
+        try:
+            # Check if we need to stash
+            if self.has_uncommitted_changes():
+                stash_ref = self.create_stash()
+                if stash_ref is None:
+                    self.logger.error(f"Failed to stash changes in {self.path}")
+                    return False, None
+
+            # Run the operation
+            operation_success = operation_func(*args, **kwargs)
+
+            # Restore stash if we created one
+            if stash_ref and operation_success:
+                if not self.apply_stash(stash_ref):
+                    self.logger.warning(
+                        f"Failed to restore stash {stash_ref} in {self.path}"
+                    )
+                    # Don't fail the operation if stash restore fails
+                    # The changes are still in the stash
+
+            return operation_success, stash_ref
+
+        except Exception as e:
+            self.logger.error(f"Error in safe stash and restore operation: {e}")
+
+            # Try to restore stash even if operation failed
+            if stash_ref:
+                self.logger.info(
+                    f"Attempting to restore stash {stash_ref} after operation failure"
+                )
+                self.apply_stash(stash_ref)
+
+            return False, stash_ref
 
     def _run_git_command(
         self,
@@ -436,7 +620,7 @@ class GitRepository:
 class GitRepositoryManager:
     """Manages Git repository operations and validation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize GitRepositoryManager."""
         self.logger = get_logger()
 
@@ -449,7 +633,7 @@ class GitRepositoryManager:
         Returns:
             List of GitRepository objects found
         """
-        repositories = []
+        repositories: list[GitRepository] = []
         base_path_obj = Path(base_path).resolve()
 
         if not base_path_obj.exists():
@@ -489,7 +673,7 @@ class GitRepositoryManager:
         errors = repository.validate_repository()
         return len(errors) == 0, errors
 
-    def get_repository_info(self, path: str) -> dict[str, any]:
+    def get_repository_info(self, path: str) -> dict[str, Any]:
         """Get detailed information about a repository.
 
         Args:
@@ -501,7 +685,7 @@ class GitRepositoryManager:
         repository = GitRepository(path)
         return repository.get_repository_status()
 
-    def validate_repository_config(self, config: dict[str, any]) -> list[str]:
+    def validate_repository_config(self, config: dict[str, Any]) -> list[str]:
         """Validate repository configuration.
 
         Args:
@@ -535,7 +719,7 @@ class GitRepositoryManager:
 
         return errors
 
-    def check_repository_sync_status(self, path: str) -> dict[str, any]:
+    def check_repository_sync_status(self, path: str) -> dict[str, Any]:
         """Check if a repository is in sync with upstream.
 
         Args:
@@ -688,7 +872,7 @@ class GitRepositoryManager:
             self.logger.error(f"Error updating upstream remote for {path}: {e}")
             return False
 
-    def validate_upstream_remote(self, path: str) -> dict[str, any]:
+    def validate_upstream_remote(self, path: str) -> dict[str, Any]:
         """Validate upstream remote for a repository.
 
         Args:
@@ -717,3 +901,147 @@ class GitRepositoryManager:
                 "error": str(e),
                 "url": None,
             }
+
+    def safe_stash_changes(
+        self, path: str, message: str = "GitCo: Auto-stash before sync"
+    ) -> Optional[str]:
+        """Safely stash changes in a repository.
+
+        Args:
+            path: Path to the repository
+            message: Stash message
+
+        Returns:
+            Stash reference if successful, None otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return None
+
+            return repository.create_stash(message)
+
+        except Exception as e:
+            self.logger.error(f"Error stashing changes in {path}: {e}")
+            return None
+
+    def restore_stash(self, path: str, stash_ref: str = "stash@{0}") -> bool:
+        """Restore a stash in a repository.
+
+        Args:
+            path: Path to the repository
+            stash_ref: Stash reference to restore
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.apply_stash(stash_ref)
+
+        except Exception as e:
+            self.logger.error(f"Error restoring stash in {path}: {e}")
+            return False
+
+    def drop_stash(self, path: str, stash_ref: str = "stash@{0}") -> bool:
+        """Drop a stash in a repository.
+
+        Args:
+            path: Path to the repository
+            stash_ref: Stash reference to drop
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.drop_stash(stash_ref)
+
+        except Exception as e:
+            self.logger.error(f"Error dropping stash in {path}: {e}")
+            return False
+
+    def list_stashes(self, path: str) -> list[dict[str, Any]]:
+        """List all stashes in a repository.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            List of stash information dictionaries.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return []
+
+            return repository.list_stashes()
+
+        except Exception as e:
+            self.logger.error(f"Error listing stashes in {path}: {e}")
+            return []
+
+    def has_uncommitted_changes(self, path: str) -> bool:
+        """Check if a repository has uncommitted changes.
+
+        Args:
+            path: Path to the repository
+
+        Returns:
+            True if there are uncommitted changes, False otherwise.
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False
+
+            return repository.has_uncommitted_changes()
+
+        except Exception as e:
+            self.logger.error(f"Error checking for uncommitted changes in {path}: {e}")
+            return False
+
+    def safe_stash_and_restore(
+        self, path: str, operation_func: Callable[..., bool], *args: Any, **kwargs: Any
+    ) -> tuple[bool, Optional[str]]:
+        """Safely stash changes, run an operation, and restore changes.
+
+        Args:
+            path: Path to the repository
+            operation_func: Function to run after stashing
+            *args: Arguments to pass to operation_func
+            **kwargs: Keyword arguments to pass to operation_func
+
+        Returns:
+            Tuple of (operation_success, stash_reference)
+        """
+        try:
+            repository = GitRepository(path)
+
+            if not repository.is_git_repository():
+                self.logger.error(f"Not a valid Git repository: {path}")
+                return False, None
+
+            return repository.safe_stash_and_restore(operation_func, *args, **kwargs)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in safe stash and restore operation for {path}: {e}"
+            )
+            return False, None

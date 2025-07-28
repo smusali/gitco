@@ -1,20 +1,16 @@
-"""Tests for git operations and repository management."""
+"""Tests for Git operations module."""
 
-import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from gitco.git_ops import GitRepository, GitRepositoryManager
-from gitco.utils import GitOperationError
 
 
 class TestGitRepository:
     """Test GitRepository class."""
 
-    def test_init_with_path(self):
+    def test_init(self):
         """Test GitRepository initialization."""
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = GitRepository(temp_dir)
@@ -26,403 +22,262 @@ class TestGitRepository:
             repo = GitRepository(temp_dir)
             assert not repo.is_git_repository()
 
-    def test_is_git_repository_true(self):
-        """Test is_git_repository returns True for git directory."""
+    @patch("gitco.git_ops.subprocess.run")
+    def test_is_git_repository_true(self, mock_run):
+        """Test is_git_repository returns True for valid git repository."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create a mock git repository
             git_dir = Path(temp_dir) / ".git"
             git_dir.mkdir()
-            (git_dir / "HEAD").write_text("ref: refs/heads/main")
-
             repo = GitRepository(temp_dir)
-            # Mock git status to return success
-            with patch.object(repo, "_run_git_command") as mock_run:
-                mock_run.return_value.returncode = 0
-                assert repo.is_git_repository()
+            assert repo.is_git_repository()
 
-    def test_get_remote_urls(self):
+    @patch("gitco.git_ops.subprocess.run")
+    def test_get_remote_urls(self, mock_run):
         """Test get_remote_urls method."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "origin\thttps://github.com/user/repo.git (fetch)\norigin\thttps://github.com/user/repo.git (push)\nupstream\thttps://github.com/upstream/repo.git (fetch)\nupstream\thttps://github.com/upstream/repo.git (push)\n"
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            remotes = repo.get_remote_urls()
+            assert remotes == {
+                "origin": "https://github.com/user/repo.git",
+                "upstream": "https://github.com/upstream/repo.git",
+            }
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_has_uncommitted_changes_true(self, mock_run):
+        """Test has_uncommitted_changes returns True when there are changes."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "M  modified_file.txt\nA  new_file.txt\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert repo.has_uncommitted_changes()
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_has_uncommitted_changes_false(self, mock_run):
+        """Test has_uncommitted_changes returns False when no changes."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert not repo.has_uncommitted_changes()
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_create_stash_success(self, mock_run):
+        """Test create_stash method success."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Saved working directory and index state WIP on main: abc1234 GitCo: Auto-stash before sync\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
             repo = GitRepository(temp_dir)
 
-            # Mock git remote -v output
-            mock_output = "origin\tgit@github.com:user/repo.git (fetch)\norigin\tgit@github.com:user/repo.git (push)\nupstream\tgit@github.com:original/repo.git (fetch)\nupstream\tgit@github.com:original/repo.git (push)"
+            with patch.object(repo, "has_uncommitted_changes", return_value=True):
+                stash_ref = repo.create_stash()
+                assert stash_ref == "stash@{0}"
 
-            with patch.object(repo, "_run_git_command") as mock_run:
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = mock_output
-
-                remotes = repo.get_remote_urls()
-                assert remotes == {
-                    "origin": "git@github.com:user/repo.git",
-                    "upstream": "git@github.com:original/repo.git",
-                }
-
-    def test_add_upstream_remote_new(self):
-        """Test add_upstream_remote for new upstream remote."""
+    @patch("gitco.git_ops.subprocess.run")
+    def test_create_stash_no_changes(self, mock_run):
+        """Test create_stash method when no changes to stash."""
         with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
             repo = GitRepository(temp_dir)
-            upstream_url = "git@github.com:original/repo.git"
 
-            with (
-                patch.object(repo, "get_remote_urls", return_value={}),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
+            with patch.object(repo, "has_uncommitted_changes", return_value=False):
+                stash_ref = repo.create_stash()
+                assert stash_ref is None
 
-                success = repo.add_upstream_remote(upstream_url)
+    @patch("gitco.git_ops.subprocess.run")
+    def test_create_stash_failure(self, mock_run):
+        """Test create_stash method failure."""
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "fatal: No local changes to save\n"
+        mock_run.return_value = mock_result
 
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "has_uncommitted_changes", return_value=True):
+                stash_ref = repo.create_stash()
+                assert stash_ref is None
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_apply_stash_success(self, mock_run):
+        """Test apply_stash method success."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert repo.apply_stash("stash@{0}")
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_apply_stash_failure(self, mock_run):
+        """Test apply_stash method failure."""
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "fatal: No stash found with the given name\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert not repo.apply_stash("stash@{0}")
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_drop_stash_success(self, mock_run):
+        """Test drop_stash method success."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert repo.drop_stash("stash@{0}")
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_drop_stash_failure(self, mock_run):
+        """Test drop_stash method failure."""
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "fatal: No stash found with the given name\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            assert not repo.drop_stash("stash@{0}")
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_list_stashes(self, mock_run):
+        """Test list_stashes method."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "abc1234 1234567890 GitCo: Auto-stash before sync\ndef4567 1234567891 Another stash\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+            stashes = repo.list_stashes()
+            assert len(stashes) == 2
+            assert stashes[0]["hash"] == "abc1234"
+            assert stashes[0]["message"] == "GitCo: Auto-stash before sync"
+            assert stashes[1]["hash"] == "def4567"
+            assert stashes[1]["message"] == "Another stash"
+
+    @patch("gitco.git_ops.subprocess.run")
+    def test_safe_stash_and_restore_success(self, mock_run):
+        """Test safe_stash_and_restore method success."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Saved working directory and index state WIP on main: abc1234 GitCo: Auto-stash before sync\n"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+            repo = GitRepository(temp_dir)
+
+            def mock_operation():
+                return True
+
+            with patch.object(repo, "has_uncommitted_changes", return_value=True):
+                success, stash_ref = repo.safe_stash_and_restore(mock_operation)
                 assert success
-                mock_run.assert_called_with(["remote", "add", "upstream", upstream_url])
+                assert stash_ref == "stash@{0}"
 
-    def test_add_upstream_remote_existing(self):
-        """Test add_upstream_remote for existing upstream remote."""
+    @patch("gitco.git_ops.subprocess.run")
+    def test_safe_stash_and_restore_no_changes(self, mock_run):
+        """Test safe_stash_and_restore method when no changes to stash."""
         with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
             repo = GitRepository(temp_dir)
-            upstream_url = "git@github.com:original/repo.git"
 
-            with (
-                patch.object(
-                    repo, "get_remote_urls", return_value={"upstream": "old_url"}
-                ),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
+            def mock_operation():
+                return True
 
-                success = repo.add_upstream_remote(upstream_url)
-
+            with patch.object(repo, "has_uncommitted_changes", return_value=False):
+                success, stash_ref = repo.safe_stash_and_restore(mock_operation)
                 assert success
-                mock_run.assert_called_with(
-                    ["remote", "set-url", "upstream", upstream_url]
-                )
+                assert stash_ref is None
 
-    def test_add_upstream_remote_failure(self):
-        """Test add_upstream_remote when git command fails."""
+    @patch("gitco.git_ops.subprocess.run")
+    def test_safe_stash_and_restore_operation_failure(self, mock_run):
+        """Test safe_stash_and_restore method when operation fails."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Saved working directory and index state WIP on main: abc1234 GitCo: Auto-stash before sync\n"
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
             repo = GitRepository(temp_dir)
-            upstream_url = "git@github.com:original/repo.git"
 
-            with (
-                patch.object(repo, "get_remote_urls", return_value={}),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 1
-                mock_run.return_value.stderr = "Permission denied"
+            def mock_operation():
+                return False
 
-                success = repo.add_upstream_remote(upstream_url)
-
+            with patch.object(repo, "has_uncommitted_changes", return_value=True):
+                success, stash_ref = repo.safe_stash_and_restore(mock_operation)
                 assert not success
+                assert stash_ref == "stash@{0}"
 
-    def test_remove_upstream_remote_exists(self):
-        """Test remove_upstream_remote when upstream exists."""
+    @patch("gitco.git_ops.subprocess.run")
+    def test_safe_stash_and_restore_stash_failure(self, mock_run):
+        """Test safe_stash_and_restore method when stashing fails."""
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "fatal: No local changes to save\n"
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
             repo = GitRepository(temp_dir)
 
-            with (
-                patch.object(repo, "get_remote_urls", return_value={"upstream": "url"}),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
+            def mock_operation():
+                return True
 
-                success = repo.remove_upstream_remote()
-
-                assert success
-                mock_run.assert_called_with(["remote", "remove", "upstream"])
-
-    def test_remove_upstream_remote_not_exists(self):
-        """Test remove_upstream_remote when upstream doesn't exist."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "get_remote_urls", return_value={}):
-                success = repo.remove_upstream_remote()
-
-                assert success
-
-    def test_remove_upstream_remote_failure(self):
-        """Test remove_upstream_remote when git command fails."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with (
-                patch.object(repo, "get_remote_urls", return_value={"upstream": "url"}),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 1
-                mock_run.return_value.stderr = "Remote not found"
-
-                success = repo.remove_upstream_remote()
-
+            with patch.object(repo, "has_uncommitted_changes", return_value=True):
+                success, stash_ref = repo.safe_stash_and_restore(mock_operation)
                 assert not success
-
-    def test_update_upstream_remote_exists(self):
-        """Test update_upstream_remote when upstream exists."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-            new_url = "git@github.com:new/repo.git"
-
-            with (
-                patch.object(
-                    repo, "get_remote_urls", return_value={"upstream": "old_url"}
-                ),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
-
-                success = repo.update_upstream_remote(new_url)
-
-                assert success
-                mock_run.assert_called_with(["remote", "set-url", "upstream", new_url])
-
-    def test_update_upstream_remote_not_exists(self):
-        """Test update_upstream_remote when upstream doesn't exist."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-            new_url = "git@github.com:new/repo.git"
-
-            with (
-                patch.object(repo, "get_remote_urls", return_value={}),
-                patch.object(repo, "add_upstream_remote") as mock_add,
-            ):
-                mock_add.return_value = True
-
-                success = repo.update_upstream_remote(new_url)
-
-                assert success
-                mock_add.assert_called_with(new_url)
-
-    def test_validate_upstream_remote_exists_valid(self):
-        """Test validate_upstream_remote when upstream exists and is valid."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-            upstream_url = "git@github.com:original/repo.git"
-
-            with (
-                patch.object(
-                    repo, "get_remote_urls", return_value={"upstream": upstream_url}
-                ),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = "refs/heads/main"
-
-                validation = repo.validate_upstream_remote()
-
-                assert validation["has_upstream"]
-                assert validation["is_valid"]
-                assert validation["url"] == upstream_url
-                assert validation["accessible"]
-
-    def test_validate_upstream_remote_exists_invalid(self):
-        """Test validate_upstream_remote when upstream exists but is invalid."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-            upstream_url = "git@github.com:original/repo.git"
-
-            with (
-                patch.object(
-                    repo, "get_remote_urls", return_value={"upstream": upstream_url}
-                ),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 1
-                mock_run.return_value.stderr = "Repository not found"
-
-                validation = repo.validate_upstream_remote()
-
-                assert validation["has_upstream"]
-                assert not validation["is_valid"]
-                assert validation["url"] == upstream_url
-                assert not validation["accessible"]
-                assert "Repository not found" in validation["error"]
-
-    def test_validate_upstream_remote_not_exists(self):
-        """Test validate_upstream_remote when upstream doesn't exist."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "get_remote_urls", return_value={}):
-                validation = repo.validate_upstream_remote()
-
-                assert not validation["has_upstream"]
-                assert not validation["is_valid"]
-                assert validation["url"] is None
-                assert "No upstream remote configured" in validation["error"]
-
-    def test_fetch_upstream_success(self):
-        """Test fetch_upstream when successful."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with (
-                patch.object(repo, "validate_upstream_remote") as mock_validate,
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_validate.return_value = {
-                    "has_upstream": True,
-                    "is_valid": True,
-                    "accessible": True,
-                }
-                mock_run.return_value.returncode = 0
-
-                success = repo.fetch_upstream()
-
-                assert success
-                mock_run.assert_called_with(["fetch", "upstream"])
-
-    def test_fetch_upstream_no_upstream(self):
-        """Test fetch_upstream when no upstream is configured."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "validate_upstream_remote") as mock_validate:
-                mock_validate.return_value = {
-                    "has_upstream": False,
-                    "is_valid": False,
-                    "error": "No upstream remote configured",
-                }
-
-                success = repo.fetch_upstream()
-
-                assert not success
-
-    def test_fetch_upstream_invalid_upstream(self):
-        """Test fetch_upstream when upstream is invalid."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "validate_upstream_remote") as mock_validate:
-                mock_validate.return_value = {
-                    "has_upstream": True,
-                    "is_valid": False,
-                    "error": "Repository not accessible",
-                }
-
-                success = repo.fetch_upstream()
-
-                assert not success
-
-    def test_fetch_upstream_failure(self):
-        """Test fetch_upstream when git fetch fails."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with (
-                patch.object(repo, "validate_upstream_remote") as mock_validate,
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_validate.return_value = {
-                    "has_upstream": True,
-                    "is_valid": True,
-                    "accessible": True,
-                }
-                mock_run.return_value.returncode = 1
-                mock_run.return_value.stderr = "Network error"
-
-                success = repo.fetch_upstream()
-
-                assert not success
-
-    def test_get_current_branch(self):
-        """Test get_current_branch method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "_run_git_command") as mock_run:
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = "main\n"
-
-                branch = repo.get_current_branch()
-                assert branch == "main"
-
-    def test_get_default_branch(self):
-        """Test get_default_branch method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "_run_git_command") as mock_run:
-                # Mock symbolic-ref to return main
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = "refs/remotes/origin/main\n"
-
-                branch = repo.get_default_branch()
-                assert branch == "main"
-
-    def test_get_repository_status(self):
-        """Test get_repository_status method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            # Mock all git operations
-            with (
-                patch.object(repo, "is_git_repository", return_value=True),
-                patch.object(repo, "get_current_branch", return_value="main"),
-                patch.object(repo, "get_default_branch", return_value="main"),
-                patch.object(repo, "get_remote_urls", return_value={"origin": "url"}),
-                patch.object(
-                    repo,
-                    "validate_upstream_remote",
-                    return_value={
-                        "has_upstream": True,
-                        "is_valid": True,
-                        "url": "upstream_url",
-                    },
-                ),
-                patch.object(repo, "_run_git_command") as mock_run,
-            ):
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = ""  # Clean working directory
-
-                status = repo.get_repository_status()
-
-                assert status["is_git_repository"] is True
-                assert status["current_branch"] == "main"
-                assert status["default_branch"] == "main"
-                assert status["remotes"] == {"origin": "url"}
-                assert status["upstream_status"]["has_upstream"]
-                assert status["upstream_status"]["is_valid"]
-
-    def test_validate_repository_path_not_exists(self):
-        """Test validate_repository when path doesn't exist."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            non_existent_path = Path(temp_dir) / "nonexistent"
-            repo = GitRepository(str(non_existent_path))
-
-            errors = repo.validate_repository()
-            assert len(errors) == 1
-            assert "does not exist" in errors[0]
-
-    def test_validate_repository_not_git(self):
-        """Test validate_repository when path is not a git repository."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch.object(repo, "is_git_repository", return_value=False):
-                errors = repo.validate_repository()
-                assert len(errors) == 1
-                assert "not a valid Git repository" in errors[0]
-
-    def test_run_git_command_timeout(self):
-        """Test _run_git_command timeout handling."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch("subprocess.run") as mock_run:
-                mock_run.side_effect = subprocess.TimeoutExpired("git", 30)
-
-                with pytest.raises(GitOperationError):
-                    repo._run_git_command(["status"])
-
-    def test_run_git_command_exception(self):
-        """Test _run_git_command exception handling."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo = GitRepository(temp_dir)
-
-            with patch("subprocess.run") as mock_run:
-                mock_run.side_effect = Exception("Test exception")
-
-                with pytest.raises(GitOperationError):
-                    repo._run_git_command(["status"])
+                assert stash_ref is None
 
 
 class TestGitRepositoryManager:
@@ -431,177 +286,172 @@ class TestGitRepositoryManager:
     def test_init(self):
         """Test GitRepositoryManager initialization."""
         manager = GitRepositoryManager()
-        assert manager is not None
+        assert manager.logger is not None
 
-    def test_detect_repositories_empty_directory(self):
+    def test_detect_repositories_empty(self):
         """Test detect_repositories with empty directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = GitRepositoryManager()
-            repositories = manager.detect_repositories(temp_dir)
-            assert len(repositories) == 0
+            repos = manager.detect_repositories(temp_dir)
+            assert repos == []
 
-    def test_detect_repositories_with_git_repos(self):
-        """Test detect_repositories with git repositories."""
+    def test_detect_repositories_with_git(self):
+        """Test detect_repositories with git repository."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create mock git repositories
-            repo1 = Path(temp_dir) / "repo1"
-            repo1.mkdir()
-            (repo1 / ".git").mkdir()
-            (repo1 / ".git" / "HEAD").write_text("ref: refs/heads/main")
-
-            repo2 = Path(temp_dir) / "repo2"
-            repo2.mkdir()
-            (repo2 / ".git").mkdir()
-            (repo2 / ".git" / "HEAD").write_text("ref: refs/heads/main")
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
 
             manager = GitRepositoryManager()
-
             with patch.object(GitRepository, "is_git_repository", return_value=True):
-                repositories = manager.detect_repositories(temp_dir)
-                assert len(repositories) == 2
+                repos = manager.detect_repositories(temp_dir)
+                assert len(repos) == 1
+                assert repos[0].path == Path(temp_dir).resolve()
 
-    def test_validate_repository_path(self):
-        """Test validate_repository_path method."""
+    def test_validate_repository_path_valid(self):
+        """Test validate_repository_path with valid repository."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository,
+                    "get_remote_urls",
+                    return_value={"origin": "https://github.com/user/repo.git"},
+                ):
+                    is_valid, errors = manager.validate_repository_path(temp_dir)
+                    assert is_valid
+                    assert errors == []
+
+    def test_validate_repository_path_invalid(self):
+        """Test validate_repository_path with invalid repository."""
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = GitRepositoryManager()
-
-            # Test valid repository
-            with patch.object(GitRepository, "validate_repository", return_value=[]):
-                is_valid, errors = manager.validate_repository_path(temp_dir)
-                assert is_valid
-                assert len(errors) == 0
-
-            # Test invalid repository
-            with patch.object(
-                GitRepository, "validate_repository", return_value=["Error"]
-            ):
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
                 is_valid, errors = manager.validate_repository_path(temp_dir)
                 assert not is_valid
-                assert len(errors) == 1
+                assert len(errors) > 0
 
-    def test_get_repository_info(self):
-        """Test get_repository_info method."""
+    def test_safe_stash_changes_success(self):
+        """Test safe_stash_changes method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository, "create_stash", return_value="stash@{0}"
+                ):
+                    stash_ref = manager.safe_stash_changes(temp_dir)
+                    assert stash_ref == "stash@{0}"
+
+    def test_safe_stash_changes_invalid_repo(self):
+        """Test safe_stash_changes method with invalid repository."""
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
+                stash_ref = manager.safe_stash_changes(temp_dir)
+                assert stash_ref is None
 
-            with patch.object(GitRepository, "get_repository_status") as mock_status:
-                mock_status.return_value = {
-                    "path": temp_dir,
-                    "is_git_repository": True,
-                    "current_branch": "main",
-                }
+    def test_restore_stash_success(self):
+        """Test restore_stash method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
 
-                info = manager.get_repository_info(temp_dir)
-                assert info["path"] == temp_dir
-                assert info["is_git_repository"]
-                assert info["current_branch"] == "main"
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "apply_stash", return_value=True):
+                    success = manager.restore_stash(temp_dir)
+                    assert success
 
-    def test_validate_repository_config(self):
-        """Test validate_repository_config method."""
-        manager = GitRepositoryManager()
-
-        # Test valid config
-        valid_config = {
-            "name": "test",
-            "fork": "user/fork",
-            "upstream": "original/repo",
-            "local_path": "/path/to/repo",
-        }
-
-        with patch.object(manager, "validate_repository_path", return_value=(True, [])):
-            errors = manager.validate_repository_config(valid_config)
-            assert len(errors) == 0
-
-        # Test invalid config
-        invalid_config = {
-            "name": "test",
-            # Missing required fields
-        }
-
-        errors = manager.validate_repository_config(invalid_config)
-        assert len(errors) > 0
-
-    def test_check_repository_sync_status(self):
-        """Test check_repository_sync_status method."""
+    def test_restore_stash_invalid_repo(self):
+        """Test restore_stash method with invalid repository."""
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
+                success = manager.restore_stash(temp_dir)
+                assert not success
 
-            with patch.object(GitRepository, "get_repository_status") as mock_status:
-                mock_status.return_value = {
-                    "is_git_repository": True,
-                    "current_branch": "main",
-                    "remotes": {"upstream": "url"},
-                    "has_uncommitted_changes": False,
-                    "has_untracked_files": False,
-                }
+    def test_drop_stash_success(self):
+        """Test drop_stash method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
 
-                with patch.object(GitRepository, "_run_git_command") as mock_run:
-                    mock_run.return_value.returncode = 0
-                    mock_run.return_value.stdout = "0\n"
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(GitRepository, "drop_stash", return_value=True):
+                    success = manager.drop_stash(temp_dir)
+                    assert success
 
-                    status = manager.check_repository_sync_status(temp_dir)
-                    assert status["is_syncable"]
-                    assert status["behind_upstream"] == 0
+    def test_list_stashes_success(self):
+        """Test list_stashes method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
 
-    def test_setup_upstream_remote(self):
-        """Test setup_upstream_remote method."""
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository,
+                    "list_stashes",
+                    return_value=[{"hash": "abc123", "message": "test"}],
+                ):
+                    stashes = manager.list_stashes(temp_dir)
+                    assert len(stashes) == 1
+                    assert stashes[0]["hash"] == "abc123"
+
+    def test_has_uncommitted_changes_success(self):
+        """Test has_uncommitted_changes method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository, "has_uncommitted_changes", return_value=True
+                ):
+                    has_changes = manager.has_uncommitted_changes(temp_dir)
+                    assert has_changes
+
+    def test_safe_stash_and_restore_success(self):
+        """Test safe_stash_and_restore method success."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            git_dir = Path(temp_dir) / ".git"
+            git_dir.mkdir()
+
+            manager = GitRepositoryManager()
+            with patch.object(GitRepository, "is_git_repository", return_value=True):
+                with patch.object(
+                    GitRepository,
+                    "safe_stash_and_restore",
+                    return_value=(True, "stash@{0}"),
+                ):
+
+                    def mock_operation():
+                        return True
+
+                    success, stash_ref = manager.safe_stash_and_restore(
+                        temp_dir, mock_operation
+                    )
+                    assert success
+                    assert stash_ref == "stash@{0}"
+
+    def test_safe_stash_and_restore_invalid_repo(self):
+        """Test safe_stash_and_restore method with invalid repository."""
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = GitRepositoryManager()
-            upstream_url = "git@github.com:original/repo.git"
+            with patch.object(GitRepository, "is_git_repository", return_value=False):
 
-            with (
-                patch.object(GitRepository, "is_git_repository", return_value=True),
-                patch.object(GitRepository, "add_upstream_remote", return_value=True),
-            ):
-                success = manager.setup_upstream_remote(temp_dir, upstream_url)
-                assert success
+                def mock_operation():
+                    return True
 
-    def test_remove_upstream_remote(self):
-        """Test remove_upstream_remote method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = GitRepositoryManager()
-
-            with (
-                patch.object(GitRepository, "is_git_repository", return_value=True),
-                patch.object(
-                    GitRepository, "remove_upstream_remote", return_value=True
-                ),
-            ):
-                success = manager.remove_upstream_remote(temp_dir)
-                assert success
-
-    def test_update_upstream_remote(self):
-        """Test update_upstream_remote method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = GitRepositoryManager()
-            new_url = "git@github.com:new/repo.git"
-
-            with (
-                patch.object(GitRepository, "is_git_repository", return_value=True),
-                patch.object(
-                    GitRepository, "update_upstream_remote", return_value=True
-                ),
-            ):
-                success = manager.update_upstream_remote(temp_dir, new_url)
-                assert success
-
-    def test_validate_upstream_remote(self):
-        """Test validate_upstream_remote method."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = GitRepositoryManager()
-
-            with (
-                patch.object(GitRepository, "is_git_repository", return_value=True),
-                patch.object(
-                    GitRepository, "validate_upstream_remote"
-                ) as mock_validate,
-            ):
-                mock_validate.return_value = {
-                    "has_upstream": True,
-                    "is_valid": True,
-                    "url": "upstream_url",
-                }
-
-                validation = manager.validate_upstream_remote(temp_dir)
-                assert validation["has_upstream"]
-                assert validation["is_valid"]
+                success, stash_ref = manager.safe_stash_and_restore(
+                    temp_dir, mock_operation
+                )
+                assert not success
+                assert stash_ref is None

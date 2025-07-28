@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI commands for upstream remote management (upstream add, remove, update, validate-upstream, fetch)
 - Comprehensive testing for upstream remote operations
 - Integration of upstream status into repository status reporting
+- Safe stashing and unstashing of local changes
+- Automatic detection of uncommitted changes before operations
+- Stash creation with custom messages and reference tracking
+- Stash application and restoration with error handling
+- Stash management (list, drop) with comprehensive validation
+- Safe stash-and-restore pattern for atomic operations
+- Integration of stashing into repository sync operations
+- Comprehensive testing for all stashing functionality
 
 ### Fixed
 - Updated deprecated GitHub Actions to latest versions (actions/upload-artifact@v4, actions/download-artifact@v4, actions/cache@v4, codecov/codecov-action@v4)
