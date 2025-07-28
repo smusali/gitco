@@ -237,7 +237,7 @@ repositories:
     upstream: django/django
     local_path: ~/code/django
     skills: [python, web, orm, database]
-    
+
   - name: fastapi
     fork: username/fastapi
     upstream: tiangolo/fastapi
@@ -338,4 +338,4 @@ gitco status --detailed --export status-report.json
 
 - Explore [Advanced Configuration](configuration.md)
 - Check [Troubleshooting Guide](troubleshooting.md) for common issues
-- Contribute to the project via [Contributing Guide](../CONTRIBUTING.md) 
+- Contribute to the project via [Contributing Guide](../CONTRIBUTING.md)

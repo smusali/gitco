@@ -36,4 +36,4 @@ Add any other context or screenshots about your question here.
 **Checklist:**
 - [ ] I have searched existing issues and documentation
 - [ ] I have provided clear context about my question
-- [ ] This is a genuine question about GitCo usage or development 
+- [ ] This is a genuine question about GitCo usage or development

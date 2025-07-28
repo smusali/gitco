@@ -19,7 +19,7 @@ repositories:
     upstream: django/django
     local_path: ~/code/django
     skills: [python, web, orm]
-    
+
   - name: fastapi
     fork: username/fastapi
     upstream: tiangolo/fastapi
@@ -126,13 +126,13 @@ repositories:
     upstream: django/django
     local_path: ~/code/django
     skills: [python, web, orm, database]
-    
+
   - name: fastapi
     fork: username/fastapi
     upstream: tiangolo/fastapi
     local_path: ~/code/fastapi
     skills: [python, api, async, web]
-    
+
   - name: requests
     fork: username/requests
     upstream: psf/requests
@@ -193,4 +193,4 @@ gitco config status
 
 ## Next Steps
 
-After configuring GitCo, see the [Usage Guide](usage.md) to start using the tool. 
+After configuring GitCo, see the [Usage Guide](usage.md) to start using the tool.

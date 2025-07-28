@@ -38,6 +38,48 @@ For development and testing:
 pip install -r requirements-dev.txt
 ```
 
+### Method 3: Development Setup
+
+For contributors and developers:
+
+```bash
+# Clone the repository
+git clone https://github.com/41technologies/gitco.git
+cd gitco
+
+# Install in development mode
+pip install -e .
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks for code quality
+pre-commit install
+```
+
+**Pre-commit Hooks:**
+The project uses pre-commit hooks to ensure code quality:
+- **Ruff**: Fast Python linting and formatting (includes end-of-file fixing)
+- **Black**: Code formatting
+- **Conventional Commits**: Commit message validation
+- **YAML Validation**: Syntax checking for configuration files
+- **End-of-file Fixer**: Ensures files end with newline
+
+To run quality checks manually:
+```bash
+# Run all pre-commit hooks
+pre-commit run --all-files
+
+# Format code
+black src/ tests/
+
+# Lint code
+ruff check src/ tests/
+
+# Type checking
+mypy src/
+```
+
 ## Verification
 
 After installation, verify GitCo is working:
@@ -125,4 +167,4 @@ If you encounter issues:
 
 ## Next Steps
 
-After installation, see the [Usage Guide](usage.md) to get started with GitCo. 
+After installation, see the [Usage Guide](usage.md) to get started with GitCo.

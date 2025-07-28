@@ -83,4 +83,4 @@ For security-related questions or concerns:
 
 - **Email**: fortyone.technologies@gmail.com
 - **PGP Key**: Available upon request
-- **Response time**: Within 48 hours for security issues 
+- **Response time**: Within 48 hours for security issues

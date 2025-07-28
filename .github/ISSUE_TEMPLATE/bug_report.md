@@ -48,4 +48,4 @@ Add any other context about the problem here.
 - [ ] I have searched existing issues to avoid duplicates
 - [ ] I have provided all the information requested above
 - [ ] I can reproduce this issue consistently
-- [ ] This is a bug in GitCo (not a configuration issue) 
+- [ ] This is a bug in GitCo (not a configuration issue)

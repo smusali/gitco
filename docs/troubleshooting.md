@@ -345,4 +345,4 @@ Any other relevant details
 
 - Check [Configuration Guide](configuration.md) for advanced settings
 - Review [Usage Guide](usage.md) for best practices
-- Contribute fixes via [Contributing Guide](../CONTRIBUTING.md) 
+- Contribute fixes via [Contributing Guide](../CONTRIBUTING.md)

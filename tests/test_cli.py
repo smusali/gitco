@@ -2,7 +2,6 @@
 
 import pytest
 from click.testing import CliRunner
-
 from gitco.cli import main
 
 

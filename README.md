@@ -77,7 +77,7 @@ repositories:
     upstream: django/django
     local_path: ~/code/django
     skills: [python, web, orm]
-    
+
   - name: fastapi
     fork: username/fastapi
     upstream: tiangolo/fastapi
@@ -173,7 +173,7 @@ repositories:
     upstream: django/django
     local_path: ~/code/django
     skills: [python, web, orm]
-    
+
   - name: fastapi
     fork: username/fastapi
     upstream: tiangolo/fastapi

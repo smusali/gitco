@@ -42,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pull request template with comprehensive checklist
 - Dependabot configuration for automated dependency updates
 - Security policy with vulnerability reporting guidelines
+- Pre-commit hooks configuration with ruff and black linting
+- End-of-file fixing with ruff W292 rule
+- Conventional commit message validation
+- YAML syntax validation and formatting
+- Merge conflict detection and prevention
 
 ## [0.1.0] - 2025-01-XX
 
@@ -55,4 +60,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation structure
 
 [Unreleased]: https://github.com/41technologies/gitco/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/41technologies/gitco/releases/tag/v0.1.0 
+[0.1.0]: https://github.com/41technologies/gitco/releases/tag/v0.1.0

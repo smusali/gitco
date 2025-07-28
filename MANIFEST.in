@@ -35,4 +35,4 @@ global-exclude .mypy_cache/
 global-exclude .ruff_cache/
 global-exclude build/
 global-exclude dist/
-global-exclude *.egg-info/ 
+global-exclude *.egg-info/

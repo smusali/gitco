@@ -28,4 +28,4 @@ If you have any ideas about how this could be implemented, please share them.
 - [ ] I have searched existing issues to avoid duplicates
 - [ ] This feature would be useful to the broader GitCo community
 - [ ] I have provided clear use cases and implementation ideas
-- [ ] This aligns with GitCo's vision of intelligent OSS fork management 
+- [ ] This aligns with GitCo's vision of intelligent OSS fork management

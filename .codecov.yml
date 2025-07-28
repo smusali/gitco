@@ -40,4 +40,4 @@ ignore:
   - ".env/"
 
 github_checks:
-  annotations: true 
+  annotations: true

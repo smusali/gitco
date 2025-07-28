@@ -225,10 +225,10 @@ def test_function_name():
     """Test description."""
     # Arrange
     input_data = "test"
-    
+
     # Act
     result = function(input_data)
-    
+
     # Assert
     assert result == "expected"
 ```
@@ -321,4 +321,4 @@ Include:
 3. **Be patient** - quality takes time
 4. **Have fun** - enjoy the process!
 
-Thank you for contributing to GitCo! 🚀 
+Thank you for contributing to GitCo! 🚀
