@@ -197,13 +197,28 @@ def sync(
                 if result.get("stashed_changes"):
                     details = "📦 Uncommitted changes were stashed and restored"
 
+                # Add retry information if recovery was attempted
+                if result.get("recovery_attempted"):
+                    retry_count = result.get("retry_count", 0)
+                    details += f"\n🔄 Sync completed after {retry_count} retry attempts"
+
+                if result.get("stash_restore_failed"):
+                    details += "\n⚠️  Warning: Failed to restore stashed changes"
+
                 print_success_panel(f"Successfully synced repository: {repo}", details)
             else:
                 error_msg = result.get("message", "Unknown error")
+                retry_info = ""
+                if result.get("recovery_attempted"):
+                    retry_count = result.get("retry_count", 0)
+                    retry_info = f" (after {retry_count} retry attempts)"
+
                 log_operation_failure(
                     "repository synchronization", Exception(error_msg), repo=repo
                 )
-                print_error_panel(f"Failed to sync repository '{repo}'", error_msg)
+                print_error_panel(
+                    f"Failed to sync repository '{repo}'{retry_info}", error_msg
+                )
                 sys.exit(1)
 
         else:
@@ -258,7 +273,8 @@ def sync(
                     print_error_panel(
                         f"Sync completed with {failed} failures",
                         f"Successfully synced {successful} repositories, {failed} failed.\n"
-                        "Check the output above for details on failed repositories.",
+                        "Check the output above for details on failed repositories.\n"
+                        "Some operations may have been retried due to network issues.",
                     )
 
             else:
@@ -293,15 +309,25 @@ def sync(
 
                             if result["success"]:
                                 successful += 1
+                                message = result.get("message", "Sync completed")
+                                # Add retry information to progress message
+                                if result.get("recovery_attempted"):
+                                    retry_count = result.get("retry_count", 0)
+                                    message += f" (retry: {retry_count})"
                                 progress.update(
                                     task,
-                                    description=f"✅ {r.name}: {result.get('message', 'Sync completed')}",
+                                    description=f"✅ {r.name}: {message}",
                                 )
                             else:
                                 failed += 1
+                                message = result.get("message", "Sync failed")
+                                # Add retry information to progress message
+                                if result.get("recovery_attempted"):
+                                    retry_count = result.get("retry_count", 0)
+                                    message += f" (retry: {retry_count})"
                                 progress.update(
                                     task,
-                                    description=f"❌ {r.name}: {result.get('message', 'Sync failed')}",
+                                    description=f"❌ {r.name}: {message}",
                                 )
 
                             progress.advance(task)
@@ -344,7 +370,8 @@ def sync(
                     print_error_panel(
                         f"Sync completed with {failed} failures",
                         f"Successfully synced {successful} repositories, {failed} failed.\n"
-                        "Check the output above for details on failed repositories.",
+                        "Check the output above for details on failed repositories.\n"
+                        "Some operations may have been retried due to network issues.",
                     )
 
         # Handle analysis if requested

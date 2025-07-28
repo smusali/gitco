@@ -1222,7 +1222,7 @@ class GitRepositoryManager:
     def _sync_single_repository(
         self, repo_path: str, repo_config: dict[str, Any]
     ) -> dict[str, Any]:
-        """Synchronize a single repository with upstream.
+        """Synchronize a single repository with upstream with error recovery.
 
         Args:
             repo_path: Path to the repository
@@ -1231,49 +1231,172 @@ class GitRepositoryManager:
         Returns:
             Dictionary with sync result information
         """
+        logger = get_logger()
+        repo_name = repo_config.get("name", Path(repo_path).name)
+
         try:
-            # Validate repository first
+            logger.info(f"Starting sync for repository: {repo_name}")
+
+            # Step 1: Validate repository first
             is_valid, errors = self.validate_repository_path(repo_path)
             if not is_valid:
+                logger.error(
+                    f"Repository validation failed for {repo_name}: {', '.join(errors)}"
+                )
                 return {
                     "success": False,
                     "message": f"Repository validation failed: {', '.join(errors)}",
                     "errors": errors,
+                    "recovery_attempted": False,
                 }
 
-            # Check if repository has uncommitted changes
+            # Step 2: Check for uncommitted changes and stash if needed
             has_changes = self.has_uncommitted_changes(repo_path)
             stash_ref = None
 
             if has_changes:
-                # Stash changes before sync
+                logger.info(f"Found uncommitted changes in {repo_name}, stashing...")
                 stash_ref = self.safe_stash_changes(repo_path)
                 if not stash_ref:
+                    logger.error(f"Failed to stash changes for {repo_name}")
                     return {
                         "success": False,
                         "message": "Failed to stash uncommitted changes",
+                        "recovery_attempted": False,
                     }
+                logger.info(f"Successfully stashed changes for {repo_name}")
 
-            # Perform sync operation
-            sync_result = self.sync_repository_with_upstream(repo_path)
+            # Step 3: Perform sync operation with retry mechanism
+            sync_result = self._sync_with_retry(repo_path, repo_name)
 
-            # Restore stashed changes if any
+            # Step 4: Restore stashed changes if any
             if stash_ref:
-                self.restore_stash(repo_path, stash_ref)
+                logger.info(f"Restoring stashed changes for {repo_name}")
+                restore_success = self.restore_stash(repo_path, stash_ref)
+                if not restore_success:
+                    logger.warning(f"Failed to restore stashed changes for {repo_name}")
+                    # Don't fail the entire operation if stash restore fails
+                    sync_result["stash_restore_failed"] = True
 
             return {
                 "success": sync_result.get("success", False),
                 "message": sync_result.get("message", "Sync completed"),
                 "details": sync_result,
                 "stashed_changes": stash_ref is not None,
+                "recovery_attempted": sync_result.get("recovery_attempted", False),
+                "retry_count": sync_result.get("retry_count", 0),
             }
 
         except Exception as e:
+            logger.error(f"Unexpected error during sync for {repo_name}: {e}")
             return {
                 "success": False,
                 "message": f"Error during sync: {str(e)}",
                 "error": str(e),
+                "recovery_attempted": False,
             }
+
+    def _sync_with_retry(
+        self, repo_path: str, repo_name: str, max_retries: int = 3
+    ) -> dict[str, Any]:
+        """Sync repository with retry mechanism for network operations.
+
+        Args:
+            repo_path: Path to the repository
+            repo_name: Name of the repository
+            max_retries: Maximum number of retry attempts
+
+        Returns:
+            Dictionary with sync result information
+        """
+        logger = get_logger()
+
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(
+                    f"Sync attempt {attempt + 1}/{max_retries + 1} for {repo_name}"
+                )
+
+                # Perform the sync operation
+                sync_result = self.sync_repository_with_upstream(repo_path)
+
+                if sync_result["success"]:
+                    logger.info(
+                        f"Sync successful for {repo_name} on attempt {attempt + 1}"
+                    )
+                    sync_result["retry_count"] = attempt
+                    sync_result["recovery_attempted"] = attempt > 0
+                    return sync_result
+
+                # If sync failed, check if it's a recoverable error
+                error = sync_result.get("error", "")
+                if self._is_recoverable_error(error):
+                    if attempt < max_retries:
+                        logger.warning(f"Recoverable error for {repo_name}: {error}")
+                        logger.info(f"Retrying sync for {repo_name} in 2 seconds...")
+                        time.sleep(2)  # Brief delay before retry
+                        continue
+                    else:
+                        logger.error(f"Max retries reached for {repo_name}: {error}")
+                        sync_result["retry_count"] = attempt
+                        sync_result["recovery_attempted"] = True
+                        return sync_result
+                else:
+                    # Non-recoverable error, don't retry
+                    logger.error(f"Non-recoverable error for {repo_name}: {error}")
+                    sync_result["retry_count"] = attempt
+                    sync_result["recovery_attempted"] = False
+                    return sync_result
+
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"Exception during sync for {repo_name}: {e}")
+                    logger.info(f"Retrying sync for {repo_name} in 2 seconds...")
+                    time.sleep(2)
+                    continue
+                else:
+                    logger.error(
+                        f"Max retries reached for {repo_name} due to exception: {e}"
+                    )
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "retry_count": attempt,
+                        "recovery_attempted": True,
+                    }
+
+        # This should never be reached, but just in case
+        return {
+            "success": False,
+            "error": "Max retries exceeded",
+            "retry_count": max_retries,
+            "recovery_attempted": True,
+        }
+
+    def _is_recoverable_error(self, error: str) -> bool:
+        """Check if an error is recoverable and should trigger a retry.
+
+        Args:
+            error: Error message to check
+
+        Returns:
+            True if the error is recoverable, False otherwise
+        """
+        recoverable_patterns = [
+            "network is unreachable",
+            "connection refused",
+            "timeout",
+            "temporary failure",
+            "rate limit",
+            "too many requests",
+            "service unavailable",
+            "bad gateway",
+            "gateway timeout",
+            "internal server error",
+        ]
+
+        error_lower = error.lower()
+        return any(pattern in error_lower for pattern in recoverable_patterns)
 
     def _fetch_single_repository(
         self, repo_path: str, repo_config: dict[str, Any]
