@@ -17,6 +17,14 @@ repos:
       - id: black
         language_version: python3
 
+  # MyPy for type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-PyYAML]
+        args: [--ignore-missing-imports, --disable-error-code=misc]
+
   # Conventional commit message validation
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.13.0

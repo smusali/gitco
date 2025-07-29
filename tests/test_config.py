@@ -19,33 +19,40 @@ from gitco.config import (
 
 @pytest.fixture
 def temp_config_file() -> Generator[str, None, None]:
-    """Create a temporary configuration file path."""
-    with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as f:
-        temp_path = f.name
-        f.close()
-        os.unlink(temp_path)  # Remove the file immediately
-        yield temp_path
+    """Create a temporary configuration file."""
+    # Create a unique temporary file name
+    temp_file = tempfile.mktemp(suffix=".yml")
+
+    # Ensure the file doesn't exist initially
+    if os.path.exists(temp_file):
+        os.unlink(temp_file)
+
+    yield temp_file
+
+    # Cleanup
+    if os.path.exists(temp_file):
+        os.unlink(temp_file)
 
 
 @pytest.fixture
 def sample_config_data() -> dict[str, Any]:
-    """Sample configuration data."""
+    """Create sample configuration data."""
     return {
         "repositories": [
             {
-                "name": "django",
-                "fork": "username/django",
-                "upstream": "django/django",
-                "local_path": "~/code/django",
-                "skills": ["python", "web", "orm"],
+                "name": "test-repo",
+                "fork": "user/fork",
+                "upstream": "upstream/repo",
+                "local_path": "/path/to/repo",
+                "skills": ["python"],
             }
         ],
         "settings": {
             "llm_provider": "openai",
-            "api_key_env": "AETHERIUM_API_KEY",
-            "default_path": "~/code",
+            "api_key_env": "TEST_API_KEY",
+            "default_path": "/path/to/code",
             "analysis_enabled": True,
-            "max_repos_per_batch": 10,
+            "max_repos_per_batch": 5,
         },
     }
 

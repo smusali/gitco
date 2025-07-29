@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Ollama local LLM integration for intelligent change analysis
+- OllamaAnalyzer class for local LLM integration with Ollama
+- Support for Ollama server configuration (host, model, timeout)
+- Default Ollama configuration (localhost:11434, llama2 model)
+- Ollama-specific settings in configuration (ollama_host, ollama_model)
+- Integration of Ollama provider into ChangeAnalyzer
+- Comprehensive testing for Ollama integration
+- Support for custom Ollama models and server endpoints
+- Local LLM analysis without external API dependencies
 - Anthropic Claude API integration for intelligent change analysis
 - AnthropicAnalyzer class for Claude API integration
 - Support for provider-specific API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY)

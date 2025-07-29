@@ -43,6 +43,8 @@ class Settings:
     git_timeout: int = 300
     rate_limit_delay: float = 1.0
     log_level: str = "INFO"
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "llama2"
 
 
 @dataclass
@@ -232,11 +234,12 @@ class ConfigManager:
         if config.settings.llm_provider not in [
             "openai",
             "anthropic",
+            "ollama",
             "local",
             "custom",
         ]:
             errors.append(
-                "Invalid LLM provider. Must be one of: openai, anthropic, local, custom"
+                "Invalid LLM provider. Must be one of: openai, anthropic, ollama, local, custom"
             )
             log_validation_result(
                 "settings llm_provider",
@@ -361,6 +364,8 @@ class ConfigManager:
                 git_timeout=settings_data.get("git_timeout", 300),
                 rate_limit_delay=settings_data.get("rate_limit_delay", 1.0),
                 log_level=settings_data.get("log_level", "INFO"),
+                ollama_host=settings_data.get("ollama_host", "http://localhost:11434"),
+                ollama_model=settings_data.get("ollama_model", "llama2"),
             )
 
         return config
@@ -385,6 +390,8 @@ class ConfigManager:
                 "git_timeout": config.settings.git_timeout,
                 "rate_limit_delay": config.settings.rate_limit_delay,
                 "log_level": config.settings.log_level,
+                "ollama_host": config.settings.ollama_host,
+                "ollama_model": config.settings.ollama_model,
             },
         }
 
@@ -448,5 +455,7 @@ def create_sample_config() -> dict[str, Any]:
             "git_timeout": 300,
             "rate_limit_delay": 1.0,
             "log_level": "INFO",
+            "ollama_host": "http://localhost:11434",
+            "ollama_model": "llama2",
         },
     }

@@ -103,17 +103,19 @@ repositories:
     skills: [python, api, async]
 
 settings:
-  llm_provider: openai  # or anthropic, local
+  llm_provider: openai  # or anthropic, ollama, local
   api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
+  ollama_host: http://localhost:11434  # for ollama provider
+  ollama_model: llama2  # for ollama provider
 ```
 
 ### 3. Set Up LLM API Key
 ```bash
 export AETHERIUM_API_KEY="your-api-key-here"
-export AETHERIUM_LLM_PROVIDER="openai"  # or anthropic
+export AETHERIUM_LLM_PROVIDER="openai"  # or anthropic, ollama
 ```
 
 ### 4. Sync Your Repositories
@@ -181,7 +183,12 @@ gitco upstream fetch --repo ~/code/django
 
 ### AI Analysis
 
-GitCo provides intelligent analysis of repository changes using OpenAI's API:
+GitCo provides intelligent analysis of repository changes using multiple LLM providers:
+
+**Supported Providers:**
+- **OpenAI**: GPT-3.5/GPT-4 models (requires API key)
+- **Anthropic**: Claude models (requires API key)
+- **Ollama**: Local LLM models (requires Ollama server)
 
 ```bash
 # Analyze specific repository
@@ -379,11 +386,13 @@ repositories:
     skills: [python, api, async]
 
 settings:
-  llm_provider: openai  # or anthropic, local
+  llm_provider: openai  # or anthropic, ollama, local
   api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
+  ollama_host: http://localhost:11434  # for ollama provider
+  ollama_model: llama2  # for ollama provider
 ```
 
 ### LLM Configuration

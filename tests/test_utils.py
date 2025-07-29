@@ -36,12 +36,15 @@ from gitco.utils import (
 
 @pytest.fixture
 def temp_log_file() -> Generator[str, None, None]:
-    """Create a temporary log file path."""
-    with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as f:
-        temp_path = f.name
-        f.close()
-        os.unlink(temp_path)  # Remove the file immediately
-        yield temp_path
+    """Create a temporary log file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+        temp_file = f.name
+
+    yield temp_file
+
+    # Cleanup
+    if os.path.exists(temp_file):
+        os.unlink(temp_file)
 
 
 def test_gitco_error() -> None:

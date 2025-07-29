@@ -8,7 +8,7 @@ from gitco.cli import main
 
 @pytest.fixture
 def runner() -> CliRunner:
-    """Create a CLI runner for testing."""
+    """Create a Click test runner."""
     return CliRunner()
 
 

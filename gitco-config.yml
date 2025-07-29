@@ -25,4 +25,6 @@ settings:
   llm_provider: openai
   log_level: INFO
   max_repos_per_batch: 10
+  ollama_host: http://localhost:11434
+  ollama_model: llama2
   rate_limit_delay: 1.0

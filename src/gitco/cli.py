@@ -818,7 +818,7 @@ def config_status(ctx: click.Context) -> None:
 @main.group()
 @click.pass_context
 def upstream(ctx: click.Context) -> None:
-    """Manage upstream remotes for repositories."""
+    """Upstream remote management commands."""
     pass
 
 

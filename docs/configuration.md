@@ -41,22 +41,26 @@ repositories:
 
 ```yaml
 settings:
-  llm_provider: openai  # or anthropic, local
+  llm_provider: openai  # or anthropic, ollama, local
   api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
+  ollama_host: http://localhost:11434  # for ollama provider
+  ollama_model: llama2  # for ollama provider
 ```
 
 ### Settings Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, local) |
+| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, ollama, local) |
 | `api_key_env` | string | `AETHERIUM_API_KEY` | Environment variable for API key |
 | `default_path` | string | `~/code` | Default path for repositories |
 | `analysis_enabled` | boolean | `true` | Enable AI analysis features |
 | `max_repos_per_batch` | integer | `10` | Maximum repositories to process in batch |
+| `ollama_host` | string | `http://localhost:11434` | Ollama server host URL |
+| `ollama_model` | string | `llama2` | Ollama model name |
 
 ## Advanced Configuration
 
@@ -95,11 +99,15 @@ GitCo supports environment variables for sensitive configuration:
 export AETHERIUM_API_KEY="your-api-key"
 
 # Optional: Override provider
-export AETHERIUM_LLM_PROVIDER="anthropic"
+export AETHERIUM_LLM_PROVIDER="anthropic"  # or ollama
 
 # Optional: Provider-specific API keys (takes precedence)
 export OPENAI_API_KEY="your-openai-api-key"
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Optional: Ollama configuration
+export OLLAMA_HOST="http://localhost:11434"
+export OLLAMA_MODEL="llama2"
 
 # Optional: Custom endpoint
 export AETHERIUM_CUSTOM_ENDPOINT="https://your-endpoint.com"
@@ -109,6 +117,8 @@ export AETHERIUM_CUSTOM_ENDPOINT="https://your-endpoint.com"
 1. Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 2. Unified key (`AETHERIUM_API_KEY`)
 3. Configuration file `api_key_env` setting
+
+**Note:** For Ollama provider, no API key is required. The Ollama server should be running locally or accessible via the configured host.
 
 ## Configuration Examples
 
@@ -157,6 +167,38 @@ settings:
   sync_timeout: 300
   log_level: INFO
 ```
+
+### Ollama Configuration
+
+For local LLM analysis using Ollama:
+
+```yaml
+repositories:
+  - name: django
+    fork: username/django
+    upstream: django/django
+    local_path: ~/code/django
+    skills: [python, web, orm]
+
+  - name: fastapi
+    fork: username/fastapi
+    upstream: tiangolo/fastapi
+    local_path: ~/code/fastapi
+    skills: [python, api, async]
+
+settings:
+  llm_provider: ollama
+  ollama_host: http://localhost:11434
+  ollama_model: llama2
+  default_path: ~/code
+  analysis_enabled: true
+  max_repos_per_batch: 10
+```
+
+**Prerequisites:**
+1. Install Ollama: https://ollama.ai/
+2. Pull the desired model: `ollama pull llama2`
+3. Start Ollama server: `ollama serve`
 
 ## Configuration Validation
 

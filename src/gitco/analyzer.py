@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import anthropic
+import ollama
 import openai
 from rich.panel import Panel
 
@@ -563,6 +564,267 @@ Be concise but thorough. Focus on actionable insights that help developers make 
         return data
 
 
+class OllamaAnalyzer:
+    """Ollama local LLM integration for change analysis."""
+
+    def __init__(
+        self,
+        model: str = "llama2",
+        host: str = "http://localhost:11434",
+        timeout: int = 120,
+    ):
+        """Initialize Ollama analyzer.
+
+        Args:
+            model: Ollama model name to use for analysis.
+            host: Ollama server host URL.
+            timeout: Request timeout in seconds.
+        """
+        self.model = model
+        self.host = host
+        self.timeout = timeout
+        self.client = ollama.Client(host=host)
+        self.logger = get_logger()
+
+    def analyze_changes(self, request: AnalysisRequest) -> ChangeAnalysis:
+        """Analyze repository changes using Ollama.
+
+        Args:
+            request: Analysis request containing repository and change data.
+
+        Returns:
+            Analysis result with categorized changes and recommendations.
+
+        Raises:
+            Exception: If analysis fails.
+        """
+        log_operation_start(
+            "Ollama change analysis",
+            repo=request.repository.name,
+            model=self.model,
+        )
+
+        try:
+            # Prepare the analysis prompt
+            prompt = self._build_analysis_prompt(request)
+
+            # Call Ollama API
+            response = self.client.chat(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self._get_system_prompt(),
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+                options={
+                    "temperature": 0.3,
+                    "num_predict": 2000,
+                },
+            )
+
+            # Parse the response
+            response_text = response.get("message", {}).get("content", "")
+            analysis = self._parse_analysis_response(response_text)
+
+            log_operation_success(
+                "Ollama change analysis",
+                repo=request.repository.name,
+                confidence=analysis.confidence,
+            )
+
+            return analysis
+
+        except Exception as e:
+            log_operation_failure(
+                "Ollama change analysis",
+                e,
+                repo=request.repository.name,
+            )
+            raise
+
+    def _build_analysis_prompt(self, request: AnalysisRequest) -> str:
+        """Build the analysis prompt for Ollama.
+
+        Args:
+            request: Analysis request.
+
+        Returns:
+            Formatted prompt string.
+        """
+        repo = request.repository
+        diff_content = request.diff_content
+        commit_messages = request.commit_messages
+
+        # Build commit summary
+        commit_summary = "\n".join([f"- {msg}" for msg in commit_messages])
+
+        prompt = f"""
+Analyze the following changes for repository: {repo.name}
+Repository: {repo.fork} -> {repo.upstream}
+Skills: {', '.join(repo.skills)}
+
+Changes Summary:
+{commit_summary}
+
+Diff Content:
+{diff_content}
+
+Please provide a comprehensive analysis of these changes, including:
+1. Summary of changes
+2. Breaking changes (if any)
+3. New features added
+4. Bug fixes
+5. Security updates
+6. Deprecations
+7. Recommendations for contributors
+
+Format your response as JSON with the following structure:
+{{
+    "summary": "Brief summary of changes",
+    "breaking_changes": ["list", "of", "breaking", "changes"],
+    "new_features": ["list", "of", "new", "features"],
+    "bug_fixes": ["list", "of", "bug", "fixes"],
+    "security_updates": ["list", "of", "security", "updates"],
+    "deprecations": ["list", "of", "deprecations"],
+    "recommendations": ["list", "of", "recommendations"],
+    "confidence": 0.85
+}}
+"""
+
+        if request.custom_prompt:
+            prompt += f"\nAdditional Context: {request.custom_prompt}"
+
+        return prompt
+
+    def _get_system_prompt(self) -> str:
+        """Get the system prompt for Ollama.
+
+        Returns:
+            System prompt string.
+        """
+        return """You are an expert software developer and open source contributor.
+Your task is to analyze code changes and provide insights that help developers understand:
+- What changed and why
+- Potential impact on existing code
+- Opportunities for contribution
+- Security and stability implications
+
+Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project."""
+
+    def _parse_analysis_response(self, response: str) -> ChangeAnalysis:
+        """Parse Ollama response into structured analysis.
+
+        Args:
+            response: Raw response from Ollama.
+
+        Returns:
+            Structured analysis result.
+        """
+        try:
+            # Try to extract JSON from response
+            import json
+            import re
+
+            # Find JSON in the response
+            json_match = re.search(r"\{.*\}", response, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+            else:
+                # Fallback to manual parsing
+                data = self._parse_text_response(response)
+
+            return ChangeAnalysis(
+                summary=data.get("summary", "Analysis completed"),
+                breaking_changes=data.get("breaking_changes", []),
+                new_features=data.get("new_features", []),
+                bug_fixes=data.get("bug_fixes", []),
+                security_updates=data.get("security_updates", []),
+                deprecations=data.get("deprecations", []),
+                recommendations=data.get("recommendations", []),
+                confidence=data.get("confidence", 0.5),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to parse Ollama response: {e}")
+            # Return a basic analysis
+            return ChangeAnalysis(
+                summary="Analysis completed (parsing failed)",
+                breaking_changes=[],
+                new_features=[],
+                bug_fixes=[],
+                security_updates=[],
+                deprecations=[],
+                recommendations=["Review changes manually"],
+                confidence=0.3,
+            )
+
+    def _parse_text_response(self, response: str) -> dict[str, Any]:
+        """Parse text response when JSON parsing fails.
+
+        Args:
+            response: Text response from Ollama.
+
+        Returns:
+            Parsed data dictionary.
+        """
+        # Simple text parsing as fallback
+        lines = response.split("\n")
+        data: dict[str, Any] = {
+            "summary": "Analysis completed",
+            "breaking_changes": [],
+            "new_features": [],
+            "bug_fixes": [],
+            "security_updates": [],
+            "deprecations": [],
+            "recommendations": [],
+            "confidence": 0.5,
+        }
+
+        current_section = None
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check for summary line
+            if "summary" in line.lower() and ":" in line:
+                summary_part = line.split(":", 1)
+                if len(summary_part) > 1:
+                    data["summary"] = summary_part[1].strip()
+                current_section = "summary"
+            elif (
+                "breaking" in line.lower() and "change" in line.lower() and ":" in line
+            ):
+                current_section = "breaking_changes"
+            elif "new" in line.lower() and "feature" in line.lower() and ":" in line:
+                current_section = "new_features"
+            elif "bug" in line.lower() and "fix" in line.lower() and ":" in line:
+                current_section = "bug_fixes"
+            elif (
+                "security" in line.lower() and "update" in line.lower() and ":" in line
+            ):
+                current_section = "security_updates"
+            elif "deprecat" in line.lower() and ":" in line:
+                current_section = "deprecations"
+            elif "recommend" in line.lower() and ":" in line:
+                current_section = "recommendations"
+            elif line.startswith("-") or line.startswith("*"):
+                if current_section and current_section != "summary":
+                    item = line[1:].strip()
+                    if item:  # Only add non-empty items
+                        if current_section in data and isinstance(
+                            data[current_section], list
+                        ):
+                            data[current_section].append(item)
+
+        return data
+
+
 class ChangeAnalyzer:
     """Main change analyzer that coordinates analysis operations."""
 
@@ -574,11 +836,13 @@ class ChangeAnalyzer:
         """
         self.config = config
         self.logger = get_logger()
-        self.analyzers: dict[str, Union[OpenAIAnalyzer, AnthropicAnalyzer]] = {}
+        self.analyzers: dict[
+            str, Union[OpenAIAnalyzer, AnthropicAnalyzer, OllamaAnalyzer]
+        ] = {}
 
     def get_analyzer(
         self, provider: str = "openai"
-    ) -> Union[OpenAIAnalyzer, AnthropicAnalyzer]:
+    ) -> Union[OpenAIAnalyzer, AnthropicAnalyzer, OllamaAnalyzer]:
         """Get analyzer for specified provider.
 
         Args:
@@ -597,6 +861,15 @@ class ChangeAnalyzer:
             elif provider == "anthropic":
                 api_key = os.getenv(self.config.settings.api_key_env)
                 self.analyzers[provider] = AnthropicAnalyzer(api_key=api_key)
+            elif provider == "ollama":
+                # Get Ollama configuration from settings
+                ollama_host = getattr(
+                    self.config.settings, "ollama_host", "http://localhost:11434"
+                )
+                ollama_model = getattr(self.config.settings, "ollama_model", "llama2")
+                self.analyzers[provider] = OllamaAnalyzer(
+                    model=ollama_model, host=ollama_host
+                )
             else:
                 raise ValueError(f"Unsupported LLM provider: {provider}")
 

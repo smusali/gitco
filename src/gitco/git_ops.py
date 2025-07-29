@@ -1119,8 +1119,8 @@ class GitRepository:
                 text=True,
             )
 
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout
+            if result.returncode == 0 and result.stdout and result.stdout.strip():
+                return str(result.stdout)
             else:
                 # Try to get recent commits diff
                 result = self._run_git_command(
@@ -1128,7 +1128,11 @@ class GitRepository:
                     capture_output=True,
                     text=True,
                 )
-                return result.stdout if result.returncode == 0 else ""
+                return (
+                    str(result.stdout)
+                    if result.returncode == 0 and result.stdout
+                    else ""
+                )
 
         except Exception as e:
             self.logger.warning(f"Failed to get recent changes: {e}")
