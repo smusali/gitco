@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced security update and deprecation highlighting
+- SecurityDeprecationDetector class for advanced security and deprecation detection
+- SecurityUpdate dataclass for structured security update information
+- Deprecation dataclass for structured deprecation information
+- CVE reference detection and highlighting in security updates
+- Security severity classification (critical, high, medium, low)
+- Deprecation severity classification (high, medium, low)
+- Security pattern detection for vulnerability fixes, authentication, authorization, encryption
+- Deprecation pattern detection for API, feature, dependency, and configuration deprecations
+- Enhanced system prompts with detailed security and deprecation guidance
+- Color-coded security update display with severity indicators
+- Color-coded deprecation display with severity indicators
+- Detailed security update reporting with CVE IDs and remediation guidance
+- Detailed deprecation reporting with replacement suggestions and migration paths
+- Integration of security and deprecation detection into all LLM analyzers
+- Enhanced analysis prompts with security and deprecation context
+- Support for multiple security update types and patterns
+- Support for multiple deprecation types and patterns
+- Comprehensive testing for security and deprecation detection functionality
 - Enhanced analyze command with LLM provider selection
 - New --provider option for analyze command to override default LLM provider
 - Support for specifying openai, anthropic, or ollama providers in analyze command

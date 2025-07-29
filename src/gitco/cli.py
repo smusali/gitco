@@ -877,9 +877,7 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -927,9 +925,7 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -978,9 +974,7 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1029,9 +1023,7 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1091,9 +1083,7 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1169,9 +1159,7 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)

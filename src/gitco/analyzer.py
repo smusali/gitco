@@ -22,6 +22,41 @@ from .utils import (
 
 
 @dataclass
+class SecurityUpdate:
+    """Represents a detected security update."""
+
+    type: str  # "vulnerability_fix", "authentication", "authorization", "encryption", "dependency"
+    description: str
+    severity: str  # "critical", "high", "medium", "low"
+    cve_id: Optional[str] = None
+    affected_components: Optional[list[str]] = None
+    remediation_guidance: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Initialize default values."""
+        if self.affected_components is None:
+            self.affected_components = []
+
+
+@dataclass
+class Deprecation:
+    """Represents a detected deprecation."""
+
+    type: str  # "api_deprecation", "feature_deprecation", "dependency_deprecation", "config_deprecation"
+    description: str
+    severity: str  # "high", "medium", "low"
+    replacement_suggestion: Optional[str] = None
+    removal_date: Optional[str] = None
+    affected_components: Optional[list[str]] = None
+    migration_path: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Initialize default values."""
+        if self.affected_components is None:
+            self.affected_components = []
+
+
+@dataclass
 class BreakingChange:
     """Represents a detected breaking change."""
 
@@ -45,6 +80,8 @@ class ChangeAnalysis:
     recommendations: list[str]
     confidence: float
     detailed_breaking_changes: Optional[list[BreakingChange]] = None
+    detailed_security_updates: Optional[list[SecurityUpdate]] = None
+    detailed_deprecations: Optional[list[Deprecation]] = None
 
 
 @dataclass
@@ -56,6 +93,378 @@ class AnalysisRequest:
     diff_content: str
     commit_messages: list[str]
     custom_prompt: Optional[str] = None
+
+
+class SecurityDeprecationDetector:
+    """Enhanced security update and deprecation detection."""
+
+    def __init__(self) -> None:
+        """Initialize the security and deprecation detector."""
+        self.logger = get_logger()
+
+        # Security update patterns
+        self.security_patterns = {
+            "vulnerability_fix": [
+                r"CVE-\d{4}-\d+",
+                r"vulnerability",
+                r"security\s+fix",
+                r"security\s+patch",
+                r"security\s+update",
+                r"buffer\s+overflow",
+                r"sql\s+injection",
+                r"xss",
+                r"cross-site\s+scripting",
+                r"authentication\s+bypass",
+                r"privilege\s+escalation",
+                r"remote\s+code\s+execution",
+                r"rce",
+                r"denial\s+of\s+service",
+                r"dos",
+                r"ddos",
+            ],
+            "authentication": [
+                r"auth",
+                r"authentication",
+                r"login",
+                r"password",
+                r"token",
+                r"jwt",
+                r"oauth",
+                r"session",
+                r"csrf",
+                r"csrf\s+token",
+            ],
+            "authorization": [
+                r"authorization",
+                r"permission",
+                r"role",
+                r"access\s+control",
+                r"rbac",
+                r"acl",
+                r"privilege",
+                r"admin",
+                r"user\s+role",
+            ],
+            "encryption": [
+                r"encrypt",
+                r"decrypt",
+                r"hash",
+                r"sha",
+                r"md5",
+                r"bcrypt",
+                r"pbkdf2",
+                r"aes",
+                r"rsa",
+                r"ssl",
+                r"tls",
+                r"certificate",
+                r"private\s+key",
+                r"public\s+key",
+            ],
+            "dependency": [
+                r"dependency\s+update",
+                r"package\s+update",
+                r"npm\s+audit",
+                r"pip\s+audit",
+                r"cargo\s+audit",
+                r"go\s+mod\s+tidy",
+                r"security\s+dependency",
+            ],
+        }
+
+        # Deprecation patterns
+        self.deprecation_patterns = {
+            "api_deprecation": [
+                r"@deprecated",
+                r"DeprecationWarning",
+                r"deprecated",
+                r"deprecation",
+                r"obsolete",
+                r"legacy",
+                r"old\s+api",
+                r"removed",
+                r"will\s+be\s+removed",
+                r"sunset",
+            ],
+            "feature_deprecation": [
+                r"feature\s+deprecated",
+                r"functionality\s+deprecated",
+                r"option\s+deprecated",
+                r"setting\s+deprecated",
+                r"parameter\s+deprecated",
+            ],
+            "dependency_deprecation": [
+                r"dependency\s+deprecated",
+                r"package\s+deprecated",
+                r"library\s+deprecated",
+                r"version\s+deprecated",
+            ],
+            "config_deprecation": [
+                r"config\s+deprecated",
+                r"setting\s+deprecated",
+                r"option\s+deprecated",
+                r"environment\s+variable\s+deprecated",
+            ],
+        }
+
+        # Severity indicators
+        self.critical_severity_patterns = [
+            r"critical",
+            r"severe",
+            r"high\s+priority",
+            r"urgent",
+            r"immediate",
+        ]
+
+        self.high_severity_patterns = [
+            r"high",
+            r"important",
+            r"significant",
+            r"major",
+        ]
+
+        self.medium_severity_patterns = [
+            r"medium",
+            r"moderate",
+            r"standard",
+        ]
+
+    def detect_security_updates(
+        self, diff_content: str, commit_messages: list[str]
+    ) -> list[SecurityUpdate]:
+        """Detect security updates in diff content and commit messages.
+
+        Args:
+            diff_content: Git diff content.
+            commit_messages: List of commit messages.
+
+        Returns:
+            List of detected security updates.
+        """
+        security_updates = []
+
+        # Analyze commit messages for security indicators
+        for message in commit_messages:
+            security_updates.extend(self._analyze_commit_for_security(message))
+
+        # Analyze diff content for security changes
+        security_updates.extend(self._analyze_diff_for_security(diff_content))
+
+        return security_updates
+
+    def detect_deprecations(
+        self, diff_content: str, commit_messages: list[str]
+    ) -> list[Deprecation]:
+        """Detect deprecations in diff content and commit messages.
+
+        Args:
+            diff_content: Git diff content.
+            commit_messages: List of commit messages.
+
+        Returns:
+            List of detected deprecations.
+        """
+        deprecations = []
+
+        # Analyze commit messages for deprecation indicators
+        for message in commit_messages:
+            deprecations.extend(self._analyze_commit_for_deprecation(message))
+
+        # Analyze diff content for deprecation changes
+        deprecations.extend(self._analyze_diff_for_deprecation(diff_content))
+
+        return deprecations
+
+    def _analyze_commit_for_security(self, message: str) -> list[SecurityUpdate]:
+        """Analyze a commit message for security indicators.
+
+        Args:
+            message: Commit message to analyze.
+
+        Returns:
+            List of detected security updates.
+        """
+        security_updates = []
+        message_lower = message.lower()
+
+        # Check for CVE references
+        cve_matches = re.findall(r"CVE-\d{4}-\d+", message, re.IGNORECASE)
+        for cve_id in cve_matches:
+            security_updates.append(
+                SecurityUpdate(
+                    type="vulnerability_fix",
+                    description=f"Security vulnerability fix: {cve_id}",
+                    severity="critical",
+                    cve_id=cve_id,
+                    affected_components=["unknown"],
+                )
+            )
+
+        # Check for security patterns
+        for security_type, patterns in self.security_patterns.items():
+            for pattern in patterns:
+                if re.search(pattern, message_lower, re.IGNORECASE):
+                    severity = self._determine_security_severity(message_lower)
+                    security_updates.append(
+                        SecurityUpdate(
+                            type=security_type,
+                            description=f"Security update detected: {message}",
+                            severity=severity,
+                            affected_components=["unknown"],
+                        )
+                    )
+                    break
+
+        return security_updates
+
+    def _analyze_commit_for_deprecation(self, message: str) -> list[Deprecation]:
+        """Analyze a commit message for deprecation indicators.
+
+        Args:
+            message: Commit message to analyze.
+
+        Returns:
+            List of detected deprecations.
+        """
+        deprecations = []
+        message_lower = message.lower()
+
+        # Check for deprecation patterns
+        for deprecation_type, patterns in self.deprecation_patterns.items():
+            for pattern in patterns:
+                if re.search(pattern, message_lower, re.IGNORECASE):
+                    severity = self._determine_deprecation_severity(message_lower)
+                    deprecations.append(
+                        Deprecation(
+                            type=deprecation_type,
+                            description=f"Deprecation detected: {message}",
+                            severity=severity,
+                            affected_components=["unknown"],
+                        )
+                    )
+                    break
+
+        return deprecations
+
+    def _analyze_diff_for_security(self, diff_content: str) -> list[SecurityUpdate]:
+        """Analyze diff content for security changes.
+
+        Args:
+            diff_content: Git diff content.
+
+        Returns:
+            List of detected security updates.
+        """
+        security_updates = []
+        diff_lower = diff_content.lower()
+
+        # Check for security-related file changes
+        security_files = [
+            "security",
+            "auth",
+            "authentication",
+            "authorization",
+            "encryption",
+            "password",
+            "token",
+            "certificate",
+            "key",
+            "ssl",
+            "tls",
+        ]
+
+        for security_file in security_files:
+            if security_file in diff_lower:
+                security_updates.append(
+                    SecurityUpdate(
+                        type="security_file_change",
+                        description=f"Security-related file modified: {security_file}",
+                        severity="medium",
+                        affected_components=["security"],
+                    )
+                )
+
+        # Check for specific security patterns in code
+        for security_type, patterns in self.security_patterns.items():
+            for pattern in patterns:
+                if re.search(pattern, diff_lower, re.IGNORECASE):
+                    severity = self._determine_security_severity(diff_lower)
+                    security_updates.append(
+                        SecurityUpdate(
+                            type=security_type,
+                            description=f"Security code change detected: {pattern}",
+                            severity=severity,
+                            affected_components=["code"],
+                        )
+                    )
+
+        return security_updates
+
+    def _analyze_diff_for_deprecation(self, diff_content: str) -> list[Deprecation]:
+        """Analyze diff content for deprecation changes.
+
+        Args:
+            diff_content: Git diff content.
+
+        Returns:
+            List of detected deprecations.
+        """
+        deprecations = []
+        diff_lower = diff_content.lower()
+
+        # Check for deprecation patterns in code
+        for deprecation_type, patterns in self.deprecation_patterns.items():
+            for pattern in patterns:
+                if re.search(pattern, diff_lower, re.IGNORECASE):
+                    severity = self._determine_deprecation_severity(diff_lower)
+                    deprecations.append(
+                        Deprecation(
+                            type=deprecation_type,
+                            description=f"Deprecation code change detected: {pattern}",
+                            severity=severity,
+                            affected_components=["code"],
+                        )
+                    )
+
+        return deprecations
+
+    def _determine_security_severity(self, text: str) -> str:
+        """Determine the severity of a security update.
+
+        Args:
+            text: Text to analyze.
+
+        Returns:
+            Severity level.
+        """
+        text_lower = text.lower()
+
+        if any(pattern in text_lower for pattern in self.critical_severity_patterns):
+            return "critical"
+        elif any(pattern in text_lower for pattern in self.high_severity_patterns):
+            return "high"
+        elif any(pattern in text_lower for pattern in self.medium_severity_patterns):
+            return "medium"
+        else:
+            return "low"
+
+    def _determine_deprecation_severity(self, text: str) -> str:
+        """Determine the severity of a deprecation.
+
+        Args:
+            text: Text to analyze.
+
+        Returns:
+            Severity level.
+        """
+        text_lower = text.lower()
+
+        if "removed" in text_lower or "breaking" in text_lower:
+            return "high"
+        elif "deprecated" in text_lower or "obsolete" in text_lower:
+            return "medium"
+        else:
+            return "low"
 
 
 class BreakingChangeDetector:
@@ -177,68 +586,66 @@ class BreakingChangeDetector:
                     description=f"Explicit breaking change mentioned: {message}",
                     severity="high",
                     affected_components=["unknown"],
-                    migration_guidance="Review commit message for specific migration steps",
                 )
             )
-            # Return early to avoid duplicate detection
-            return breaking_changes
 
-        # Check for deprecation indicators (only if no explicit breaking change)
-        if any(pattern in message_lower for pattern in self.medium_severity_patterns):
+        # Check for deprecation indicators
+        elif any(
+            pattern.lower() in message_lower
+            for pattern in self.breaking_patterns["deprecation"]
+        ):
             breaking_changes.append(
                 BreakingChange(
-                    type="deprecation_warning",
-                    description=f"Deprecation or change mentioned: {message}",
+                    type="deprecation",
+                    description=f"Deprecation mentioned: {message}",
                     severity="medium",
                     affected_components=["unknown"],
-                    migration_guidance="Review for deprecated features or changed behavior",
+                )
+            )
+
+        # Check for security-related changes
+        elif any(
+            pattern.lower() in message_lower
+            for pattern in self.breaking_patterns["security"]
+        ):
+            breaking_changes.append(
+                BreakingChange(
+                    type="security_change",
+                    description=f"Security-related change: {message}",
+                    severity="high",
+                    affected_components=["security"],
                 )
             )
 
         return breaking_changes
 
     def _analyze_diff_content(self, diff_content: str) -> list[BreakingChange]:
-        """Analyze diff content for breaking change patterns.
+        """Analyze diff content for breaking changes.
 
         Args:
-            diff_content: Git diff content to analyze.
+            diff_content: Git diff content.
 
         Returns:
             List of detected breaking changes.
         """
         breaking_changes = []
-        lines = diff_content.splitlines()
 
-        # Track file types and changes
-        file_changes: dict[str, dict[str, Any]] = {}
+        # Parse diff content to extract file changes
+        lines = diff_content.split("\n")
         current_file = None
+        file_changes: dict[str, dict] = {}
 
         for line in lines:
-            # Track current file
             if line.startswith("diff --git"):
+                # Extract filename
                 parts = line.split()
                 if len(parts) >= 3:
-                    # Extract clean filename without git diff prefixes
-                    current_file = parts[2]
-                    if current_file.startswith("a/"):
-                        current_file = current_file[2:]  # Remove "a/" prefix
-                    elif current_file.startswith("b/"):
-                        current_file = current_file[2:]  # Remove "b/" prefix
-                    file_changes[current_file] = {
-                        "additions": 0,
-                        "deletions": 0,
-                        "content": [],
-                    }
-
-            # Track additions and deletions
-            elif line.startswith("+") and not line.startswith("+++"):
-                if current_file:
-                    file_changes[current_file]["additions"] += 1
-                    file_changes[current_file]["content"].append(line[1:])
-            elif line.startswith("-") and not line.startswith("---"):
-                if current_file:
-                    file_changes[current_file]["deletions"] += 1
-                    file_changes[current_file]["content"].append(line[1:])
+                    current_file = parts[2].replace("a/", "").replace("b/", "")
+                    file_changes[current_file] = {"additions": 0, "deletions": 0}
+            elif line.startswith("+") and current_file:
+                file_changes[current_file]["additions"] += 1
+            elif line.startswith("-") and current_file:
+                file_changes[current_file]["deletions"] += 1
 
         # Analyze each file for breaking changes
         for filename, changes in file_changes.items():
@@ -249,62 +656,61 @@ class BreakingChangeDetector:
     def _analyze_file_changes(
         self, filename: str, changes: dict
     ) -> list[BreakingChange]:
-        """Analyze changes in a specific file for breaking changes.
+        """Analyze file changes for breaking changes.
 
         Args:
-            filename: Name of the file being analyzed.
+            filename: Name of the changed file.
             changes: Dictionary containing change information.
 
         Returns:
             List of detected breaking changes.
         """
         breaking_changes = []
-        content = " ".join(changes["content"])
 
         # Check for API signature changes
-        if self._has_api_signature_changes(content):
+        if self._has_api_signature_changes(filename):
             breaking_changes.append(
                 BreakingChange(
                     type="api_signature_change",
                     description=f"API signature changes detected in {filename}",
                     severity="high",
-                    affected_components=[filename],
-                    migration_guidance="Update calling code to match new API signatures",
+                    affected_components=["api"],
+                    migration_guidance="Review API usage and update method calls",
                 )
             )
 
         # Check for configuration changes
-        if self._has_configuration_changes(filename, content):
+        if self._has_configuration_changes(filename, filename):
             breaking_changes.append(
                 BreakingChange(
                     type="configuration_change",
                     description=f"Configuration changes detected in {filename}",
                     severity="medium",
-                    affected_components=[filename],
-                    migration_guidance="Update configuration files to match new format",
+                    affected_components=["configuration"],
+                    migration_guidance="Update configuration files and environment variables",
                 )
             )
 
-        # Check for database schema changes
-        if self._has_database_changes(filename, content):
+        # Check for database changes
+        if self._has_database_changes(filename, filename):
             breaking_changes.append(
                 BreakingChange(
-                    type="database_schema_change",
+                    type="database_change",
                     description=f"Database schema changes detected in {filename}",
                     severity="high",
-                    affected_components=[filename],
+                    affected_components=["database"],
                     migration_guidance="Run database migrations and update queries",
                 )
             )
 
         # Check for dependency changes
-        if self._has_dependency_changes(filename, content):
+        if self._has_dependency_changes(filename, filename):
             breaking_changes.append(
                 BreakingChange(
                     type="dependency_change",
                     description=f"Dependency changes detected in {filename}",
                     severity="medium",
-                    affected_components=[filename],
+                    affected_components=["dependencies"],
                     migration_guidance="Update dependencies and test compatibility",
                 )
             )
@@ -315,81 +721,101 @@ class BreakingChangeDetector:
         """Check if content contains API signature changes.
 
         Args:
-            content: Content to analyze.
+            content: Content to check.
 
         Returns:
             True if API signature changes are detected.
         """
-        for pattern in self.breaking_patterns["api_signature"]:
-            if re.search(pattern, content, re.MULTILINE):
-                return True
-        return False
+        return any(
+            re.search(pattern, content, re.IGNORECASE)
+            for pattern in self.breaking_patterns["api_signature"]
+        )
 
     def _has_configuration_changes(self, filename: str, content: str) -> bool:
-        """Check if file contains configuration changes.
+        """Check if content contains configuration changes.
 
         Args:
             filename: Name of the file.
-            content: Content to analyze.
+            content: Content to check.
 
         Returns:
             True if configuration changes are detected.
         """
         # Check filename patterns
-        for pattern in self.breaking_patterns["configuration"]:
-            if re.search(pattern, filename, re.IGNORECASE):
-                return True
+        config_patterns = [
+            r"\.env",
+            r"\.ini",
+            r"\.toml",
+            r"\.yaml",
+            r"\.yml",
+            r"config",
+            r"settings",
+        ]
+        if any(
+            re.search(pattern, filename, re.IGNORECASE) for pattern in config_patterns
+        ):
+            return True
 
         # Check content patterns
-        for pattern in self.breaking_patterns["configuration"]:
-            if re.search(pattern, content, re.IGNORECASE):
-                return True
-
-        return False
+        return any(
+            re.search(pattern, content, re.IGNORECASE)
+            for pattern in self.breaking_patterns["configuration"]
+        )
 
     def _has_database_changes(self, filename: str, content: str) -> bool:
-        """Check if file contains database changes.
+        """Check if content contains database changes.
 
         Args:
             filename: Name of the file.
-            content: Content to analyze.
+            content: Content to check.
 
         Returns:
             True if database changes are detected.
         """
         # Check filename patterns
-        for pattern in self.breaking_patterns["database"]:
-            if re.search(pattern, filename, re.IGNORECASE):
-                return True
+        db_patterns = [
+            r"migration",
+            r"schema",
+            r"\.sql",
+            r"database",
+        ]
+        if any(re.search(pattern, filename, re.IGNORECASE) for pattern in db_patterns):
+            return True
 
         # Check content patterns
-        for pattern in self.breaking_patterns["database"]:
-            if re.search(pattern, content, re.IGNORECASE):
-                return True
-
-        return False
+        return any(
+            re.search(pattern, content, re.IGNORECASE)
+            for pattern in self.breaking_patterns["database"]
+        )
 
     def _has_dependency_changes(self, filename: str, content: str) -> bool:
-        """Check if file contains dependency changes.
+        """Check if content contains dependency changes.
 
         Args:
             filename: Name of the file.
-            content: Content to analyze.
+            content: Content to check.
 
         Returns:
             True if dependency changes are detected.
         """
         # Check filename patterns
-        for pattern in self.breaking_patterns["dependencies"]:
-            if re.search(pattern, filename, re.IGNORECASE):
-                return True
+        dep_patterns = [
+            r"requirements\.txt",
+            r"pyproject\.toml",
+            r"setup\.py",
+            r"package\.json",
+            r"Gemfile",
+            r"go\.mod",
+            r"Cargo\.toml",
+        ]
+        if any(re.search(pattern, filename, re.IGNORECASE) for pattern in dep_patterns):
+            return True
 
         # Check content patterns
-        for pattern in self.breaking_patterns["dependencies"]:
-            if re.search(pattern, content, re.IGNORECASE):
-                return True
-
-        return False
+        return any(
+            re.search(pattern, content, re.IGNORECASE)
+            for pattern in self.breaking_patterns["dependencies"]
+        )
 
 
 class OpenAIAnalyzer:
@@ -412,6 +838,7 @@ class OpenAIAnalyzer:
         self.client = openai.OpenAI(api_key=self.api_key)
         self.logger = get_logger()
         self.breaking_detector = BreakingChangeDetector()
+        self.security_deprecation_detector = SecurityDeprecationDetector()
 
     def analyze_changes(self, request: AnalysisRequest) -> ChangeAnalysis:
         """Analyze repository changes using OpenAI.
@@ -436,9 +863,24 @@ class OpenAIAnalyzer:
             detected_breaking_changes = self.breaking_detector.detect_breaking_changes(
                 request.diff_content, request.commit_messages
             )
+            detected_security_updates = (
+                self.security_deprecation_detector.detect_security_updates(
+                    request.diff_content, request.commit_messages
+                )
+            )
+            detected_deprecations = (
+                self.security_deprecation_detector.detect_deprecations(
+                    request.diff_content, request.commit_messages
+                )
+            )
 
             # Prepare the analysis prompt
-            prompt = self._build_analysis_prompt(request, detected_breaking_changes)
+            prompt = self._build_analysis_prompt(
+                request,
+                detected_breaking_changes,
+                detected_security_updates,
+                detected_deprecations,
+            )
 
             # Call OpenAI API
             response = self.client.chat.completions.create(
@@ -465,6 +907,8 @@ class OpenAIAnalyzer:
 
             # Add detailed breaking changes to the analysis
             analysis.detailed_breaking_changes = detected_breaking_changes
+            analysis.detailed_security_updates = detected_security_updates
+            analysis.detailed_deprecations = detected_deprecations
 
             # Enhance breaking changes list with detected changes
             if detected_breaking_changes:
@@ -492,13 +936,19 @@ class OpenAIAnalyzer:
             raise
 
     def _build_analysis_prompt(
-        self, request: AnalysisRequest, detected_breaking_changes: list[BreakingChange]
+        self,
+        request: AnalysisRequest,
+        detected_breaking_changes: list[BreakingChange],
+        detected_security_updates: list[SecurityUpdate],
+        detected_deprecations: list[Deprecation],
     ) -> str:
         """Build the analysis prompt for OpenAI.
 
         Args:
             request: Analysis request.
             detected_breaking_changes: List of detected breaking changes.
+            detected_security_updates: List of detected security updates.
+            detected_deprecations: List of detected deprecations.
 
         Returns:
             Formatted prompt string.
@@ -529,6 +979,48 @@ class OpenAIAnalyzer:
                 if change.migration_guidance:
                     breaking_context += f"  Migration: {change.migration_guidance}\n"
 
+        # Build security update context
+        security_context = ""
+        if detected_security_updates:
+            security_context = "\n\nDetected Security Updates:\n"
+            for update in detected_security_updates:
+                security_context += (
+                    f"- {update.type} ({update.severity}): {update.description}\n"
+                )
+                if update.cve_id:
+                    security_context += f"  CVE: {update.cve_id}\n"
+                if update.affected_components:
+                    security_context += (
+                        f"  Affected: {', '.join(update.affected_components)}\n"
+                    )
+                if update.remediation_guidance:
+                    security_context += (
+                        f"  Remediation: {update.remediation_guidance}\n"
+                    )
+
+        # Build deprecation context
+        deprecation_context = ""
+        if detected_deprecations:
+            deprecation_context = "\n\nDetected Deprecations:\n"
+            for deprecation in detected_deprecations:
+                deprecation_context += f"- {deprecation.type} ({deprecation.severity}): {deprecation.description}\n"
+                if deprecation.replacement_suggestion:
+                    deprecation_context += (
+                        f"  Replacement: {deprecation.replacement_suggestion}\n"
+                    )
+                if deprecation.removal_date:
+                    deprecation_context += (
+                        f"  Removal Date: {deprecation.removal_date}\n"
+                    )
+                if deprecation.affected_components:
+                    deprecation_context += (
+                        f"  Affected: {', '.join(deprecation.affected_components)}\n"
+                    )
+                if deprecation.migration_path:
+                    deprecation_context += (
+                        f"  Migration Path: {deprecation.migration_path}\n"
+                    )
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -540,6 +1032,8 @@ Changes Summary:
 Diff Analysis:
 {diff_analysis}
 {breaking_context}
+{security_context}
+{deprecation_context}
 
 Diff Content:
 {diff_content}
@@ -600,23 +1094,56 @@ Format your response as JSON with the following structure:
         Returns:
             System prompt string.
         """
-        return """You are an expert software developer and open source contributor specializing in breaking change detection.
+        return """You are an expert software developer and open source contributor specializing in breaking change detection and security analysis.
 Your task is to analyze code changes and provide insights that help developers understand:
 - What changed and why
 - Potential impact on existing code
 - Breaking changes that require immediate attention
+- Security updates and vulnerability fixes
+- Deprecations and migration paths
 - Opportunities for contribution
 - Security and stability implications
 
-Be thorough in detecting breaking changes. Look for:
+Be thorough in detecting breaking changes, security updates, and deprecations. Look for:
+
+BREAKING CHANGES:
 - API signature modifications
 - Configuration file changes
 - Database schema updates
 - Dependency version changes
 - Deprecated or removed functionality
-- Security-related modifications
 
-Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project and migrating their code."""
+SECURITY UPDATES:
+- CVE references and vulnerability fixes
+- Authentication and authorization changes
+- Encryption and security algorithm updates
+- Security-related dependency updates
+- Input validation and sanitization improvements
+- Session management and token handling changes
+
+DEPRECATIONS:
+- API deprecations with replacement suggestions
+- Feature deprecations with migration paths
+- Dependency deprecations with upgrade guidance
+- Configuration deprecations with new format instructions
+- Removal dates and sunset schedules
+
+Pay special attention to:
+- Critical security vulnerabilities (CVE-YYYY-NNNN)
+- High-priority security patches
+- Authentication bypass fixes
+- Authorization improvements
+- Encryption algorithm updates
+- Input validation enhancements
+- Session security improvements
+
+For deprecations, identify:
+- What is being deprecated
+- When it will be removed
+- What to use instead
+- Migration steps required
+
+Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project, migrating their code, and addressing security concerns."""
 
     def _parse_analysis_response(self, response: str) -> ChangeAnalysis:
         """Parse OpenAI response into structured analysis.
@@ -749,6 +1276,7 @@ class AnthropicAnalyzer:
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.logger = get_logger()
         self.breaking_detector = BreakingChangeDetector()
+        self.security_deprecation_detector = SecurityDeprecationDetector()
 
     def analyze_changes(self, request: AnalysisRequest) -> ChangeAnalysis:
         """Analyze repository changes using Anthropic Claude.
@@ -773,9 +1301,24 @@ class AnthropicAnalyzer:
             detected_breaking_changes = self.breaking_detector.detect_breaking_changes(
                 request.diff_content, request.commit_messages
             )
+            detected_security_updates = (
+                self.security_deprecation_detector.detect_security_updates(
+                    request.diff_content, request.commit_messages
+                )
+            )
+            detected_deprecations = (
+                self.security_deprecation_detector.detect_deprecations(
+                    request.diff_content, request.commit_messages
+                )
+            )
 
             # Prepare the analysis prompt
-            prompt = self._build_analysis_prompt(request, detected_breaking_changes)
+            prompt = self._build_analysis_prompt(
+                request,
+                detected_breaking_changes,
+                detected_security_updates,
+                detected_deprecations,
+            )
 
             # Call Anthropic API
             response = self.client.messages.create(
@@ -805,6 +1348,8 @@ class AnthropicAnalyzer:
 
             # Add detailed breaking changes to the analysis
             analysis.detailed_breaking_changes = detected_breaking_changes
+            analysis.detailed_security_updates = detected_security_updates
+            analysis.detailed_deprecations = detected_deprecations
 
             # Enhance breaking changes list with detected changes
             if detected_breaking_changes:
@@ -832,13 +1377,19 @@ class AnthropicAnalyzer:
             raise
 
     def _build_analysis_prompt(
-        self, request: AnalysisRequest, detected_breaking_changes: list[BreakingChange]
+        self,
+        request: AnalysisRequest,
+        detected_breaking_changes: list[BreakingChange],
+        detected_security_updates: list[SecurityUpdate],
+        detected_deprecations: list[Deprecation],
     ) -> str:
         """Build the analysis prompt for Anthropic.
 
         Args:
             request: Analysis request.
             detected_breaking_changes: List of detected breaking changes.
+            detected_security_updates: List of detected security updates.
+            detected_deprecations: List of detected deprecations.
 
         Returns:
             Formatted prompt string.
@@ -869,6 +1420,48 @@ class AnthropicAnalyzer:
                 if change.migration_guidance:
                     breaking_context += f"  Migration: {change.migration_guidance}\n"
 
+        # Build security update context
+        security_context = ""
+        if detected_security_updates:
+            security_context = "\n\nDetected Security Updates:\n"
+            for update in detected_security_updates:
+                security_context += (
+                    f"- {update.type} ({update.severity}): {update.description}\n"
+                )
+                if update.cve_id:
+                    security_context += f"  CVE: {update.cve_id}\n"
+                if update.affected_components:
+                    security_context += (
+                        f"  Affected: {', '.join(update.affected_components)}\n"
+                    )
+                if update.remediation_guidance:
+                    security_context += (
+                        f"  Remediation: {update.remediation_guidance}\n"
+                    )
+
+        # Build deprecation context
+        deprecation_context = ""
+        if detected_deprecations:
+            deprecation_context = "\n\nDetected Deprecations:\n"
+            for deprecation in detected_deprecations:
+                deprecation_context += f"- {deprecation.type} ({deprecation.severity}): {deprecation.description}\n"
+                if deprecation.replacement_suggestion:
+                    deprecation_context += (
+                        f"  Replacement: {deprecation.replacement_suggestion}\n"
+                    )
+                if deprecation.removal_date:
+                    deprecation_context += (
+                        f"  Removal Date: {deprecation.removal_date}\n"
+                    )
+                if deprecation.affected_components:
+                    deprecation_context += (
+                        f"  Affected: {', '.join(deprecation.affected_components)}\n"
+                    )
+                if deprecation.migration_path:
+                    deprecation_context += (
+                        f"  Migration Path: {deprecation.migration_path}\n"
+                    )
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -880,6 +1473,8 @@ Changes Summary:
 Diff Analysis:
 {diff_analysis}
 {breaking_context}
+{security_context}
+{deprecation_context}
 
 Diff Content:
 {diff_content}
@@ -940,23 +1535,56 @@ Format your response as JSON with the following structure:
         Returns:
             System prompt string.
         """
-        return """You are an expert software developer and open source contributor specializing in breaking change detection.
+        return """You are an expert software developer and open source contributor specializing in breaking change detection and security analysis.
 Your task is to analyze code changes and provide insights that help developers understand:
 - What changed and why
 - Potential impact on existing code
 - Breaking changes that require immediate attention
+- Security updates and vulnerability fixes
+- Deprecations and migration paths
 - Opportunities for contribution
 - Security and stability implications
 
-Be thorough in detecting breaking changes. Look for:
+Be thorough in detecting breaking changes, security updates, and deprecations. Look for:
+
+BREAKING CHANGES:
 - API signature modifications
 - Configuration file changes
 - Database schema updates
 - Dependency version changes
 - Deprecated or removed functionality
-- Security-related modifications
 
-Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project and migrating their code."""
+SECURITY UPDATES:
+- CVE references and vulnerability fixes
+- Authentication and authorization changes
+- Encryption and security algorithm updates
+- Security-related dependency updates
+- Input validation and sanitization improvements
+- Session management and token handling changes
+
+DEPRECATIONS:
+- API deprecations with replacement suggestions
+- Feature deprecations with migration paths
+- Dependency deprecations with upgrade guidance
+- Configuration deprecations with new format instructions
+- Removal dates and sunset schedules
+
+Pay special attention to:
+- Critical security vulnerabilities (CVE-YYYY-NNNN)
+- High-priority security patches
+- Authentication bypass fixes
+- Authorization improvements
+- Encryption algorithm updates
+- Input validation enhancements
+- Session security improvements
+
+For deprecations, identify:
+- What is being deprecated
+- When it will be removed
+- What to use instead
+- Migration steps required
+
+Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project, migrating their code, and addressing security concerns."""
 
     def _parse_analysis_response(self, response: str) -> ChangeAnalysis:
         """Parse Anthropic response into structured analysis.
@@ -1089,6 +1717,7 @@ class OllamaAnalyzer:
         self.client = ollama.Client(host=host)
         self.logger = get_logger()
         self.breaking_detector = BreakingChangeDetector()
+        self.security_deprecation_detector = SecurityDeprecationDetector()
 
     def analyze_changes(self, request: AnalysisRequest) -> ChangeAnalysis:
         """Analyze repository changes using Ollama.
@@ -1113,9 +1742,24 @@ class OllamaAnalyzer:
             detected_breaking_changes = self.breaking_detector.detect_breaking_changes(
                 request.diff_content, request.commit_messages
             )
+            detected_security_updates = (
+                self.security_deprecation_detector.detect_security_updates(
+                    request.diff_content, request.commit_messages
+                )
+            )
+            detected_deprecations = (
+                self.security_deprecation_detector.detect_deprecations(
+                    request.diff_content, request.commit_messages
+                )
+            )
 
             # Prepare the analysis prompt
-            prompt = self._build_analysis_prompt(request, detected_breaking_changes)
+            prompt = self._build_analysis_prompt(
+                request,
+                detected_breaking_changes,
+                detected_security_updates,
+                detected_deprecations,
+            )
 
             # Call Ollama API
             response = self.client.chat(
@@ -1144,6 +1788,8 @@ class OllamaAnalyzer:
 
             # Add detailed breaking changes to the analysis
             analysis.detailed_breaking_changes = detected_breaking_changes
+            analysis.detailed_security_updates = detected_security_updates
+            analysis.detailed_deprecations = detected_deprecations
 
             # Enhance breaking changes list with detected changes
             if detected_breaking_changes:
@@ -1171,13 +1817,19 @@ class OllamaAnalyzer:
             raise
 
     def _build_analysis_prompt(
-        self, request: AnalysisRequest, detected_breaking_changes: list[BreakingChange]
+        self,
+        request: AnalysisRequest,
+        detected_breaking_changes: list[BreakingChange],
+        detected_security_updates: list[SecurityUpdate],
+        detected_deprecations: list[Deprecation],
     ) -> str:
         """Build the analysis prompt for Ollama.
 
         Args:
             request: Analysis request.
             detected_breaking_changes: List of detected breaking changes.
+            detected_security_updates: List of detected security updates.
+            detected_deprecations: List of detected deprecations.
 
         Returns:
             Formatted prompt string.
@@ -1208,6 +1860,48 @@ class OllamaAnalyzer:
                 if change.migration_guidance:
                     breaking_context += f"  Migration: {change.migration_guidance}\n"
 
+        # Build security update context
+        security_context = ""
+        if detected_security_updates:
+            security_context = "\n\nDetected Security Updates:\n"
+            for update in detected_security_updates:
+                security_context += (
+                    f"- {update.type} ({update.severity}): {update.description}\n"
+                )
+                if update.cve_id:
+                    security_context += f"  CVE: {update.cve_id}\n"
+                if update.affected_components:
+                    security_context += (
+                        f"  Affected: {', '.join(update.affected_components)}\n"
+                    )
+                if update.remediation_guidance:
+                    security_context += (
+                        f"  Remediation: {update.remediation_guidance}\n"
+                    )
+
+        # Build deprecation context
+        deprecation_context = ""
+        if detected_deprecations:
+            deprecation_context = "\n\nDetected Deprecations:\n"
+            for deprecation in detected_deprecations:
+                deprecation_context += f"- {deprecation.type} ({deprecation.severity}): {deprecation.description}\n"
+                if deprecation.replacement_suggestion:
+                    deprecation_context += (
+                        f"  Replacement: {deprecation.replacement_suggestion}\n"
+                    )
+                if deprecation.removal_date:
+                    deprecation_context += (
+                        f"  Removal Date: {deprecation.removal_date}\n"
+                    )
+                if deprecation.affected_components:
+                    deprecation_context += (
+                        f"  Affected: {', '.join(deprecation.affected_components)}\n"
+                    )
+                if deprecation.migration_path:
+                    deprecation_context += (
+                        f"  Migration Path: {deprecation.migration_path}\n"
+                    )
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -1219,6 +1913,8 @@ Changes Summary:
 Diff Analysis:
 {diff_analysis}
 {breaking_context}
+{security_context}
+{deprecation_context}
 
 Diff Content:
 {diff_content}
@@ -1279,23 +1975,56 @@ Format your response as JSON with the following structure:
         Returns:
             System prompt string.
         """
-        return """You are an expert software developer and open source contributor specializing in breaking change detection.
+        return """You are an expert software developer and open source contributor specializing in breaking change detection and security analysis.
 Your task is to analyze code changes and provide insights that help developers understand:
 - What changed and why
 - Potential impact on existing code
 - Breaking changes that require immediate attention
+- Security updates and vulnerability fixes
+- Deprecations and migration paths
 - Opportunities for contribution
 - Security and stability implications
 
-Be thorough in detecting breaking changes. Look for:
+Be thorough in detecting breaking changes, security updates, and deprecations. Look for:
+
+BREAKING CHANGES:
 - API signature modifications
 - Configuration file changes
 - Database schema updates
 - Dependency version changes
 - Deprecated or removed functionality
-- Security-related modifications
 
-Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project and migrating their code."""
+SECURITY UPDATES:
+- CVE references and vulnerability fixes
+- Authentication and authorization changes
+- Encryption and security algorithm updates
+- Security-related dependency updates
+- Input validation and sanitization improvements
+- Session management and token handling changes
+
+DEPRECATIONS:
+- API deprecations with replacement suggestions
+- Feature deprecations with migration paths
+- Dependency deprecations with upgrade guidance
+- Configuration deprecations with new format instructions
+- Removal dates and sunset schedules
+
+Pay special attention to:
+- Critical security vulnerabilities (CVE-YYYY-NNNN)
+- High-priority security patches
+- Authentication bypass fixes
+- Authorization improvements
+- Encryption algorithm updates
+- Input validation enhancements
+- Session security improvements
+
+For deprecations, identify:
+- What is being deprecated
+- When it will be removed
+- What to use instead
+- Migration steps required
+
+Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project, migrating their code, and addressing security concerns."""
 
     def _parse_analysis_response(self, response: str) -> ChangeAnalysis:
         """Parse Ollama response into structured analysis.
@@ -1420,6 +2149,7 @@ class ChangeAnalyzer:
         self.analyzers: dict[
             str, Union[OpenAIAnalyzer, AnthropicAnalyzer, OllamaAnalyzer]
         ] = {}
+        self.security_deprecation_detector = SecurityDeprecationDetector()
 
     def get_analyzer(
         self, provider: str = "openai"
@@ -1744,15 +2474,17 @@ class ChangeAnalyzer:
             console.print("\n[bold red]🚨 Detailed Breaking Changes:[/bold red]")
             for change in analysis.detailed_breaking_changes:
                 # Color code by severity
-                severity_color_map: dict[str, str] = {
+                breaking_severity_color_map: dict[str, str] = {
                     "high": "red",
                     "medium": "yellow",
                     "low": "blue",
                 }
-                severity_color: str = severity_color_map.get(change.severity, "white")
+                breaking_severity_color: str = breaking_severity_color_map.get(
+                    change.severity, "white"
+                )
 
                 console.print(
-                    f"  • [{severity_color}]{change.type}[/{severity_color}] ({change.severity.upper()}): {change.description}"
+                    f"  • [{breaking_severity_color}]{change.type}[/{breaking_severity_color}] ({change.severity.upper()}): {change.description}"
                 )
                 if change.affected_components and change.affected_components != [
                     "unknown"
@@ -1762,6 +2494,70 @@ class ChangeAnalyzer:
                     )
                 if change.migration_guidance:
                     console.print(f"    Migration: {change.migration_guidance}")
+
+        # Detailed security updates
+        if analysis.detailed_security_updates:
+            console.print("\n[bold red]🔒 Detailed Security Updates:[/bold red]")
+            for update in analysis.detailed_security_updates:
+                # Color code by severity
+                security_severity_color_map: dict[str, str] = {
+                    "critical": "bright_red",
+                    "high": "red",
+                    "medium": "yellow",
+                    "low": "blue",
+                }
+                security_severity_color: str = security_severity_color_map.get(
+                    update.severity, "white"
+                )
+
+                console.print(
+                    f"  • [{security_severity_color}]{update.type}[/{security_severity_color}] ({update.severity.upper()}): {update.description}"
+                )
+                if update.cve_id:
+                    console.print(f"    CVE: [bold red]{update.cve_id}[/bold red]")
+                if update.affected_components and update.affected_components != [
+                    "unknown"
+                ]:
+                    console.print(
+                        f"    Affected: {', '.join(update.affected_components)}"
+                    )
+                if update.remediation_guidance:
+                    console.print(f"    Remediation: {update.remediation_guidance}")
+
+        # Detailed deprecations
+        if analysis.detailed_deprecations:
+            console.print("\n[bold orange]⚠️  Detailed Deprecations:[/bold orange]")
+            for deprecation in analysis.detailed_deprecations:
+                # Color code by severity
+                deprecation_severity_color_map: dict[str, str] = {
+                    "high": "red",
+                    "medium": "yellow",
+                    "low": "blue",
+                }
+                deprecation_severity_color: str = deprecation_severity_color_map.get(
+                    deprecation.severity, "white"
+                )
+
+                console.print(
+                    f"  • [{deprecation_severity_color}]{deprecation.type}[/{deprecation_severity_color}] ({deprecation.severity.upper()}): {deprecation.description}"
+                )
+                if deprecation.replacement_suggestion:
+                    console.print(
+                        f"    Replacement: [green]{deprecation.replacement_suggestion}[/green]"
+                    )
+                if deprecation.removal_date:
+                    console.print(
+                        f"    Removal Date: [yellow]{deprecation.removal_date}[/yellow]"
+                    )
+                if (
+                    deprecation.affected_components
+                    and deprecation.affected_components != ["unknown"]
+                ):
+                    console.print(
+                        f"    Affected: {', '.join(deprecation.affected_components)}"
+                    )
+                if deprecation.migration_path:
+                    console.print(f"    Migration Path: {deprecation.migration_path}")
 
         # Breaking changes (legacy format)
         if analysis.breaking_changes:
@@ -1781,17 +2577,17 @@ class ChangeAnalyzer:
             for fix in analysis.bug_fixes:
                 console.print(f"  • {fix}")
 
-        # Security updates
+        # Security updates (legacy format)
         if analysis.security_updates:
             console.print("\n[bold red]🔒 Security Updates:[/bold red]")
-            for update in analysis.security_updates:
-                console.print(f"  • {update}")
+            for security_update in analysis.security_updates:
+                console.print(f"  • {security_update}")
 
-        # Deprecations
+        # Deprecations (legacy format)
         if analysis.deprecations:
             console.print("\n[bold orange]⚠️  Deprecations:[/bold orange]")
-            for deprecation in analysis.deprecations:
-                console.print(f"  • {deprecation}")
+            for deprecation_item in analysis.deprecations:
+                console.print(f"  • {deprecation_item}")
 
         # Recommendations
         if analysis.recommendations:

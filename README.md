@@ -27,6 +27,15 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 
 ### 🧠 **AI-Powered Change Analysis**
 - **OpenAI API integration** for intelligent change analysis
+- **Enhanced security update and deprecation highlighting** with advanced pattern detection
+- **SecurityDeprecationDetector** for sophisticated security and deprecation analysis
+- **CVE reference detection** and highlighting in security updates
+- **Security severity classification** (critical, high, medium, low) with color-coded display
+- **Deprecation severity classification** (high, medium, low) with color-coded display
+- **Security pattern detection** for vulnerability fixes, authentication, authorization, encryption
+- **Deprecation pattern detection** for API, feature, dependency, and configuration deprecations
+- **Detailed security update reporting** with CVE IDs and remediation guidance
+- **Detailed deprecation reporting** with replacement suggestions and migration paths
 - **Enhanced breaking change detection** with pattern-based analysis
 - **API signature change detection** for function and class definitions
 - **Configuration file change detection** with filename and content patterns
