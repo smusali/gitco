@@ -116,10 +116,16 @@ For AI-powered features, you'll need to set up an API key:
 export AETHERIUM_API_KEY="your-openai-api-key"
 export AETHERIUM_LLM_PROVIDER="openai"
 
-# For Anthropic
+# For Anthropic Claude
 export AETHERIUM_API_KEY="your-anthropic-api-key"
 export AETHERIUM_LLM_PROVIDER="anthropic"
+
+# Alternative: Use provider-specific environment variables
+export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
+
+**Note:** GitCo supports both unified API key configuration (using `AETHERIUM_API_KEY`) and provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). The provider-specific keys take precedence if both are set.
 
 ### 3. Configure Repositories
 

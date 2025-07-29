@@ -2,8 +2,9 @@
 
 import os
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
+import anthropic
 import openai
 from rich.panel import Panel
 
@@ -273,17 +274,282 @@ Be concise but thorough. Focus on actionable insights that help developers make 
                 if len(summary_part) > 1:
                     data["summary"] = summary_part[1].strip()
                 current_section = "summary"
-            elif "breaking" in line.lower() and "change" in line.lower():
+            elif (
+                "breaking" in line.lower() and "change" in line.lower() and ":" in line
+            ):
                 current_section = "breaking_changes"
-            elif "new" in line.lower() and "feature" in line.lower():
+            elif "new" in line.lower() and "feature" in line.lower() and ":" in line:
                 current_section = "new_features"
-            elif "bug" in line.lower() and "fix" in line.lower():
+            elif "bug" in line.lower() and "fix" in line.lower() and ":" in line:
                 current_section = "bug_fixes"
-            elif "security" in line.lower():
+            elif (
+                "security" in line.lower() and "update" in line.lower() and ":" in line
+            ):
                 current_section = "security_updates"
-            elif "deprecat" in line.lower():
+            elif "deprecat" in line.lower() and ":" in line:
                 current_section = "deprecations"
-            elif "recommend" in line.lower():
+            elif "recommend" in line.lower() and ":" in line:
+                current_section = "recommendations"
+            elif line.startswith("-") or line.startswith("*"):
+                if current_section and current_section != "summary":
+                    item = line[1:].strip()
+                    if item:  # Only add non-empty items
+                        if current_section in data and isinstance(
+                            data[current_section], list
+                        ):
+                            data[current_section].append(item)
+
+        return data
+
+
+class AnthropicAnalyzer:
+    """Anthropic Claude API integration for change analysis."""
+
+    def __init__(
+        self, api_key: Optional[str] = None, model: str = "claude-3-sonnet-20240229"
+    ):
+        """Initialize Anthropic analyzer.
+
+        Args:
+            api_key: Anthropic API key. If None, will try to get from environment.
+            model: Anthropic model to use for analysis.
+        """
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError(
+                "Anthropic API key not provided. Set ANTHROPIC_API_KEY environment variable."
+            )
+
+        self.model = model
+        self.client = anthropic.Anthropic(api_key=self.api_key)
+        self.logger = get_logger()
+
+    def analyze_changes(self, request: AnalysisRequest) -> ChangeAnalysis:
+        """Analyze repository changes using Anthropic Claude.
+
+        Args:
+            request: Analysis request containing repository and change data.
+
+        Returns:
+            Analysis result with categorized changes and recommendations.
+
+        Raises:
+            Exception: If analysis fails.
+        """
+        log_operation_start(
+            "Anthropic change analysis",
+            repo=request.repository.name,
+            model=self.model,
+        )
+
+        try:
+            # Prepare the analysis prompt
+            prompt = self._build_analysis_prompt(request)
+
+            # Call Anthropic API
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=2000,
+                temperature=0.3,
+                system=self._get_system_prompt(),
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+            )
+
+            # Parse the response - handle different content types
+            response_text = ""
+            if response.content:
+                for content_block in response.content:
+                    if hasattr(content_block, "text"):
+                        response_text += content_block.text
+
+            analysis = self._parse_analysis_response(response_text)
+
+            log_operation_success(
+                "Anthropic change analysis",
+                repo=request.repository.name,
+                confidence=analysis.confidence,
+            )
+
+            return analysis
+
+        except Exception as e:
+            log_operation_failure(
+                "Anthropic change analysis",
+                e,
+                repo=request.repository.name,
+            )
+            raise
+
+    def _build_analysis_prompt(self, request: AnalysisRequest) -> str:
+        """Build the analysis prompt for Anthropic Claude.
+
+        Args:
+            request: Analysis request.
+
+        Returns:
+            Formatted prompt string.
+        """
+        repo = request.repository
+        diff_content = request.diff_content
+        commit_messages = request.commit_messages
+
+        # Build commit summary
+        commit_summary = "\n".join([f"- {msg}" for msg in commit_messages])
+
+        prompt = f"""
+Analyze the following changes for repository: {repo.name}
+Repository: {repo.fork} -> {repo.upstream}
+Skills: {', '.join(repo.skills)}
+
+Changes Summary:
+{commit_summary}
+
+Diff Content:
+{diff_content}
+
+Please provide a comprehensive analysis of these changes, including:
+1. Summary of changes
+2. Breaking changes (if any)
+3. New features added
+4. Bug fixes
+5. Security updates
+6. Deprecations
+7. Recommendations for contributors
+
+Format your response as JSON with the following structure:
+{{
+    "summary": "Brief summary of changes",
+    "breaking_changes": ["list", "of", "breaking", "changes"],
+    "new_features": ["list", "of", "new", "features"],
+    "bug_fixes": ["list", "of", "bug", "fixes"],
+    "security_updates": ["list", "of", "security", "updates"],
+    "deprecations": ["list", "of", "deprecations"],
+    "recommendations": ["list", "of", "recommendations"],
+    "confidence": 0.85
+}}
+"""
+
+        if request.custom_prompt:
+            prompt += f"\nAdditional Context: {request.custom_prompt}"
+
+        return prompt
+
+    def _get_system_prompt(self) -> str:
+        """Get the system prompt for Anthropic Claude.
+
+        Returns:
+            System prompt string.
+        """
+        return """You are an expert software developer and open source contributor.
+Your task is to analyze code changes and provide insights that help developers understand:
+- What changed and why
+- Potential impact on existing code
+- Opportunities for contribution
+- Security and stability implications
+
+Be concise but thorough. Focus on actionable insights that help developers make informed decisions about contributing to the project."""
+
+    def _parse_analysis_response(self, response: str) -> ChangeAnalysis:
+        """Parse Anthropic response into structured analysis.
+
+        Args:
+            response: Raw response from Anthropic.
+
+        Returns:
+            Structured analysis result.
+        """
+        try:
+            # Try to extract JSON from response
+            import json
+            import re
+
+            # Find JSON in the response
+            json_match = re.search(r"\{.*\}", response, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+            else:
+                # Fallback to manual parsing
+                data = self._parse_text_response(response)
+
+            return ChangeAnalysis(
+                summary=data.get("summary", "Analysis completed"),
+                breaking_changes=data.get("breaking_changes", []),
+                new_features=data.get("new_features", []),
+                bug_fixes=data.get("bug_fixes", []),
+                security_updates=data.get("security_updates", []),
+                deprecations=data.get("deprecations", []),
+                recommendations=data.get("recommendations", []),
+                confidence=data.get("confidence", 0.5),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to parse Anthropic response: {e}")
+            # Return a basic analysis
+            return ChangeAnalysis(
+                summary="Analysis completed (parsing failed)",
+                breaking_changes=[],
+                new_features=[],
+                bug_fixes=[],
+                security_updates=[],
+                deprecations=[],
+                recommendations=["Review changes manually"],
+                confidence=0.3,
+            )
+
+    def _parse_text_response(self, response: str) -> dict[str, Any]:
+        """Parse text response when JSON parsing fails.
+
+        Args:
+            response: Text response from Anthropic.
+
+        Returns:
+            Parsed data dictionary.
+        """
+        # Simple text parsing as fallback
+        lines = response.split("\n")
+        data: dict[str, Any] = {
+            "summary": "Analysis completed",
+            "breaking_changes": [],
+            "new_features": [],
+            "bug_fixes": [],
+            "security_updates": [],
+            "deprecations": [],
+            "recommendations": [],
+            "confidence": 0.5,
+        }
+
+        current_section = None
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check for summary line
+            if "summary" in line.lower() and ":" in line:
+                summary_part = line.split(":", 1)
+                if len(summary_part) > 1:
+                    data["summary"] = summary_part[1].strip()
+                current_section = "summary"
+            elif (
+                "breaking" in line.lower() and "change" in line.lower() and ":" in line
+            ):
+                current_section = "breaking_changes"
+            elif "new" in line.lower() and "feature" in line.lower() and ":" in line:
+                current_section = "new_features"
+            elif "bug" in line.lower() and "fix" in line.lower() and ":" in line:
+                current_section = "bug_fixes"
+            elif (
+                "security" in line.lower() and "update" in line.lower() and ":" in line
+            ):
+                current_section = "security_updates"
+            elif "deprecat" in line.lower() and ":" in line:
+                current_section = "deprecations"
+            elif "recommend" in line.lower() and ":" in line:
                 current_section = "recommendations"
             elif line.startswith("-") or line.startswith("*"):
                 if current_section and current_section != "summary":
@@ -308,9 +574,11 @@ class ChangeAnalyzer:
         """
         self.config = config
         self.logger = get_logger()
-        self.analyzers: dict[str, OpenAIAnalyzer] = {}
+        self.analyzers: dict[str, Union[OpenAIAnalyzer, AnthropicAnalyzer]] = {}
 
-    def get_analyzer(self, provider: str = "openai") -> OpenAIAnalyzer:
+    def get_analyzer(
+        self, provider: str = "openai"
+    ) -> Union[OpenAIAnalyzer, AnthropicAnalyzer]:
         """Get analyzer for specified provider.
 
         Args:
@@ -326,6 +594,9 @@ class ChangeAnalyzer:
             if provider == "openai":
                 api_key = os.getenv(self.config.settings.api_key_env)
                 self.analyzers[provider] = OpenAIAnalyzer(api_key=api_key)
+            elif provider == "anthropic":
+                api_key = os.getenv(self.config.settings.api_key_env)
+                self.analyzers[provider] = AnthropicAnalyzer(api_key=api_key)
             else:
                 raise ValueError(f"Unsupported LLM provider: {provider}")
 

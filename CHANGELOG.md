@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Anthropic Claude API integration for intelligent change analysis
+- AnthropicAnalyzer class for Claude API integration
+- Support for provider-specific API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY)
+- Enhanced API key priority system with fallback support
+- Improved response parsing for Anthropic Claude API responses
+- Comprehensive testing for Anthropic Claude integration
 - OpenAI API integration for intelligent change analysis
 - ChangeAnalyzer class for coordinating analysis operations
 - OpenAIAnalyzer class for OpenAI API integration

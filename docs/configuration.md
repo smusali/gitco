@@ -91,15 +91,24 @@ repositories:
 GitCo supports environment variables for sensitive configuration:
 
 ```bash
-# Required for AI features
+# Required for AI features - Unified configuration
 export AETHERIUM_API_KEY="your-api-key"
 
 # Optional: Override provider
 export AETHERIUM_LLM_PROVIDER="anthropic"
 
+# Optional: Provider-specific API keys (takes precedence)
+export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+
 # Optional: Custom endpoint
 export AETHERIUM_CUSTOM_ENDPOINT="https://your-endpoint.com"
 ```
+
+**API Key Priority:**
+1. Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+2. Unified key (`AETHERIUM_API_KEY`)
+3. Configuration file `api_key_env` setting
 
 ## Configuration Examples
 
