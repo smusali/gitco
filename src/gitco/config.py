@@ -90,6 +90,7 @@ class ConfigManager:
                 data = yaml.safe_load(f)
 
             config = self._parse_config(data)
+            self.config = config  # Update the instance config
             log_operation_success("configuration loading", config_path=self.config_path)
             log_configuration_loaded(self.config_path, len(config.repositories))
 

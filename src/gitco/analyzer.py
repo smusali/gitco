@@ -790,11 +790,17 @@ class AnthropicAnalyzer:
             )
 
             # Parse the response
-            response_content = response.content[0].text
-            if not hasattr(response.content[0], "text") or not isinstance(
-                response_content, str
-            ):
-                raise ValueError("Invalid response content from Anthropic")
+            first_content = response.content[0]
+            if not hasattr(first_content, "text"):
+                raise ValueError(
+                    "Invalid response content from Anthropic - no text attribute"
+                )
+
+            response_content = first_content.text
+            if not isinstance(response_content, str):
+                raise ValueError(
+                    "Invalid response content from Anthropic - text is not a string"
+                )
             analysis = self._parse_analysis_response(response_content)
 
             # Add detailed breaking changes to the analysis
@@ -1455,6 +1461,7 @@ class ChangeAnalyzer:
         repository: Repository,
         git_repo: GitRepository,
         custom_prompt: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Optional[ChangeAnalysis]:
         """Analyze changes for a repository.
 
@@ -1462,6 +1469,7 @@ class ChangeAnalyzer:
             repository: Repository configuration.
             git_repo: Git repository instance.
             custom_prompt: Optional custom analysis prompt.
+            provider: Optional LLM provider to use (overrides config default).
 
         Returns:
             Analysis result or None if analysis is disabled.
@@ -1491,7 +1499,8 @@ class ChangeAnalyzer:
             )
 
             # Get analyzer and perform analysis
-            analyzer = self.get_analyzer(self.config.settings.llm_provider)
+            selected_provider = provider or self.config.settings.llm_provider
+            analyzer = self.get_analyzer(selected_provider)
             return analyzer.analyze_changes(request)
 
         except Exception as e:
@@ -1504,6 +1513,7 @@ class ChangeAnalyzer:
         git_repo: GitRepository,
         commit_hash: str,
         custom_prompt: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Optional[ChangeAnalysis]:
         """Analyze a specific commit in detail.
 
@@ -1512,6 +1522,7 @@ class ChangeAnalyzer:
             git_repo: Git repository instance.
             commit_hash: Hash of the commit to analyze.
             custom_prompt: Optional custom analysis prompt.
+            provider: Optional LLM provider to use (overrides config default).
 
         Returns:
             Analysis result or None if analysis fails.
@@ -1537,7 +1548,8 @@ class ChangeAnalyzer:
             )
 
             # Get analyzer and perform analysis
-            analyzer = self.get_analyzer(self.config.settings.llm_provider)
+            selected_provider = provider or self.config.settings.llm_provider
+            analyzer = self.get_analyzer(selected_provider)
             analysis = analyzer.analyze_changes(request)
 
             # Enhance analysis with commit metadata

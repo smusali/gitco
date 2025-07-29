@@ -477,6 +477,7 @@ def sync(
 @main.command()
 @click.option("--repo", "-r", required=True, help="Repository to analyze")
 @click.option("--prompt", "-p", help="Custom analysis prompt")
+@click.option("--provider", help="LLM provider to use (openai, anthropic, ollama)")
 @click.option("--repos", help="Analyze multiple repositories (comma-separated)")
 @click.option("--export", "-e", help="Export analysis to file")
 @click.pass_context
@@ -484,6 +485,7 @@ def analyze(
     ctx: click.Context,
     repo: str,
     prompt: Optional[str],
+    provider: Optional[str],
     repos: Optional[str],
     export: Optional[str],
 ) -> None:
@@ -491,7 +493,9 @@ def analyze(
 
     Generates human-readable summaries of upstream changes using AI analysis.
     """
-    log_operation_start("repository analysis", repo=repo, prompt=prompt)
+    log_operation_start(
+        "repository analysis", repo=repo, prompt=prompt, provider=provider
+    )
 
     try:
         # Load configuration
@@ -521,11 +525,39 @@ def analyze(
             )
             return
 
-        # Perform analysis
+        # Determine LLM provider
+        selected_provider = provider or config.settings.llm_provider
+
+        # Validate provider
+        valid_providers = ["openai", "anthropic", "ollama"]
+        if selected_provider not in valid_providers:
+            print_error_panel(
+                "Invalid LLM Provider",
+                f"Provider '{selected_provider}' is not supported.\n\n"
+                f"Supported providers: {', '.join(valid_providers)}\n\n"
+                f"Current default provider: {config.settings.llm_provider}",
+            )
+            return
+
+        # Display provider information
+        if provider:
+            print_info_panel(
+                "LLM Provider",
+                f"Using provider: {selected_provider}\n"
+                f"(Overriding default: {config.settings.llm_provider})",
+            )
+        else:
+            print_info_panel(
+                "LLM Provider",
+                f"Using default provider: {selected_provider}",
+            )
+
+        # Perform analysis with selected provider
         analysis = analyzer.analyze_repository_changes(
             repository=repository,
             git_repo=git_repo,
             custom_prompt=prompt,
+            provider=selected_provider,
         )
 
         if analysis:
@@ -541,6 +573,7 @@ def analyze(
                     export_data = {
                         "repository": repository.name,
                         "analysis_date": datetime.now().isoformat(),
+                        "llm_provider": selected_provider,
                         "summary": analysis.summary,
                         "breaking_changes": analysis.breaking_changes,
                         "new_features": analysis.new_features,
@@ -565,7 +598,9 @@ def analyze(
                         f"Failed to export analysis: {e}",
                     )
 
-            log_operation_success("repository analysis", repo=repo)
+            log_operation_success(
+                "repository analysis", repo=repo, provider=selected_provider
+            )
         else:
             print_warning_panel(
                 "No Analysis Available",
@@ -842,7 +877,9 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -890,7 +927,9 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -939,7 +978,9 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -988,7 +1029,9 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1048,7 +1091,9 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1124,7 +1169,9 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)

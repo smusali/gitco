@@ -66,6 +66,9 @@ gitco analyze --repo fastapi
 # Analyze with custom prompt
 gitco analyze --repo django --prompt "Focus on security changes"
 
+# Analyze with specific LLM provider
+gitco analyze --repo django --provider anthropic
+
 # Analyze multiple repositories
 gitco analyze --repos django,fastapi,requests
 ```

@@ -1,5 +1,8 @@
 """Test GitCo CLI functionality."""
 
+from collections.abc import Generator
+from unittest.mock import Mock
+
 import pytest
 from click.testing import CliRunner
 
@@ -10,6 +13,24 @@ from gitco.cli import main
 def runner() -> CliRunner:
     """Create a Click test runner."""
     return CliRunner()
+
+
+@pytest.fixture
+def mock_config_manager() -> Generator[Mock, None, None]:
+    """Mock config manager."""
+    from unittest.mock import patch
+
+    with patch("gitco.cli.ConfigManager") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_git_repo() -> Generator[Mock, None, None]:
+    """Mock git repository."""
+    from unittest.mock import patch
+
+    with patch("gitco.cli.GitRepository") as mock:
+        yield mock
 
 
 def test_cli_version(runner: CliRunner) -> None:
@@ -107,6 +128,44 @@ def test_analyze_command_with_prompt(runner: CliRunner) -> None:
     assert (
         "Repository Not Found" in result.output or "Invalid Repository" in result.output
     )
+
+
+def test_analyze_command_with_provider_validation(
+    runner: CliRunner, mock_config_manager: Mock, mock_git_repo: Mock
+) -> None:
+    """Test analyze command with provider validation."""
+    # Mock successful repository lookup
+    mock_repo = Mock()
+    mock_repo.name = "test-repo"
+    mock_repo.local_path = "/tmp/test-repo"
+    mock_repo.analysis_enabled = True
+    mock_config_manager.return_value.get_repository.return_value = mock_repo
+
+    # Mock successful git repository validation
+    mock_git_repo.return_value.is_git_repository.return_value = True
+    mock_git_repo.return_value.get_recent_changes.return_value = "test changes"
+    mock_git_repo.return_value.get_recent_commit_messages.return_value = ["test commit"]
+
+    # Test with invalid provider
+    result = runner.invoke(
+        main,
+        ["analyze", "--repo", "test-repo", "--provider", "invalid"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    assert "Invalid LLM Provider" in result.output
+    assert "invalid" in result.output
+    assert "Supported providers" in result.output
+
+    # Test with valid provider
+    result = runner.invoke(
+        main,
+        ["analyze", "--repo", "test-repo", "--provider", "anthropic"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    assert "LLM Provider" in result.output
+    assert "anthropic" in result.output
 
 
 def test_discover_command(runner: CliRunner) -> None:

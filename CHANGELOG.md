@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced analyze command with LLM provider selection
+- New --provider option for analyze command to override default LLM provider
+- Support for specifying openai, anthropic, or ollama providers in analyze command
+- Provider validation with helpful error messages for invalid providers
+- Provider information display showing which provider is being used
+- Enhanced export functionality to include LLM provider information
+- Improved logging with provider information for analysis operations
 - Enhanced breaking change detection with pattern-based analysis
 - BreakingChangeDetector class for sophisticated breaking change identification
 - API signature change detection with function and class definition analysis

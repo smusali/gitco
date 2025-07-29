@@ -173,6 +173,9 @@ gitco analyze --repo fastapi
 # Analyze with custom prompt
 gitco analyze --repo fastapi --prompt "Focus on security implications"
 
+# Analyze with specific LLM provider
+gitco analyze --repo fastapi --provider anthropic
+
 # Export analysis results
 gitco analyze --repo fastapi --export analysis.json
 
@@ -210,6 +213,9 @@ gitco analyze --repo fastapi
 
 # Analyze with custom prompt
 gitco analyze --repo fastapi --prompt "Focus on breaking changes"
+
+# Analyze with specific LLM provider
+gitco analyze --repo fastapi --provider openai
 
 # Export analysis to JSON
 gitco analyze --repo fastapi --export analysis.json
