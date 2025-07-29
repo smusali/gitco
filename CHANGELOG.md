@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced commit diff analysis and summarization functionality
+- Detailed diff content analysis with file type and line count statistics
+- Intelligent diff pattern recognition for test, documentation, and configuration changes
+- Enhanced get_recent_changes method with detailed diff content
+- New _get_detailed_diff method for comprehensive diff analysis
+- New _get_detailed_commit_diff method for multi-commit analysis
+- New get_commit_diff_analysis method for specific commit analysis
+- New _get_commit_info method for detailed commit metadata extraction
+- Enhanced prompt engineering with diff content analysis
+- Improved AI analysis with better context and pattern recognition
+- Commit categorization by type (feature, fix, docs, refactor, test, chore)
+- New analyze_specific_commit method for targeted commit analysis
+- New get_commit_summary method for non-AI commit analysis
+- Enhanced _analyze_diff_content method with intelligent pattern detection
+- Comprehensive testing for all new diff analysis functionality
+- Integration of detailed diff analysis into AI analysis pipeline
+- Support for large diff content with intelligent truncation
+- Enhanced error handling for diff analysis operations
+- Type-safe implementation with full mypy compliance
 - Ollama local LLM integration for intelligent change analysis
 - OllamaAnalyzer class for local LLM integration with Ollama
 - Support for Ollama server configuration (host, model, timeout)

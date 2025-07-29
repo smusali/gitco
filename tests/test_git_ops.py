@@ -363,6 +363,196 @@ class TestGitRepository:
             assert "has_uncommitted_changes" in status
             assert "is_git_repository" in status
 
+    def test_get_commit_diff_analysis_success(self) -> None:
+        """Test getting commit diff analysis."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            # Mock the git commands
+            with patch.object(repo, "_run_git_command") as mock_run:
+                # Mock _get_commit_info
+                mock_run.side_effect = [
+                    Mock(
+                        returncode=0,
+                        stdout="author:Test Author\nauthor-date:2024-01-01\nsubject:Test commit\nbody:Test body\n\n 2 files changed, 4 insertions(+), 2 deletions(-)",
+                    ),
+                    Mock(returncode=0, stdout="diff content"),
+                    Mock(returncode=0, stdout="file1.py\nfile2.py"),
+                ]
+
+                result = repo.get_commit_diff_analysis("abc123")
+
+                assert result["commit_hash"] == "abc123"
+                assert result["author"] == "Test Author"
+                assert result["date"] == "2024-01-01"
+                assert result["message"] == "Test commit"
+                assert result["diff_content"] == "diff content"
+                assert result["files_changed"] == ["file1.py", "file2.py"]
+                assert result["insertions"] == 4
+                assert result["deletions"] == 2
+
+    def test_get_commit_diff_analysis_no_commit_info(self) -> None:
+        """Test getting commit diff analysis with no commit info."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_get_commit_info") as mock_get_info:
+                mock_get_info.return_value = {}
+
+                result = repo.get_commit_diff_analysis("abc123")
+
+                assert result == {}
+
+    def test_get_commit_diff_analysis_exception(self) -> None:
+        """Test getting commit diff analysis with exception."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_get_commit_info") as mock_get_info:
+                mock_get_info.side_effect = Exception("Test error")
+
+                result = repo.get_commit_diff_analysis("abc123")
+
+                assert result == {}
+
+    def test_get_commit_info_success(self) -> None:
+        """Test getting commit info."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(
+                    returncode=0,
+                    stdout="author:Test Author\nauthor-date:2024-01-01\nsubject:Test commit\nbody:Test body\n\n 2 files changed, 4 insertions(+), 2 deletions(-)",
+                )
+
+                result = repo._get_commit_info("abc123")
+
+                assert result["author"] == "Test Author"
+                assert result["date"] == "2024-01-01"
+                assert result["message"] == "Test commit"
+                assert result["insertions"] == 4
+                assert result["deletions"] == 2
+
+    def test_get_commit_info_no_output(self) -> None:
+        """Test getting commit info with no output."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(returncode=1, stdout="")
+
+                result = repo._get_commit_info("abc123")
+
+                assert result == {}
+
+    def test_get_commit_info_parse_error(self) -> None:
+        """Test getting commit info with parse error."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(
+                    returncode=0,
+                    stdout="author:Test Author\nauthor-date:2024-01-01\nsubject:Test commit\nbody:Test body\n\n invalid stat line",
+                )
+
+                result = repo._get_commit_info("abc123")
+
+                assert result["author"] == "Test Author"
+                assert result["date"] == "2024-01-01"
+                assert result["message"] == "Test commit"
+                assert "insertions" not in result
+                assert "deletions" not in result
+
+    def test_get_detailed_diff_success(self) -> None:
+        """Test getting detailed diff."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(
+                    returncode=0, stdout="detailed diff content"
+                )
+
+                result = repo._get_detailed_diff("origin/main..HEAD")
+
+                assert result == "detailed diff content"
+
+    def test_get_detailed_diff_large_content(self) -> None:
+        """Test getting detailed diff with large content."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            large_content = "x" * 15000
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(returncode=0, stdout=large_content)
+
+                result = repo._get_detailed_diff("origin/main..HEAD")
+
+                assert "truncated" in result
+                assert len(result) < 12000
+
+    def test_get_detailed_diff_no_output(self) -> None:
+        """Test getting detailed diff with no output."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(returncode=1, stdout="")
+
+                result = repo._get_detailed_diff("origin/main..HEAD")
+
+                assert result == ""
+
+    def test_get_detailed_commit_diff_success(self) -> None:
+        """Test getting detailed commit diff."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.side_effect = [
+                    Mock(returncode=0, stdout="abc123\ndef456"),
+                    Mock(returncode=0, stdout="diff for commit 1"),
+                    Mock(returncode=0, stdout="diff for commit 2"),
+                ]
+
+                result = repo._get_detailed_commit_diff(2)
+
+                assert "diff for commit 1" in result
+                assert "diff for commit 2" in result
+
+    def test_get_detailed_commit_diff_no_commits(self) -> None:
+        """Test getting detailed commit diff with no commits."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.return_value = Mock(returncode=1, stdout="")
+
+                result = repo._get_detailed_commit_diff(2)
+
+                assert result == ""
+
+    def test_get_detailed_commit_diff_large_content(self) -> None:
+        """Test getting detailed commit diff with large content."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = GitRepository(temp_dir)
+
+            large_content = "x" * 15000
+
+            with patch.object(repo, "_run_git_command") as mock_run:
+                mock_run.side_effect = [
+                    Mock(returncode=0, stdout="abc123"),
+                    Mock(returncode=0, stdout=large_content),
+                ]
+
+                result = repo._get_detailed_commit_diff(1)
+
+                assert "truncated" in result
+                assert len(result) < 12000
+
 
 class TestGitRepositoryManager:
     """Test GitRepositoryManager class."""

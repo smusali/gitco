@@ -1112,7 +1112,7 @@ class GitRepository:
             if not upstream_branch:
                 return ""
 
-            # Get diff between current branch and upstream
+            # First try to get diff between current branch and upstream
             result = self._run_git_command(
                 ["diff", f"origin/{upstream_branch}..HEAD", "--stat"],
                 capture_output=True,
@@ -1120,6 +1120,12 @@ class GitRepository:
             )
 
             if result.returncode == 0 and result.stdout and result.stdout.strip():
+                # Get detailed diff content for better analysis
+                detailed_diff = self._get_detailed_diff(
+                    f"origin/{upstream_branch}..HEAD"
+                )
+                if detailed_diff:
+                    return f"{result.stdout}\n\nDetailed Changes:\n{detailed_diff}"
                 return str(result.stdout)
             else:
                 # Try to get recent commits diff
@@ -1128,15 +1134,201 @@ class GitRepository:
                     capture_output=True,
                     text=True,
                 )
-                return (
-                    str(result.stdout)
-                    if result.returncode == 0 and result.stdout
-                    else ""
-                )
+                if result.returncode == 0 and result.stdout:
+                    # Get detailed diff for recent commits
+                    detailed_diff = self._get_detailed_commit_diff(num_commits)
+                    if detailed_diff:
+                        return f"{result.stdout}\n\nDetailed Changes:\n{detailed_diff}"
+                    return str(result.stdout)
+                return ""
 
         except Exception as e:
             self.logger.warning(f"Failed to get recent changes: {e}")
             return ""
+
+    def _get_detailed_diff(self, diff_range: str) -> str:
+        """Get detailed diff content for analysis.
+
+        Args:
+            diff_range: Git diff range (e.g., "origin/main..HEAD").
+
+        Returns:
+            Detailed diff content as string.
+        """
+        try:
+            # Get detailed diff with context
+            result = self._run_git_command(
+                ["diff", diff_range, "--unified=3", "--no-color"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0 and result.stdout:
+                # Limit the size to avoid overwhelming the AI
+                diff_content = str(result.stdout)
+                if len(diff_content) > 10000:  # Limit to 10KB
+                    diff_content = diff_content[:10000] + "\n... (truncated)"
+                return diff_content
+            return ""
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get detailed diff: {e}")
+            return ""
+
+    def _get_detailed_commit_diff(self, num_commits: int) -> str:
+        """Get detailed diff for recent commits.
+
+        Args:
+            num_commits: Number of recent commits to analyze.
+
+        Returns:
+            Detailed diff content as string.
+        """
+        try:
+            # Get the commit hashes for recent commits
+            result = self._run_git_command(
+                ["log", f"-{num_commits}", "--format=%H", "--no-merges"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return ""
+
+            commit_hashes = [h.strip() for h in result.stdout.splitlines() if h.strip()]
+            if not commit_hashes:
+                return ""
+
+            # Get detailed diff for each commit
+            detailed_diffs = []
+            for commit_hash in commit_hashes:
+                diff_result = self._run_git_command(
+                    ["show", commit_hash, "--unified=3", "--no-color", "--stat"],
+                    capture_output=True,
+                    text=True,
+                )
+                if diff_result.returncode == 0 and diff_result.stdout:
+                    detailed_diffs.append(diff_result.stdout)
+
+            if detailed_diffs:
+                combined_diff = "\n\n".join(detailed_diffs)
+                # Limit the size to avoid overwhelming the AI
+                if len(combined_diff) > 10000:  # Limit to 10KB
+                    combined_diff = combined_diff[:10000] + "\n... (truncated)"
+                return combined_diff
+
+            return ""
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get detailed commit diff: {e}")
+            return ""
+
+    def get_commit_diff_analysis(self, commit_hash: str) -> dict[str, Any]:
+        """Get detailed analysis of a specific commit.
+
+        Args:
+            commit_hash: Hash of the commit to analyze.
+
+        Returns:
+            Dictionary containing commit analysis information.
+        """
+        try:
+            # Get commit information
+            commit_info = self._get_commit_info(commit_hash)
+            if not commit_info:
+                return {}
+
+            # Get detailed diff for the commit
+            diff_result = self._run_git_command(
+                ["show", commit_hash, "--unified=3", "--no-color", "--stat"],
+                capture_output=True,
+                text=True,
+            )
+
+            diff_content = ""
+            if diff_result.returncode == 0 and diff_result.stdout:
+                diff_content = diff_result.stdout
+
+            # Get files changed
+            files_result = self._run_git_command(
+                ["show", "--name-only", "--format=", commit_hash],
+                capture_output=True,
+                text=True,
+            )
+
+            files_changed = []
+            if files_result.returncode == 0 and files_result.stdout:
+                files_changed = [
+                    f.strip() for f in files_result.stdout.splitlines() if f.strip()
+                ]
+
+            return {
+                "commit_hash": commit_hash,
+                "author": commit_info.get("author", ""),
+                "date": commit_info.get("date", ""),
+                "message": commit_info.get("message", ""),
+                "diff_content": diff_content,
+                "files_changed": files_changed,
+                "insertions": commit_info.get("insertions", 0),
+                "deletions": commit_info.get("deletions", 0),
+            }
+
+        except Exception as e:
+            self.logger.warning(f"Failed to analyze commit {commit_hash}: {e}")
+            return {}
+
+    def _get_commit_info(self, commit_hash: str) -> dict[str, Any]:
+        """Get detailed information about a commit.
+
+        Args:
+            commit_hash: Hash of the commit.
+
+        Returns:
+            Dictionary containing commit information.
+        """
+        try:
+            # Get commit details
+            result = self._run_git_command(
+                [
+                    "show",
+                    commit_hash,
+                    "--format=author:%an%nauthor-date:%ai%nsubject:%s%nbody:%b",
+                    "--stat",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return {}
+
+            lines = result.stdout.splitlines()
+            info: dict[str, Any] = {}
+
+            for line in lines:
+                if line.startswith("author:"):
+                    info["author"] = line[7:]
+                elif line.startswith("author-date:"):
+                    info["date"] = line[12:]
+                elif line.startswith("subject:"):
+                    info["message"] = line[8:]
+                elif "files changed" in line:
+                    # Parse stat line like " 2 files changed, 4 insertions(+), 2 deletions(-)"
+                    parts = line.split(",")
+                    if len(parts) >= 3:
+                        try:
+                            insertions = int(parts[1].split()[0])
+                            deletions = int(parts[2].split()[0])
+                            info["insertions"] = insertions
+                            info["deletions"] = deletions
+                        except (ValueError, IndexError):
+                            pass
+
+            return info
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get commit info for {commit_hash}: {e}")
+            return {}
 
     def get_recent_commit_messages(self, num_commits: int = 10) -> list[str]:
         """Get recent commit messages.

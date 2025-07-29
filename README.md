@@ -27,6 +27,12 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 
 ### 🧠 **AI-Powered Change Analysis**
 - **OpenAI API integration** for intelligent change analysis
+- **Enhanced commit diff analysis** with detailed content analysis
+- **Intelligent diff pattern recognition** for test, documentation, and configuration changes
+- **File type and line count statistics** for comprehensive change overview
+- **Multi-commit analysis** with detailed diff content for recent commits
+- **Specific commit analysis** with targeted diff examination
+- **Commit categorization** by type (feature, fix, docs, refactor, test, chore)
 - Generates human-readable summaries of upstream changes
 - Identifies breaking changes, new features, and critical fixes
 - Analyzes commit messages and diff content for context

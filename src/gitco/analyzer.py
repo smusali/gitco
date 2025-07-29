@@ -141,6 +141,14 @@ class OpenAIAnalyzer:
         # Build commit summary
         commit_summary = "\n".join([f"- {msg}" for msg in commit_messages])
 
+        # Simple diff analysis
+        diff_analysis = "Standard code changes"
+        if diff_content:
+            lines = diff_content.splitlines()
+            file_count = sum(1 for line in lines if line.startswith("diff --git"))
+            if file_count > 0:
+                diff_analysis = f"Files changed: {file_count}"
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -149,17 +157,27 @@ Skills: {', '.join(repo.skills)}
 Changes Summary:
 {commit_summary}
 
+Diff Analysis:
+{diff_analysis}
+
 Diff Content:
 {diff_content}
 
 Please provide a comprehensive analysis of these changes, including:
-1. Summary of changes
-2. Breaking changes (if any)
-3. New features added
-4. Bug fixes
-5. Security updates
-6. Deprecations
-7. Recommendations for contributors
+1. Summary of changes - A clear, concise summary of what changed
+2. Breaking changes - Any changes that could break existing code or APIs
+3. New features - New functionality or capabilities added
+4. Bug fixes - Issues that were resolved
+5. Security updates - Security-related changes or vulnerabilities addressed
+6. Deprecations - Any deprecated features or APIs
+7. Recommendations - Suggestions for contributors or users
+
+Focus on:
+- Code quality and maintainability implications
+- Performance impact of changes
+- Potential areas for contribution
+- Migration guidance if needed
+- Testing recommendations
 
 Format your response as JSON with the following structure:
 {{
@@ -402,6 +420,14 @@ class AnthropicAnalyzer:
         # Build commit summary
         commit_summary = "\n".join([f"- {msg}" for msg in commit_messages])
 
+        # Simple diff analysis
+        diff_analysis = "Standard code changes"
+        if diff_content:
+            lines = diff_content.splitlines()
+            file_count = sum(1 for line in lines if line.startswith("diff --git"))
+            if file_count > 0:
+                diff_analysis = f"Files changed: {file_count}"
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -410,17 +436,27 @@ Skills: {', '.join(repo.skills)}
 Changes Summary:
 {commit_summary}
 
+Diff Analysis:
+{diff_analysis}
+
 Diff Content:
 {diff_content}
 
 Please provide a comprehensive analysis of these changes, including:
-1. Summary of changes
-2. Breaking changes (if any)
-3. New features added
-4. Bug fixes
-5. Security updates
-6. Deprecations
-7. Recommendations for contributors
+1. Summary of changes - A clear, concise summary of what changed
+2. Breaking changes - Any changes that could break existing code or APIs
+3. New features - New functionality or capabilities added
+4. Bug fixes - Issues that were resolved
+5. Security updates - Security-related changes or vulnerabilities addressed
+6. Deprecations - Any deprecated features or APIs
+7. Recommendations - Suggestions for contributors or users
+
+Focus on:
+- Code quality and maintainability implications
+- Performance impact of changes
+- Potential areas for contribution
+- Migration guidance if needed
+- Testing recommendations
 
 Format your response as JSON with the following structure:
 {{
@@ -663,6 +699,14 @@ class OllamaAnalyzer:
         # Build commit summary
         commit_summary = "\n".join([f"- {msg}" for msg in commit_messages])
 
+        # Simple diff analysis
+        diff_analysis = "Standard code changes"
+        if diff_content:
+            lines = diff_content.splitlines()
+            file_count = sum(1 for line in lines if line.startswith("diff --git"))
+            if file_count > 0:
+                diff_analysis = f"Files changed: {file_count}"
+
         prompt = f"""
 Analyze the following changes for repository: {repo.name}
 Repository: {repo.fork} -> {repo.upstream}
@@ -671,17 +715,27 @@ Skills: {', '.join(repo.skills)}
 Changes Summary:
 {commit_summary}
 
+Diff Analysis:
+{diff_analysis}
+
 Diff Content:
 {diff_content}
 
 Please provide a comprehensive analysis of these changes, including:
-1. Summary of changes
-2. Breaking changes (if any)
-3. New features added
-4. Bug fixes
-5. Security updates
-6. Deprecations
-7. Recommendations for contributors
+1. Summary of changes - A clear, concise summary of what changed
+2. Breaking changes - Any changes that could break existing code or APIs
+3. New features - New functionality or capabilities added
+4. Bug fixes - Issues that were resolved
+5. Security updates - Security-related changes or vulnerabilities addressed
+6. Deprecations - Any deprecated features or APIs
+7. Recommendations - Suggestions for contributors or users
+
+Focus on:
+- Code quality and maintainability implications
+- Performance impact of changes
+- Potential areas for contribution
+- Migration guidance if needed
+- Testing recommendations
 
 Format your response as JSON with the following structure:
 {{
@@ -922,6 +976,219 @@ class ChangeAnalyzer:
         except Exception as e:
             self.logger.error(f"Failed to analyze repository {repository.name}: {e}")
             return None
+
+    def analyze_specific_commit(
+        self,
+        repository: Repository,
+        git_repo: GitRepository,
+        commit_hash: str,
+        custom_prompt: Optional[str] = None,
+    ) -> Optional[ChangeAnalysis]:
+        """Analyze a specific commit in detail.
+
+        Args:
+            repository: Repository configuration.
+            git_repo: Git repository instance.
+            commit_hash: Hash of the commit to analyze.
+            custom_prompt: Optional custom analysis prompt.
+
+        Returns:
+            Analysis result or None if analysis fails.
+        """
+        if not self.config.settings.analysis_enabled or not repository.analysis_enabled:
+            self.logger.info(f"Analysis disabled for repository: {repository.name}")
+            return None
+
+        try:
+            # Get detailed commit analysis
+            commit_analysis = git_repo.get_commit_diff_analysis(commit_hash)
+            if not commit_analysis:
+                self.logger.warning(f"Could not get analysis for commit {commit_hash}")
+                return None
+
+            # Create analysis request with commit-specific data
+            request = AnalysisRequest(
+                repository=repository,
+                git_repo=git_repo,
+                diff_content=commit_analysis.get("diff_content", ""),
+                commit_messages=[commit_analysis.get("message", "")],
+                custom_prompt=custom_prompt,
+            )
+
+            # Get analyzer and perform analysis
+            analyzer = self.get_analyzer(self.config.settings.llm_provider)
+            analysis = analyzer.analyze_changes(request)
+
+            # Enhance analysis with commit metadata
+            if analysis:
+                analysis.summary = f"Commit {commit_hash[:8]}: {analysis.summary}"
+                if commit_analysis.get("files_changed"):
+                    analysis.recommendations.append(
+                        f"Files changed: {', '.join(commit_analysis['files_changed'][:5])}"
+                    )
+                if commit_analysis.get("insertions") or commit_analysis.get(
+                    "deletions"
+                ):
+                    analysis.recommendations.append(
+                        f"Lines: +{commit_analysis.get('insertions', 0)} -{commit_analysis.get('deletions', 0)}"
+                    )
+
+            return analysis
+
+        except Exception as e:
+            self.logger.error(f"Failed to analyze commit {commit_hash}: {e}")
+            return None
+
+    def get_commit_summary(
+        self,
+        repository: Repository,
+        git_repo: GitRepository,
+        num_commits: int = 5,
+    ) -> dict[str, Any]:
+        """Get a summary of recent commits without full AI analysis.
+
+        Args:
+            repository: Repository configuration.
+            git_repo: Git repository instance.
+            num_commits: Number of recent commits to summarize.
+
+        Returns:
+            Dictionary containing commit summary information.
+        """
+        try:
+            commit_messages = git_repo.get_recent_commit_messages(num_commits)
+            diff_content = git_repo.get_recent_changes(num_commits)
+
+            # Basic analysis without AI
+            summary = {
+                "repository": repository.name,
+                "total_commits": len(commit_messages),
+                "commit_messages": commit_messages,
+                "has_changes": bool(diff_content),
+                "change_summary": self._analyze_diff_content(diff_content),
+                "last_commit": commit_messages[0] if commit_messages else None,
+                "commit_types": self._categorize_commits(commit_messages),
+            }
+
+            return summary
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to get commit summary for {repository.name}: {e}"
+            )
+            return {}
+
+    def _categorize_commits(self, commit_messages: list[str]) -> dict[str, int]:
+        """Categorize commits by type based on commit message patterns.
+
+        Args:
+            commit_messages: List of commit messages.
+
+        Returns:
+            Dictionary with commit categories and counts.
+        """
+        categories = {
+            "feature": 0,
+            "fix": 0,
+            "docs": 0,
+            "refactor": 0,
+            "test": 0,
+            "chore": 0,
+            "other": 0,
+        }
+
+        for message in commit_messages:
+            message_lower = message.lower()
+
+            # Use more specific patterns to avoid double counting
+            if message_lower.startswith("feat:") or "feature:" in message_lower:
+                categories["feature"] += 1
+            elif message_lower.startswith("fix:") or "bug:" in message_lower:
+                categories["fix"] += 1
+            elif (
+                message_lower.startswith("doc:")
+                or "docs:" in message_lower
+                or "readme" in message_lower
+            ):
+                categories["docs"] += 1
+            elif message_lower.startswith("refactor:") or "clean" in message_lower:
+                categories["refactor"] += 1
+            elif message_lower.startswith("test:") or "spec" in message_lower:
+                categories["test"] += 1
+            elif (
+                message_lower.startswith("chore:")
+                or "update" in message_lower
+                or "bump" in message_lower
+            ):
+                categories["chore"] += 1
+            else:
+                categories["other"] += 1
+
+        return categories
+
+    def _analyze_diff_content(self, diff_content: str) -> str:
+        """Analyze diff content to provide better context for AI analysis.
+
+        Args:
+            diff_content: Raw diff content.
+
+        Returns:
+            Analysis summary of the diff content.
+        """
+        if not diff_content:
+            return "No diff content available."
+
+        lines = diff_content.splitlines()
+        analysis_parts = []
+
+        # Count file types
+        file_extensions: dict[str, int] = {}
+        total_files = 0
+        total_insertions = 0
+        total_deletions = 0
+
+        for line in lines:
+            if line.startswith("diff --git"):
+                total_files += 1
+                # Extract file extension
+                parts = line.split()
+                if len(parts) >= 3:
+                    filename = parts[2]
+                    if "." in filename:
+                        ext = filename.split(".")[-1]
+                        file_extensions[ext] = file_extensions.get(ext, 0) + 1
+            elif line.startswith("+") and not line.startswith("+++"):
+                total_insertions += 1
+            elif line.startswith("-") and not line.startswith("---"):
+                total_deletions += 1
+
+        # Build analysis summary
+        if total_files > 0:
+            analysis_parts.append(f"Files changed: {total_files}")
+
+        if total_insertions > 0 or total_deletions > 0:
+            analysis_parts.append(f"Lines: +{total_insertions} -{total_deletions}")
+
+        if file_extensions:
+            top_extensions = sorted(
+                file_extensions.items(), key=lambda x: x[1], reverse=True
+            )[:3]
+            ext_summary = ", ".join(
+                [f"{ext} ({count})" for ext, count in top_extensions]
+            )
+            analysis_parts.append(f"File types: {ext_summary}")
+
+        # Look for specific patterns
+        if any("test" in line.lower() for line in lines):
+            analysis_parts.append("Contains test changes")
+
+        if any("doc" in line.lower() or "readme" in line.lower() for line in lines):
+            analysis_parts.append("Contains documentation changes")
+
+        if any("config" in line.lower() or "setup" in line.lower() for line in lines):
+            analysis_parts.append("Contains configuration changes")
+
+        return " | ".join(analysis_parts) if analysis_parts else "Standard code changes"
 
     def display_analysis(self, analysis: ChangeAnalysis, repository_name: str) -> None:
         """Display analysis results in a formatted way.

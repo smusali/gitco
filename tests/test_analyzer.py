@@ -628,15 +628,15 @@ class TestChangeAnalyzer:
 
     def test_display_analysis(self) -> None:
         """Test displaying analysis results."""
-        mock_config = Mock()
-        analyzer = ChangeAnalyzer(mock_config)
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
 
         analysis = ChangeAnalysis(
             summary="Test summary",
-            breaking_changes=["Change 1"],
-            new_features=["Feature 1"],
-            bug_fixes=["Fix 1"],
-            security_updates=["Security 1"],
+            breaking_changes=["Breaking change 1"],
+            new_features=["New feature 1"],
+            bug_fixes=["Bug fix 1"],
+            security_updates=["Security update 1"],
             deprecations=["Deprecation 1"],
             recommendations=["Recommendation 1"],
             confidence=0.8,
@@ -644,3 +644,218 @@ class TestChangeAnalyzer:
 
         # This should not raise any exceptions
         analyzer.display_analysis(analysis, "test-repo")
+
+    def test_analyze_specific_commit_success(self) -> None:
+        """Test analyzing a specific commit."""
+        config = Mock()
+        config.settings.analysis_enabled = True
+        config.settings.llm_provider = "openai"
+
+        analyzer = ChangeAnalyzer(config)
+
+        mock_repo = Mock()
+        mock_repo.name = "test-repo"
+        mock_repo.analysis_enabled = True
+
+        mock_git_repo = Mock()
+        mock_git_repo.get_commit_diff_analysis.return_value = {
+            "commit_hash": "abc123",
+            "author": "Test Author",
+            "date": "2024-01-01",
+            "message": "Test commit message",
+            "diff_content": "test diff content",
+            "files_changed": ["file1.py", "file2.py"],
+            "insertions": 10,
+            "deletions": 5,
+        }
+
+        with patch("gitco.analyzer.OpenAIAnalyzer") as mock_openai_analyzer:
+            mock_analyzer_instance = Mock()
+            mock_analyzer_instance.analyze_changes.return_value = ChangeAnalysis(
+                summary="Test analysis",
+                breaking_changes=[],
+                new_features=[],
+                bug_fixes=[],
+                security_updates=[],
+                deprecations=[],
+                recommendations=[],
+                confidence=0.8,
+            )
+            mock_openai_analyzer.return_value = mock_analyzer_instance
+
+            # Mock the get_analyzer method to return our mock analyzer
+            with patch.object(analyzer, "get_analyzer") as mock_get_analyzer:
+                mock_get_analyzer.return_value = mock_analyzer_instance
+
+                result = analyzer.analyze_specific_commit(
+                    mock_repo, mock_git_repo, "abc123"
+                )
+
+                assert result is not None
+                assert "abc123" in result.summary
+                assert (
+                    len(result.recommendations) >= 2
+                )  # Should have file and line info
+
+    def test_analyze_specific_commit_no_analysis_data(self) -> None:
+        """Test analyzing a specific commit with no analysis data."""
+        config = Mock()
+        config.settings.analysis_enabled = True
+        config.settings.llm_provider = "openai"
+
+        analyzer = ChangeAnalyzer(config)
+
+        mock_repo = Mock()
+        mock_repo.name = "test-repo"
+        mock_repo.analysis_enabled = True
+
+        mock_git_repo = Mock()
+        mock_git_repo.get_commit_diff_analysis.return_value = {}
+
+        result = analyzer.analyze_specific_commit(mock_repo, mock_git_repo, "abc123")
+
+        assert result is None
+
+    def test_get_commit_summary(self) -> None:
+        """Test getting commit summary."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        mock_repo = Mock()
+        mock_repo.name = "test-repo"
+
+        mock_git_repo = Mock()
+        mock_git_repo.get_recent_commit_messages.return_value = [
+            "feat: add new feature",
+            "fix: resolve bug",
+            "docs: update documentation",
+        ]
+        mock_git_repo.get_recent_changes.return_value = "test diff content"
+
+        result = analyzer.get_commit_summary(mock_repo, mock_git_repo, 3)
+
+        assert result["repository"] == "test-repo"
+        assert result["total_commits"] == 3
+        assert result["has_changes"] is True
+        assert result["commit_types"]["feature"] == 1
+        assert result["commit_types"]["fix"] == 1
+        assert result["commit_types"]["docs"] == 1
+
+    def test_categorize_commits(self) -> None:
+        """Test commit categorization."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        commit_messages = [
+            "feat: add new feature",
+            "fix: resolve critical bug",
+            "docs: update README",
+            "refactor: clean up code",
+            "test: add unit tests",
+            "chore: update dependencies",
+            "random commit message",
+        ]
+
+        categories = analyzer._categorize_commits(commit_messages)
+
+        assert categories["feature"] == 1
+        assert categories["fix"] == 1
+        assert categories["docs"] == 1
+        assert categories["refactor"] == 1
+        assert categories["test"] == 1
+        assert categories["chore"] == 1
+        assert categories["other"] == 1
+
+    def test_analyze_diff_content_empty(self) -> None:
+        """Test analyzing empty diff content."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        result = analyzer._analyze_diff_content("")
+        assert result == "No diff content available."
+
+    def test_analyze_diff_content_with_changes(self) -> None:
+        """Test analyzing diff content with changes."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        diff_content = """diff --git a/src/file1.py b/src/file1.py
+index 1234567..abcdefg 100644
+--- a/src/file1.py
++++ b/src/file1.py
+@@ -1,3 +1,4 @@
+ def test_function():
+-    return "old"
++    return "new"
++    # Added comment
+diff --git a/tests/test_file.py b/tests/test_file.py
+index 1234567..abcdefg 100644
+--- a/tests/test_file.py
++++ b/tests/test_file.py
+@@ -1,2 +1,3 @@
+ def test_something():
+     assert True
+     assert False
+"""
+
+        result = analyzer._analyze_diff_content(diff_content)
+
+        assert "Files changed: 2" in result
+        assert "Lines: +2 -1" in result  # Fixed: actual count is +2 -1
+        assert "py (2)" in result
+        assert "Contains test changes" in result
+
+    def test_analyze_diff_content_with_documentation(self) -> None:
+        """Test analyzing diff content with documentation changes."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        diff_content = """diff --git a/README.md b/README.md
+index 1234567..abcdefg 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,4 @@
+ # Project Title
++## New Section
+ This is a test project.
+"""
+
+        result = analyzer._analyze_diff_content(diff_content)
+
+        assert "Contains documentation changes" in result
+
+    def test_analyze_diff_content_with_configuration(self) -> None:
+        """Test analyzing diff content with configuration changes."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        diff_content = """diff --git a/setup.py b/setup.py
+index 1234567..abcdefg 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1,3 +1,4 @@
+ setup(
+     name="test",
++    version="1.0.1",
+     packages=["test"],
+ )
+"""
+
+        result = analyzer._analyze_diff_content(diff_content)
+
+        assert "Contains configuration changes" in result
+
+    def test_analyze_diff_content_large_diff(self) -> None:
+        """Test analyzing large diff content with truncation."""
+        config = Mock()
+        analyzer = ChangeAnalyzer(config)
+
+        # Create a large diff content
+        large_diff = "diff --git a/test.py b/test.py\n" + "+" * 15000
+
+        result = analyzer._analyze_diff_content(large_diff)
+
+        # Should still process the diff and provide analysis
+        assert "Files changed: 1" in result
+        assert "py (1)" in result
+        assert "Contains test changes" in result
