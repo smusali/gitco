@@ -1092,6 +1092,75 @@ class GitRepository:
 
             return False, stash_ref
 
+    def get_recent_changes(self, num_commits: int = 10) -> str:
+        """Get recent changes as diff content.
+
+        Args:
+            num_commits: Number of recent commits to include in diff.
+
+        Returns:
+            Diff content as string, or empty string if no changes.
+        """
+        try:
+            # Get the current branch
+            current_branch = self.get_current_branch()
+            if not current_branch:
+                return ""
+
+            # Get the upstream branch
+            upstream_branch = self.get_default_branch()
+            if not upstream_branch:
+                return ""
+
+            # Get diff between current branch and upstream
+            result = self._run_git_command(
+                ["diff", f"origin/{upstream_branch}..HEAD", "--stat"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout
+            else:
+                # Try to get recent commits diff
+                result = self._run_git_command(
+                    ["log", f"-{num_commits}", "--oneline", "--stat"],
+                    capture_output=True,
+                    text=True,
+                )
+                return result.stdout if result.returncode == 0 else ""
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get recent changes: {e}")
+            return ""
+
+    def get_recent_commit_messages(self, num_commits: int = 10) -> list[str]:
+        """Get recent commit messages.
+
+        Args:
+            num_commits: Number of recent commits to retrieve.
+
+        Returns:
+            List of commit messages.
+        """
+        try:
+            result = self._run_git_command(
+                ["log", f"-{num_commits}", "--oneline", "--no-merges"],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                return [
+                    line.strip() for line in result.stdout.splitlines() if line.strip()
+                ]
+            else:
+                return []
+
+        except Exception as e:
+            self.logger.warning(f"Failed to get recent commit messages: {e}")
+            return []
+
     def _run_git_command(
         self,
         args: list[str],

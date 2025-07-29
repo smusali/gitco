@@ -6,6 +6,7 @@ from typing import Optional
 import click
 
 from . import __version__
+from .analyzer import ChangeAnalyzer
 from .config import ConfigManager, create_sample_config
 from .git_ops import GitRepository, GitRepositoryManager
 from .utils import (
@@ -377,11 +378,75 @@ def sync(
         # Handle analysis if requested
         if analyze:
             logger.info("AI analysis requested")
-            print_info_panel(
-                "AI Analysis",
-                "AI analysis functionality will be implemented in Commit 22.\n"
-                "This will provide intelligent summaries of upstream changes.",
-            )
+
+            if repo:
+                # Analyze specific repository
+                try:
+                    repository = config_manager.get_repository(repo)
+                    if repository:
+                        git_repo = GitRepository(repository.local_path)
+                        if git_repo.is_git_repository():
+                            analyzer = ChangeAnalyzer(config)
+                            analysis = analyzer.analyze_repository_changes(
+                                repository=repository,
+                                git_repo=git_repo,
+                            )
+
+                            if analysis:
+                                analyzer.display_analysis(analysis, repository.name)
+                            else:
+                                print_warning_panel(
+                                    "No Analysis Available",
+                                    f"No changes found to analyze for repository '{repo}'.",
+                                )
+                        else:
+                            print_error_panel(
+                                "Invalid Repository",
+                                f"Path '{repository.local_path}' is not a valid Git repository.",
+                            )
+                    else:
+                        print_error_panel(
+                            "Repository Not Found",
+                            f"Repository '{repo}' not found in configuration.",
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to analyze repository {repo}: {e}")
+                    print_error_panel(
+                        "Analysis Failed",
+                        f"Failed to analyze repository '{repo}': {e}",
+                    )
+            else:
+                # Analyze all repositories that were successfully synced
+                logger.info("Analyzing all successfully synced repositories")
+
+                analyzer = ChangeAnalyzer(config)
+                analyzed_count = 0
+
+                for r in config.repositories:
+                    try:
+                        git_repo = GitRepository(r.local_path)
+                        if git_repo.is_git_repository():
+                            analysis = analyzer.analyze_repository_changes(
+                                repository=r,
+                                git_repo=git_repo,
+                            )
+
+                            if analysis:
+                                analyzer.display_analysis(analysis, r.name)
+                                analyzed_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to analyze repository {r.name}: {e}")
+
+                if analyzed_count > 0:
+                    print_success_panel(
+                        "Analysis Completed",
+                        f"Successfully analyzed {analyzed_count} repositories.",
+                    )
+                else:
+                    print_warning_panel(
+                        "No Analysis Available",
+                        "No changes found to analyze in any repositories.",
+                    )
 
         # Handle export if requested
         if export:
@@ -426,28 +491,97 @@ def analyze(
 
     Generates human-readable summaries of upstream changes using AI analysis.
     """
-    print_info_panel(
-        "Analyzing Repository Changes",
-        f"Analyzing repository: {repo}\n"
-        "This functionality will be implemented in Commit 22.",
-    )
+    log_operation_start("repository analysis", repo=repo, prompt=prompt)
 
-    # TODO: Implement AI analysis
-    # This will be implemented in Commit 22
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
 
-    if prompt:
-        print_info_panel("Using Custom Prompt", f"Using custom prompt: {prompt}")
+        # Get repository configuration
+        repository = config_manager.get_repository(repo)
+        if not repository:
+            print_error_panel(
+                "Repository Not Found",
+                f"Repository '{repo}' not found in configuration.\n\n"
+                "Available repositories:\n"
+                + "\n".join([f"  • {r.name}" for r in config.repositories]),
+            )
+            return
 
-    if repos:
-        print_info_panel(
-            "Analyzing Multiple Repositories",
-            f"Analyzing multiple repositories: {repos}",
+        # Initialize analyzer
+        analyzer = ChangeAnalyzer(config)
+
+        # Get Git repository instance
+        git_repo = GitRepository(repository.local_path)
+        if not git_repo.is_git_repository():
+            print_error_panel(
+                "Invalid Repository",
+                f"Path '{repository.local_path}' is not a valid Git repository.",
+            )
+            return
+
+        # Perform analysis
+        analysis = analyzer.analyze_repository_changes(
+            repository=repository,
+            git_repo=git_repo,
+            custom_prompt=prompt,
         )
 
-    if export:
-        print_info_panel("Exporting Analysis", f"Exporting analysis to: {export}")
+        if analysis:
+            # Display analysis results
+            analyzer.display_analysis(analysis, repository.name)
 
-    print_success_panel("Analysis Completed", "✅ Analysis completed!")
+            # Export if requested
+            if export:
+                try:
+                    import json
+                    from datetime import datetime
+
+                    export_data = {
+                        "repository": repository.name,
+                        "analysis_date": datetime.now().isoformat(),
+                        "summary": analysis.summary,
+                        "breaking_changes": analysis.breaking_changes,
+                        "new_features": analysis.new_features,
+                        "bug_fixes": analysis.bug_fixes,
+                        "security_updates": analysis.security_updates,
+                        "deprecations": analysis.deprecations,
+                        "recommendations": analysis.recommendations,
+                        "confidence": analysis.confidence,
+                    }
+
+                    with open(export, "w", encoding="utf-8") as f:
+                        json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                    print_success_panel(
+                        "Analysis Exported",
+                        f"Analysis results exported to: {export}",
+                    )
+
+                except Exception as e:
+                    print_error_panel(
+                        "Export Failed",
+                        f"Failed to export analysis: {e}",
+                    )
+
+            log_operation_success("repository analysis", repo=repo)
+        else:
+            print_warning_panel(
+                "No Analysis Available",
+                f"No changes found to analyze for repository '{repo}'.\n\n"
+                "This could mean:\n"
+                "• The repository is up to date\n"
+                "• Analysis is disabled for this repository\n"
+                "• No recent changes were detected",
+            )
+
+    except Exception as e:
+        log_operation_failure("repository analysis", e, repo=repo)
+        print_error_panel(
+            "Analysis Failed",
+            f"Failed to analyze repository '{repo}': {e}",
+        )
 
 
 @main.command()
@@ -708,9 +842,7 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -758,9 +890,7 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -809,9 +939,7 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -860,9 +988,7 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -922,9 +1048,7 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1000,9 +1124,7 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)

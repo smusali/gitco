@@ -26,10 +26,16 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - **Color-coded status** for different operation types (started, completed, failed, skipped)
 
 ### 🧠 **AI-Powered Change Analysis**
+- **OpenAI API integration** for intelligent change analysis
 - Generates human-readable summaries of upstream changes
 - Identifies breaking changes, new features, and critical fixes
-- Analyzes commit messages and PR descriptions for context
+- Analyzes commit messages and diff content for context
 - Highlights security updates and deprecations
+- Provides confidence scoring for analysis results
+- Rich console output with color-coded analysis sections
+- Export analysis results to JSON format
+- Custom prompt support for specialized analysis
+- Integration with sync command for automatic analysis
 
 ### 🎯 **Contribution Discovery**
 - Scans repositories for "good first issue" and "help wanted" labels
@@ -148,6 +154,12 @@ gitco sync --repo django
 # Get AI summary of changes
 gitco analyze --repo fastapi
 
+# Analyze with custom prompt
+gitco analyze --repo fastapi --prompt "Focus on security implications"
+
+# Export analysis results
+gitco analyze --repo fastapi --export analysis.json
+
 # Find contribution opportunities
 gitco discover
 
@@ -166,6 +178,33 @@ gitco upstream add --repo ~/code/django --url git@github.com:django/django.git
 gitco upstream validate-upstream --repo ~/code/django
 gitco upstream fetch --repo ~/code/django
 ```
+
+### AI Analysis
+
+GitCo provides intelligent analysis of repository changes using OpenAI's API:
+
+```bash
+# Analyze specific repository
+gitco analyze --repo fastapi
+
+# Analyze with custom prompt
+gitco analyze --repo fastapi --prompt "Focus on breaking changes"
+
+# Export analysis to JSON
+gitco analyze --repo fastapi --export analysis.json
+
+# Sync with automatic analysis
+gitco sync --analyze
+```
+
+The analysis provides:
+- **Summary**: Human-readable overview of changes
+- **Breaking Changes**: API changes that may affect existing code
+- **New Features**: New functionality added
+- **Bug Fixes**: Issues resolved
+- **Security Updates**: Security-related changes
+- **Deprecations**: Deprecated functionality
+- **Recommendations**: Suggestions for contributors
 
 ### Upstream Remote Management
 
