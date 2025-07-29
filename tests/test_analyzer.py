@@ -8,12 +8,20 @@ import pytest
 from gitco.analyzer import (
     AnalysisRequest,
     AnthropicAnalyzer,
+    BaseAnalyzer,
     ChangeAnalysis,
     ChangeAnalyzer,
     OllamaAnalyzer,
     OpenAIAnalyzer,
 )
-from gitco.detector import BreakingChange, BreakingChangeDetector
+from gitco.config import Config, Repository
+from gitco.detector import (
+    BreakingChange,
+    BreakingChangeDetector,
+    Deprecation,
+    SecurityUpdate,
+)
+from gitco.git_ops import GitRepository
 from tests.fixtures import (
     mock_analysis_request,
     mock_change_analysis,
@@ -1112,3 +1120,445 @@ index 1234567..abcdefg 100644
         assert "Files changed: 1" in result
         assert "py (1)" in result
         assert "Contains test changes" in result
+
+
+# New test cases for ChangeAnalysis dataclass
+def test_change_analysis_with_detailed_breaking_changes() -> None:
+    """Test ChangeAnalysis with detailed breaking changes."""
+    breaking_changes = [
+        BreakingChange(
+            type="api_change",
+            description="Removed deprecated method",
+            severity="high",
+            affected_components=["api.py"],
+            migration_guidance="Use new_method() instead",
+        )
+    ]
+
+    analysis = ChangeAnalysis(
+        summary="API breaking changes detected",
+        breaking_changes=["Removed deprecated method"],
+        new_features=[],
+        bug_fixes=[],
+        security_updates=[],
+        deprecations=[],
+        recommendations=["Update API calls"],
+        confidence=0.9,
+        detailed_breaking_changes=breaking_changes,
+    )
+
+    assert analysis.summary == "API breaking changes detected"
+    assert analysis.detailed_breaking_changes is not None
+    assert len(analysis.detailed_breaking_changes) == 1
+    assert analysis.detailed_breaking_changes[0].type == "api_change"
+    assert analysis.confidence == 0.9
+
+
+def test_change_analysis_with_security_updates() -> None:
+    """Test ChangeAnalysis with security updates."""
+    security_updates = [
+        SecurityUpdate(
+            type="vulnerability_fix",
+            description="Fixed SQL injection vulnerability",
+            severity="critical",
+            cve_id="CVE-2023-1234",
+            affected_components=["database.py"],
+            remediation_guidance="Update immediately",
+        )
+    ]
+
+    analysis = ChangeAnalysis(
+        summary="Critical security update",
+        breaking_changes=[],
+        new_features=[],
+        bug_fixes=[],
+        security_updates=["Fixed SQL injection"],
+        deprecations=[],
+        recommendations=["Deploy immediately"],
+        confidence=0.95,
+        detailed_security_updates=security_updates,
+    )
+
+    assert analysis.detailed_security_updates is not None
+    assert analysis.detailed_security_updates[0].cve_id == "CVE-2023-1234"
+    assert analysis.detailed_security_updates[0].severity == "critical"
+
+
+def test_change_analysis_with_deprecations() -> None:
+    """Test ChangeAnalysis with deprecations."""
+    deprecations = [
+        Deprecation(
+            type="api_deprecation",
+            description="Deprecated old_config parameter",
+            severity="medium",
+            replacement_suggestion="Use new_config instead",
+            removal_date="2024-12-31",
+            affected_components=["config.py"],
+            migration_path="Update configuration calls",
+        )
+    ]
+
+    analysis = ChangeAnalysis(
+        summary="Deprecation warnings",
+        breaking_changes=[],
+        new_features=[],
+        bug_fixes=[],
+        security_updates=[],
+        deprecations=["Deprecated old_config parameter"],
+        recommendations=["Update configuration"],
+        confidence=0.8,
+        detailed_deprecations=deprecations,
+    )
+
+    assert analysis.detailed_deprecations is not None
+    assert analysis.detailed_deprecations[0].removal_date == "2024-12-31"
+    assert (
+        analysis.detailed_deprecations[0].replacement_suggestion
+        == "Use new_config instead"
+    )
+
+
+def test_change_analysis_empty_lists() -> None:
+    """Test ChangeAnalysis with empty lists."""
+    analysis = ChangeAnalysis(
+        summary="No significant changes",
+        breaking_changes=[],
+        new_features=[],
+        bug_fixes=[],
+        security_updates=[],
+        deprecations=[],
+        recommendations=[],
+        confidence=0.5,
+    )
+
+    assert analysis.summary == "No significant changes"
+    assert analysis.confidence == 0.5
+    assert analysis.detailed_breaking_changes is None
+    assert analysis.detailed_security_updates is None
+    assert analysis.detailed_deprecations is None
+
+
+def test_change_analysis_high_confidence() -> None:
+    """Test ChangeAnalysis with high confidence and mixed changes."""
+    analysis = ChangeAnalysis(
+        summary="Multiple changes detected",
+        breaking_changes=["API change", "Config change"],
+        new_features=["New endpoint", "Enhanced logging"],
+        bug_fixes=["Fixed memory leak", "Fixed race condition"],
+        security_updates=["Security patch"],
+        deprecations=["Deprecated feature"],
+        recommendations=["Update immediately", "Review changes"],
+        confidence=0.98,
+    )
+
+    assert len(analysis.breaking_changes) == 2
+    assert len(analysis.new_features) == 2
+    assert len(analysis.bug_fixes) == 2
+    assert len(analysis.recommendations) == 2
+    assert analysis.confidence == 0.98
+
+
+# New test cases for AnalysisRequest dataclass
+def test_analysis_request_with_custom_prompt() -> None:
+    """Test AnalysisRequest with custom prompt."""
+    repo = Repository(
+        name="test-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/original/repo",
+        local_path="/path/to/repo",
+    )
+    git_repo = GitRepository("/path/to/repo")
+
+    request = AnalysisRequest(
+        repository=repo,
+        git_repo=git_repo,
+        diff_content="diff --git a/file.py b/file.py",
+        commit_messages=["feat: add new feature", "fix: resolve bug"],
+        custom_prompt="Focus on security implications",
+    )
+
+    assert request.repository.name == "test-repo"
+    assert request.custom_prompt == "Focus on security implications"
+    assert len(request.commit_messages) == 2
+
+
+def test_analysis_request_without_custom_prompt() -> None:
+    """Test AnalysisRequest without custom prompt."""
+    repo = Repository(
+        name="simple-repo",
+        fork="https://github.com/user/simple",
+        upstream="https://github.com/original/simple",
+        local_path="/path/to/simple",
+    )
+    git_repo = GitRepository("/path/to/simple")
+
+    request = AnalysisRequest(
+        repository=repo,
+        git_repo=git_repo,
+        diff_content="diff --git a/README.md b/README.md",
+        commit_messages=["docs: update README"],
+    )
+
+    assert request.custom_prompt is None
+    assert request.repository.name == "simple-repo"
+
+
+def test_analysis_request_empty_commit_messages() -> None:
+    """Test AnalysisRequest with empty commit messages."""
+    repo = Repository(
+        name="empty-repo",
+        fork="https://github.com/user/empty",
+        upstream="https://github.com/original/empty",
+        local_path="/path/to/empty",
+    )
+    git_repo = GitRepository("/path/to/empty")
+
+    request = AnalysisRequest(
+        repository=repo, git_repo=git_repo, diff_content="", commit_messages=[]
+    )
+
+    assert len(request.commit_messages) == 0
+    assert request.diff_content == ""
+
+
+def test_analysis_request_large_diff() -> None:
+    """Test AnalysisRequest with large diff content."""
+    repo = Repository(
+        name="large-repo",
+        fork="https://github.com/user/large",
+        upstream="https://github.com/original/large",
+        local_path="/path/to/large",
+    )
+    git_repo = GitRepository("/path/to/large")
+
+    large_diff = "diff --git a/large_file.py b/large_file.py\n" * 1000
+
+    request = AnalysisRequest(
+        repository=repo,
+        git_repo=git_repo,
+        diff_content=large_diff,
+        commit_messages=["feat: major refactor", "test: add comprehensive tests"],
+        custom_prompt="Analyze performance impact",
+    )
+
+    assert len(request.diff_content) > 1000
+    assert request.custom_prompt == "Analyze performance impact"
+
+
+def test_analysis_request_multiple_commits() -> None:
+    """Test AnalysisRequest with multiple commit messages."""
+    repo = Repository(
+        name="multi-commit-repo",
+        fork="https://github.com/user/multi",
+        upstream="https://github.com/original/multi",
+        local_path="/path/to/multi",
+    )
+    git_repo = GitRepository("/path/to/multi")
+
+    commits = [
+        "feat: add authentication system",
+        "fix: resolve login bug",
+        "docs: update API documentation",
+        "test: add integration tests",
+        "refactor: improve code structure",
+    ]
+
+    request = AnalysisRequest(
+        repository=repo,
+        git_repo=git_repo,
+        diff_content="diff --git a/auth.py b/auth.py",
+        commit_messages=commits,
+    )
+
+    assert len(request.commit_messages) == 5
+    assert "authentication" in request.commit_messages[0]
+
+
+# New test cases for BaseAnalyzer abstract class
+def test_base_analyzer_initialization() -> None:
+    """Test BaseAnalyzer initialization with default model."""
+    analyzer = MockBaseAnalyzer()
+
+    assert analyzer.model == "default"
+    assert analyzer.logger is not None
+    assert analyzer.breaking_detector is not None
+    assert analyzer.security_deprecation_detector is not None
+    assert analyzer.prompt_manager is not None
+
+
+def test_base_analyzer_custom_model() -> None:
+    """Test BaseAnalyzer initialization with custom model."""
+    analyzer = MockBaseAnalyzer(model="gpt-4")
+
+    assert analyzer.model == "gpt-4"
+
+
+def test_base_analyzer_abstract_methods() -> None:
+    """Test that BaseAnalyzer abstract methods raise NotImplementedError."""
+    analyzer = MockBaseAnalyzer()
+
+    # These should be implemented by concrete classes
+    assert analyzer._get_api_name() == "MockAPI"
+    # _call_llm_api is abstract and should be implemented by subclasses
+
+
+def test_base_analyzer_detector_integration() -> None:
+    """Test BaseAnalyzer integration with detectors."""
+    analyzer = MockBaseAnalyzer()
+
+    # Test that detectors are properly initialized
+    assert hasattr(analyzer.breaking_detector, "get_detector_name")
+    assert hasattr(analyzer.security_deprecation_detector, "get_detector_name")
+
+
+def test_base_analyzer_prompt_manager_integration() -> None:
+    """Test BaseAnalyzer integration with prompt manager."""
+    analyzer = MockBaseAnalyzer()
+
+    # Test that prompt manager is properly initialized
+    assert hasattr(analyzer.prompt_manager, "get_system_prompt")
+    assert hasattr(analyzer.prompt_manager, "get_analysis_prompt")
+
+
+# New test cases for OpenAIAnalyzer class
+def test_openai_analyzer_initialization() -> None:
+    """Test OpenAIAnalyzer initialization."""
+    analyzer = OpenAIAnalyzer(api_key="test-key", model="gpt-4")
+
+    assert analyzer.model == "gpt-4"
+    assert analyzer.api_key == "test-key"
+
+
+def test_openai_analyzer_get_api_name() -> None:
+    """Test OpenAIAnalyzer API name."""
+    analyzer = OpenAIAnalyzer(api_key="test-key")
+
+    assert analyzer._get_api_name() == "OpenAI"
+
+
+def test_openai_analyzer_with_environment_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test OpenAIAnalyzer with environment API key."""
+    monkeypatch.setenv("OPENAI_API_KEY", "env-key")
+    analyzer = OpenAIAnalyzer()
+
+    assert analyzer.api_key == "env-key"
+
+
+def test_openai_analyzer_inheritance() -> None:
+    """Test OpenAIAnalyzer inheritance from BaseAnalyzer."""
+    analyzer = OpenAIAnalyzer(api_key="test-key")
+
+    assert isinstance(analyzer, BaseAnalyzer)
+    assert hasattr(analyzer, "breaking_detector")
+    assert hasattr(analyzer, "security_deprecation_detector")
+
+
+# New test cases for AnthropicAnalyzer class
+def test_anthropic_analyzer_initialization() -> None:
+    """Test AnthropicAnalyzer initialization."""
+    analyzer = AnthropicAnalyzer(api_key="test-key", model="claude-3-opus")
+
+    assert analyzer.model == "claude-3-opus"
+    assert analyzer.api_key == "test-key"
+
+
+def test_anthropic_analyzer_get_api_name() -> None:
+    """Test AnthropicAnalyzer API name."""
+    analyzer = AnthropicAnalyzer(api_key="test-key")
+
+    assert analyzer._get_api_name() == "Anthropic"
+
+
+def test_anthropic_analyzer_with_environment_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test AnthropicAnalyzer with environment API key."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key")
+    analyzer = AnthropicAnalyzer()
+
+    assert analyzer.api_key == "env-key"
+
+
+def test_anthropic_analyzer_inheritance() -> None:
+    """Test AnthropicAnalyzer inheritance from BaseAnalyzer."""
+    analyzer = AnthropicAnalyzer(api_key="test-key")
+
+    assert isinstance(analyzer, BaseAnalyzer)
+    assert hasattr(analyzer, "prompt_manager")
+
+
+# New test cases for OllamaAnalyzer class
+def test_ollama_analyzer_initialization() -> None:
+    """Test OllamaAnalyzer initialization."""
+    analyzer = OllamaAnalyzer(
+        model="llama2:13b", host="http://localhost:8080", timeout=60
+    )
+
+    assert analyzer.model == "llama2:13b"
+    assert analyzer.host == "http://localhost:8080"
+    assert analyzer.timeout == 60
+
+
+def test_ollama_analyzer_default_initialization() -> None:
+    """Test OllamaAnalyzer with default parameters."""
+    analyzer = OllamaAnalyzer()
+
+    assert analyzer.model == "llama2"
+    assert analyzer.host == "http://localhost:11434"
+    assert analyzer.timeout == 120
+
+
+def test_ollama_analyzer_get_api_name() -> None:
+    """Test OllamaAnalyzer API name."""
+    analyzer = OllamaAnalyzer()
+
+    assert analyzer._get_api_name() == "Ollama"
+
+
+def test_ollama_analyzer_custom_host() -> None:
+    """Test OllamaAnalyzer with custom host."""
+    analyzer = OllamaAnalyzer(host="http://custom-host:11434")
+
+    assert analyzer.host == "http://custom-host:11434"
+
+
+def test_ollama_analyzer_inheritance() -> None:
+    """Test OllamaAnalyzer inheritance from BaseAnalyzer."""
+    analyzer = OllamaAnalyzer()
+
+    assert isinstance(analyzer, BaseAnalyzer)
+    assert hasattr(analyzer, "security_deprecation_detector")
+
+
+# New test cases for ChangeAnalyzer class
+def test_change_analyzer_initialization() -> None:
+    """Test ChangeAnalyzer initialization."""
+    config = Config()
+    analyzer = ChangeAnalyzer(config)
+
+    assert analyzer.config == config
+    assert analyzer.analyzers is not None
+
+
+def test_change_analyzer_get_analyzer_ollama() -> None:
+    """Test ChangeAnalyzer get_analyzer with Ollama."""
+    config = Config()
+    analyzer = ChangeAnalyzer(config)
+
+    ollama_analyzer = analyzer.get_analyzer("ollama")
+    assert isinstance(ollama_analyzer, OllamaAnalyzer)
+
+
+# Mock class for testing BaseAnalyzer
+class MockBaseAnalyzer(BaseAnalyzer):
+    """Mock implementation of BaseAnalyzer for testing."""
+
+    def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
+        """Mock LLM API call."""
+        return "Mock response"
+
+    def _get_api_name(self) -> str:
+        """Mock API name."""
+        return "MockAPI"

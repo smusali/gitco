@@ -21,7 +21,7 @@ class PromptManager:
         Returns:
             Formatted system prompt string.
         """
-        return self._system_prompt_template.render()
+        return str(self._system_prompt_template.render())
 
     def get_analysis_prompt(
         self,
@@ -120,12 +120,18 @@ class PromptManager:
                         f"  Migration: {deprecation.migration_path}\n"
                     )
 
-        # Build context for template
+        # Build skills context
+        skills_context = ""
+        if repository_skills:
+            skills_context = f"Skills: {', '.join(repository_skills)}"
+        else:
+            skills_context = "Skills: Not specified"
+
         context = {
             "repository_name": repository_name,
             "repository_fork": repository_fork,
             "repository_upstream": repository_upstream,
-            "repository_skills": ", ".join(repository_skills),
+            "repository_skills": skills_context,
             "commit_summary": commit_summary,
             "diff_analysis": diff_analysis,
             "breaking_context": breaking_context,
@@ -135,7 +141,7 @@ class PromptManager:
             "custom_prompt": custom_prompt or "",
         }
 
-        return self._analysis_prompt_template.render(**context)
+        return str(self._analysis_prompt_template.render(**context))
 
 
 # Template constants

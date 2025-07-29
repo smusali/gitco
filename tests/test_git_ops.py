@@ -1,10 +1,15 @@
-"""Tests for Git operations module."""
+"""Tests for the git_ops module."""
 
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from gitco.git_ops import GitRepository, GitRepositoryManager
+from gitco.git_ops import (
+    BatchProcessor,
+    BatchResult,
+    GitRepository,
+    GitRepositoryManager,
+)
 
 
 class TestGitRepository:
@@ -947,3 +952,233 @@ class TestGitRepositoryManager:
         is_valid, errors = manager.validate_repository_path("/nonexistent/path")
         assert not is_valid
         assert len(errors) > 0
+
+
+# New test cases for BatchResult dataclass
+def test_batch_result_with_all_fields() -> None:
+    """Test BatchResult with all fields specified."""
+    batch_result = BatchResult(
+        repository_name="test-repo",
+        repository_path="/path/to/test-repo",
+        success=True,
+        operation="sync",
+        message="Successfully synced repository",
+        details={"commits": 5, "files_changed": 10},
+        duration=2.5,
+        error=None,
+    )
+
+    assert batch_result.repository_name == "test-repo"
+    assert batch_result.repository_path == "/path/to/test-repo"
+    assert batch_result.success is True
+    assert batch_result.operation == "sync"
+    assert batch_result.message == "Successfully synced repository"
+    assert batch_result.details == {"commits": 5, "files_changed": 10}
+    assert batch_result.duration == 2.5
+    assert batch_result.error is None
+
+
+def test_batch_result_with_error() -> None:
+    """Test BatchResult with error."""
+    error = Exception("Git operation failed")
+    batch_result = BatchResult(
+        repository_name="failed-repo",
+        repository_path="/path/to/failed-repo",
+        success=False,
+        operation="merge",
+        message="Failed to merge upstream changes",
+        details={"conflicts": 3},
+        duration=1.2,
+        error=error,
+    )
+
+    assert batch_result.success is False
+    assert batch_result.error == error
+    assert "Failed" in batch_result.message
+
+
+def test_batch_result_with_default_error() -> None:
+    """Test BatchResult with default error field."""
+    batch_result = BatchResult(
+        repository_name="simple-repo",
+        repository_path="/path/to/simple-repo",
+        success=True,
+        operation="fetch",
+        message="Repository fetched successfully",
+        details={},
+        duration=0.5,
+    )
+
+    assert batch_result.error is None
+
+
+def test_batch_result_long_operation() -> None:
+    """Test BatchResult with long duration operation."""
+    batch_result = BatchResult(
+        repository_name="large-repo",
+        repository_path="/path/to/large-repo",
+        success=True,
+        operation="clone",
+        message="Repository cloned successfully",
+        details={"size_mb": 500, "files": 10000},
+        duration=45.7,
+    )
+
+    assert batch_result.duration > 30
+    assert batch_result.operation == "clone"
+
+
+def test_batch_result_complex_details() -> None:
+    """Test BatchResult with complex details."""
+    details = {
+        "commits": 25,
+        "files_changed": 150,
+        "insertions": 2000,
+        "deletions": 500,
+        "conflicts_resolved": 3,
+        "branches_merged": 2,
+    }
+
+    batch_result = BatchResult(
+        repository_name="complex-repo",
+        repository_path="/path/to/complex-repo",
+        success=True,
+        operation="sync",
+        message="Complex sync completed successfully",
+        details=details,
+        duration=12.3,
+    )
+
+    assert len(batch_result.details) == 6
+    assert batch_result.details["commits"] == 25
+    assert batch_result.details["insertions"] == 2000
+
+
+# New test cases for BatchProcessor class
+def test_batch_processor_initialization() -> None:
+    """Test BatchProcessor initialization."""
+    processor = BatchProcessor(max_workers=8, rate_limit_delay=2.0)
+
+    assert processor.max_workers == 8
+    assert processor.rate_limit_delay == 2.0
+    assert processor.logger is not None
+
+
+def test_batch_processor_default_initialization() -> None:
+    """Test BatchProcessor with default parameters."""
+    processor = BatchProcessor()
+
+    assert processor.max_workers == 4
+    assert processor.rate_limit_delay == 1.0
+
+
+def test_batch_processor_high_workers() -> None:
+    """Test BatchProcessor with high worker count."""
+    processor = BatchProcessor(max_workers=16)
+
+    assert processor.max_workers == 16
+
+
+def test_batch_processor_custom_delay() -> None:
+    """Test BatchProcessor with custom rate limit delay."""
+    processor = BatchProcessor(rate_limit_delay=5.0)
+
+    assert processor.rate_limit_delay == 5.0
+
+
+def test_batch_processor_has_methods() -> None:
+    """Test BatchProcessor has required methods."""
+    processor = BatchProcessor()
+
+    assert hasattr(processor, "process_repositories")
+    assert hasattr(processor, "_process_single_repository")
+    assert hasattr(processor, "_print_batch_header")
+
+
+# New test cases for GitRepository class
+def test_git_repository_initialization() -> None:
+    """Test GitRepository initialization."""
+    repo = GitRepository("/path/to/repo")
+
+    assert str(repo.path) == "/path/to/repo"
+    assert repo.logger is not None
+
+
+def test_git_repository_is_git_repository() -> None:
+    """Test GitRepository is_git_repository method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally check if the path is a git repository
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "is_git_repository")
+
+
+def test_git_repository_get_remote_urls() -> None:
+    """Test GitRepository get_remote_urls method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally return actual remote URLs
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "get_remote_urls")
+
+
+def test_git_repository_add_upstream_remote() -> None:
+    """Test GitRepository add_upstream_remote method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally add an upstream remote
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "add_upstream_remote")
+
+
+def test_git_repository_merge_upstream_branch() -> None:
+    """Test GitRepository merge_upstream_branch method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally merge upstream changes
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "merge_upstream_branch")
+
+
+# New test cases for GitRepositoryManager class
+def test_git_repository_manager_initialization() -> None:
+    """Test GitRepositoryManager initialization."""
+    manager = GitRepositoryManager()
+
+    assert manager.logger is not None
+
+
+def test_git_repository_manager_batch_sync_repositories() -> None:
+    """Test GitRepositoryManager batch_sync_repositories method."""
+    manager = GitRepositoryManager()
+
+    # This would normally sync multiple repositories
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "batch_sync_repositories")
+
+
+def test_git_repository_manager_batch_fetch_repositories() -> None:
+    """Test GitRepositoryManager batch_fetch_repositories method."""
+    manager = GitRepositoryManager()
+
+    # This would normally fetch from multiple repositories
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "batch_fetch_repositories")
+
+
+def test_git_repository_manager_batch_validate_repositories() -> None:
+    """Test GitRepositoryManager batch_validate_repositories method."""
+    manager = GitRepositoryManager()
+
+    # This would normally validate multiple repositories
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "batch_validate_repositories")
+
+
+def test_git_repository_manager_detect_repositories() -> None:
+    """Test GitRepositoryManager detect_repositories method."""
+    manager = GitRepositoryManager()
+
+    # This would normally detect repositories in a directory
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "detect_repositories")

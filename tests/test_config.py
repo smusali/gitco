@@ -367,3 +367,257 @@ def test_config_manager_get_repository_not_found() -> None:
     # The get_repository method takes only the name
     result = manager.get_repository("nonexistent")
     assert result is None
+
+
+# New test cases for Repository dataclass
+def test_repository_with_all_fields() -> None:
+    """Test Repository with all fields specified."""
+    repo = Repository(
+        name="test-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/original/repo",
+        local_path="/path/to/repo",
+        skills=["python", "api", "testing"],
+        analysis_enabled=True,
+        sync_frequency="daily",
+    )
+
+    assert repo.name == "test-repo"
+    assert repo.fork == "https://github.com/user/fork"
+    assert repo.upstream == "https://github.com/original/repo"
+    assert repo.local_path == "/path/to/repo"
+    assert repo.skills == ["python", "api", "testing"]
+    assert repo.analysis_enabled is True
+    assert repo.sync_frequency == "daily"
+
+
+def test_repository_with_defaults() -> None:
+    """Test Repository with default field values."""
+    repo = Repository(
+        name="simple-repo",
+        fork="https://github.com/user/simple",
+        upstream="https://github.com/original/simple",
+        local_path="/path/to/simple",
+    )
+
+    assert repo.skills == []
+    assert repo.analysis_enabled is True
+    assert repo.sync_frequency is None
+
+
+def test_repository_with_disabled_analysis() -> None:
+    """Test Repository with analysis disabled."""
+    repo = Repository(
+        name="no-analysis-repo",
+        fork="https://github.com/user/no-analysis",
+        upstream="https://github.com/original/no-analysis",
+        local_path="/path/to/no-analysis",
+        analysis_enabled=False,
+    )
+
+    assert repo.analysis_enabled is False
+
+
+def test_repository_with_sync_frequency() -> None:
+    """Test Repository with sync frequency specified."""
+    repo = Repository(
+        name="frequent-repo",
+        fork="https://github.com/user/frequent",
+        upstream="https://github.com/original/frequent",
+        local_path="/path/to/frequent",
+        sync_frequency="hourly",
+    )
+
+    assert repo.sync_frequency == "hourly"
+
+
+def test_repository_with_skills() -> None:
+    """Test Repository with skills list."""
+    skills = ["javascript", "react", "node.js", "typescript"]
+    repo = Repository(
+        name="js-repo",
+        fork="https://github.com/user/js-repo",
+        upstream="https://github.com/original/js-repo",
+        local_path="/path/to/js-repo",
+        skills=skills,
+    )
+
+    assert repo.skills == skills
+    assert len(repo.skills) == 4
+
+
+# New test cases for Settings dataclass
+def test_settings_with_all_fields() -> None:
+    """Test Settings with all fields specified."""
+    settings = Settings(
+        llm_provider="anthropic",
+        api_key_env="ANTHROPIC_API_KEY",
+        default_path="~/projects",
+        analysis_enabled=False,
+        max_repos_per_batch=20,
+        git_timeout=600,
+        rate_limit_delay=2.0,
+        log_level="DEBUG",
+        ollama_host="http://localhost:8080",
+        ollama_model="llama2:13b",
+    )
+
+    assert settings.llm_provider == "anthropic"
+    assert settings.api_key_env == "ANTHROPIC_API_KEY"
+    assert settings.default_path == "~/projects"
+    assert settings.analysis_enabled is False
+    assert settings.max_repos_per_batch == 20
+    assert settings.git_timeout == 600
+    assert settings.rate_limit_delay == 2.0
+    assert settings.log_level == "DEBUG"
+    assert settings.ollama_host == "http://localhost:8080"
+    assert settings.ollama_model == "llama2:13b"
+
+
+def test_settings_with_defaults() -> None:
+    """Test Settings with default field values."""
+    settings = Settings()
+
+    assert settings.llm_provider == "openai"
+    assert settings.api_key_env == "AETHERIUM_API_KEY"
+    assert settings.default_path == "~/code"
+    assert settings.analysis_enabled is True
+    assert settings.max_repos_per_batch == 10
+    assert settings.git_timeout == 300
+    assert settings.rate_limit_delay == 1.0
+    assert settings.log_level == "INFO"
+    assert settings.ollama_host == "http://localhost:11434"
+    assert settings.ollama_model == "llama2"
+
+
+def test_settings_custom_llm_provider() -> None:
+    """Test Settings with custom LLM provider."""
+    settings = Settings(llm_provider="ollama")
+
+    assert settings.llm_provider == "ollama"
+
+
+def test_settings_custom_timeout() -> None:
+    """Test Settings with custom timeout values."""
+    settings = Settings(git_timeout=900, rate_limit_delay=5.0)
+
+    assert settings.git_timeout == 900
+    assert settings.rate_limit_delay == 5.0
+
+
+def test_settings_custom_batch_size() -> None:
+    """Test Settings with custom batch size."""
+    settings = Settings(max_repos_per_batch=50)
+
+    assert settings.max_repos_per_batch == 50
+
+
+# New test cases for Config dataclass
+def test_config_with_repositories() -> None:
+    """Test Config with repositories."""
+    repo1 = Repository(
+        name="repo1",
+        fork="https://github.com/user/repo1",
+        upstream="https://github.com/original/repo1",
+        local_path="/path/to/repo1",
+    )
+    repo2 = Repository(
+        name="repo2",
+        fork="https://github.com/user/repo2",
+        upstream="https://github.com/original/repo2",
+        local_path="/path/to/repo2",
+    )
+
+    config = Config(repositories=[repo1, repo2])
+
+    assert len(config.repositories) == 2
+    assert config.repositories[0].name == "repo1"
+    assert config.repositories[1].name == "repo2"
+
+
+def test_config_with_custom_settings() -> None:
+    """Test Config with custom settings."""
+    settings = Settings(llm_provider="anthropic", analysis_enabled=False)
+    config = Config(settings=settings)
+
+    assert config.settings.llm_provider == "anthropic"
+    assert config.settings.analysis_enabled is False
+
+
+def test_config_empty() -> None:
+    """Test Config with default empty state."""
+    config = Config()
+
+    assert config.repositories == []
+    assert config.settings is not None
+    assert isinstance(config.settings, Settings)
+
+
+def test_config_with_mixed_repositories() -> None:
+    """Test Config with repositories having different settings."""
+    repo1 = Repository(
+        name="enabled-repo",
+        fork="https://github.com/user/enabled",
+        upstream="https://github.com/original/enabled",
+        local_path="/path/to/enabled",
+        analysis_enabled=True,
+    )
+    repo2 = Repository(
+        name="disabled-repo",
+        fork="https://github.com/user/disabled",
+        upstream="https://github.com/original/disabled",
+        local_path="/path/to/disabled",
+        analysis_enabled=False,
+    )
+
+    config = Config(repositories=[repo1, repo2])
+
+    assert config.repositories[0].analysis_enabled is True
+    assert config.repositories[1].analysis_enabled is False
+
+
+def test_config_with_skills_repositories() -> None:
+    """Test Config with repositories having skills."""
+    repo1 = Repository(
+        name="python-repo",
+        fork="https://github.com/user/python",
+        upstream="https://github.com/original/python",
+        local_path="/path/to/python",
+        skills=["python", "django", "postgresql"],
+    )
+    repo2 = Repository(
+        name="js-repo",
+        fork="https://github.com/user/js",
+        upstream="https://github.com/original/js",
+        local_path="/path/to/js",
+        skills=["javascript", "react", "node.js"],
+    )
+
+    config = Config(repositories=[repo1, repo2])
+
+    assert "python" in config.repositories[0].skills
+    assert "javascript" in config.repositories[1].skills
+
+
+# New test cases for ConfigManager class
+def test_config_manager_custom_path() -> None:
+    """Test ConfigManager with custom config path."""
+    config_manager = ConfigManager(config_path="/custom/path/config.yml")
+
+    assert config_manager.config_path == "/custom/path/config.yml"
+
+
+def test_config_manager_default_path() -> None:
+    """Test ConfigManager with default config path."""
+    config_manager = ConfigManager()
+
+    assert config_manager.config_path == "gitco-config.yml"
+
+
+def test_config_manager_initial_config() -> None:
+    """Test ConfigManager initial config state."""
+    config_manager = ConfigManager()
+
+    assert config_manager.config is not None
+    assert isinstance(config_manager.config, Config)
+    assert config_manager.config.repositories == []

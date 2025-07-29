@@ -412,3 +412,212 @@ def test_ensure_directory_exists_with_file() -> None:
     with tempfile.NamedTemporaryFile() as temp_file:
         with pytest.raises(OSError):
             ensure_directory_exists(temp_file.name)
+
+
+# New test cases for GitCoError exception class
+def test_gitco_error_creation() -> None:
+    """Test GitCoError exception creation."""
+    error = GitCoError("Test error message")
+
+    assert str(error) == "Test error message"
+    assert isinstance(error, Exception)
+
+
+def test_gitco_error_with_details() -> None:
+    """Test GitCoError with detailed message."""
+    error = GitCoError("Operation failed: repository not found")
+
+    assert "Operation failed" in str(error)
+    assert "repository not found" in str(error)
+
+
+def test_gitco_error_inheritance() -> None:
+    """Test GitCoError inheritance from Exception."""
+    error = GitCoError("Test")
+
+    assert isinstance(error, Exception)
+    assert issubclass(GitCoError, Exception)
+
+
+def test_gitco_error_empty_message() -> None:
+    """Test GitCoError with empty message."""
+    error = GitCoError("")
+
+    assert str(error) == ""
+
+
+def test_gitco_error_special_characters() -> None:
+    """Test GitCoError with special characters in message."""
+    error = GitCoError("Error with special chars: !@#$%^&*()")
+
+    assert "special chars" in str(error)
+    assert "!@#$%^&*()" in str(error)
+
+
+# New test cases for ConfigurationError exception class
+def test_configuration_error_creation() -> None:
+    """Test ConfigurationError exception creation."""
+    error = ConfigurationError("Configuration file not found")
+
+    assert str(error) == "Configuration file not found"
+    assert isinstance(error, GitCoError)
+
+
+def test_configuration_error_inheritance() -> None:
+    """Test ConfigurationError inheritance from GitCoError."""
+    error = ConfigurationError("Test")
+
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+    assert issubclass(ConfigurationError, GitCoError)
+
+
+def test_configuration_error_with_file_path() -> None:
+    """Test ConfigurationError with file path in message."""
+    error = ConfigurationError("Invalid configuration in /path/to/config.yml")
+
+    assert "Invalid configuration" in str(error)
+    assert "/path/to/config.yml" in str(error)
+
+
+def test_configuration_error_yaml_specific() -> None:
+    """Test ConfigurationError with YAML-specific message."""
+    error = ConfigurationError("Invalid YAML syntax at line 15")
+
+    assert "YAML syntax" in str(error)
+    assert "line 15" in str(error)
+
+
+def test_configuration_error_missing_field() -> None:
+    """Test ConfigurationError for missing required field."""
+    error = ConfigurationError("Missing required field: 'repositories'")
+
+    assert "Missing required field" in str(error)
+    assert "repositories" in str(error)
+
+
+# New test cases for GitOperationError exception class
+def test_git_operation_error_creation() -> None:
+    """Test GitOperationError exception creation."""
+    error = GitOperationError("Git command failed: merge conflict")
+
+    assert str(error) == "Git command failed: merge conflict"
+    assert isinstance(error, GitCoError)
+
+
+def test_git_operation_error_inheritance() -> None:
+    """Test GitOperationError inheritance from GitCoError."""
+    error = GitOperationError("Test")
+
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+    assert issubclass(GitOperationError, GitCoError)
+
+
+def test_git_operation_error_merge_conflict() -> None:
+    """Test GitOperationError for merge conflict."""
+    error = GitOperationError("Merge conflict in api.py")
+
+    assert "Merge conflict" in str(error)
+    assert "api.py" in str(error)
+
+
+def test_git_operation_error_remote_failure() -> None:
+    """Test GitOperationError for remote operation failure."""
+    error = GitOperationError("Failed to fetch from remote: connection timeout")
+
+    assert "Failed to fetch" in str(error)
+    assert "connection timeout" in str(error)
+
+
+def test_git_operation_error_branch_operation() -> None:
+    """Test GitOperationError for branch operation failure."""
+    error = GitOperationError("Cannot switch to branch 'feature': uncommitted changes")
+
+    assert "Cannot switch" in str(error)
+    assert "uncommitted changes" in str(error)
+
+
+# New test cases for ValidationError exception class
+def test_validation_error_creation() -> None:
+    """Test ValidationError exception creation."""
+    error = ValidationError("Repository path is invalid")
+
+    assert str(error) == "Repository path is invalid"
+    assert isinstance(error, GitCoError)
+
+
+def test_validation_error_inheritance() -> None:
+    """Test ValidationError inheritance from GitCoError."""
+    error = ValidationError("Test")
+
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+    assert issubclass(ValidationError, GitCoError)
+
+
+def test_validation_error_path_validation() -> None:
+    """Test ValidationError for path validation."""
+    error = ValidationError("Path '/invalid/path' does not exist")
+
+    assert "Path" in str(error)
+    assert "/invalid/path" in str(error)
+    assert "does not exist" in str(error)
+
+
+def test_validation_error_url_validation() -> None:
+    """Test ValidationError for URL validation."""
+    error = ValidationError("Invalid repository URL: not-a-valid-url")
+
+    assert "Invalid repository URL" in str(error)
+    assert "not-a-valid-url" in str(error)
+
+
+def test_validation_error_configuration_validation() -> None:
+    """Test ValidationError for configuration validation."""
+    error = ValidationError("Configuration validation failed: missing required fields")
+
+    assert "Configuration validation failed" in str(error)
+    assert "missing required fields" in str(error)
+
+
+# New test cases for APIError exception class
+def test_api_error_creation() -> None:
+    """Test APIError exception creation."""
+    error = APIError("API request failed: rate limit exceeded")
+
+    assert str(error) == "API request failed: rate limit exceeded"
+    assert isinstance(error, GitCoError)
+
+
+def test_api_error_inheritance() -> None:
+    """Test APIError inheritance from GitCoError."""
+    error = APIError("Test")
+
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+    assert issubclass(APIError, GitCoError)
+
+
+def test_api_error_rate_limit() -> None:
+    """Test APIError for rate limit exceeded."""
+    error = APIError("Rate limit exceeded: 100 requests per hour")
+
+    assert "Rate limit exceeded" in str(error)
+    assert "100 requests per hour" in str(error)
+
+
+def test_api_error_authentication() -> None:
+    """Test APIError for authentication failure."""
+    error = APIError("Authentication failed: invalid API key")
+
+    assert "Authentication failed" in str(error)
+    assert "invalid API key" in str(error)
+
+
+def test_api_error_network() -> None:
+    """Test APIError for network-related issues."""
+    error = APIError("Network error: connection timeout after 30 seconds")
+
+    assert "Network error" in str(error)
+    assert "connection timeout" in str(error)
