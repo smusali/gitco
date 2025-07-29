@@ -27,6 +27,14 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 
 ### 🧠 **AI-Powered Change Analysis**
 - **OpenAI API integration** for intelligent change analysis
+- **Enhanced breaking change detection** with pattern-based analysis
+- **API signature change detection** for function and class definitions
+- **Configuration file change detection** with filename and content patterns
+- **Database schema change detection** for migration and schema files
+- **Dependency change detection** for package management files
+- **Commit message analysis** for explicit breaking change indicators
+- **Severity-based categorization** (high, medium, low) for breaking changes
+- **Migration guidance generation** for detected breaking changes
 - **Enhanced commit diff analysis** with detailed content analysis
 - **Intelligent diff pattern recognition** for test, documentation, and configuration changes
 - **File type and line count statistics** for comprehensive change overview

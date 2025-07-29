@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced breaking change detection with pattern-based analysis
+- BreakingChangeDetector class for sophisticated breaking change identification
+- API signature change detection with function and class definition analysis
+- Configuration file change detection with filename and content pattern matching
+- Database schema change detection for migration and schema files
+- Dependency change detection for package management files
+- Commit message analysis for explicit breaking change indicators
+- Severity-based breaking change categorization (high, medium, low)
+- Migration guidance generation for detected breaking changes
+- Detailed breaking change reporting with affected components
+- Integration of breaking change detection into all LLM analyzers
+- Enhanced analysis prompts with breaking change context
+- Color-coded breaking change display with severity indicators
+- Support for multiple breaking change types and patterns
+- Comprehensive testing for breaking change detection functionality
 - Enhanced commit diff analysis and summarization functionality
 - Detailed diff content analysis with file type and line count statistics
 - Intelligent diff pattern recognition for test, documentation, and configuration changes

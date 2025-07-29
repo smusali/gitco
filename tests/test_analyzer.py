@@ -8,11 +8,279 @@ import pytest
 from gitco.analyzer import (
     AnalysisRequest,
     AnthropicAnalyzer,
+    BreakingChange,
+    BreakingChangeDetector,
     ChangeAnalysis,
     ChangeAnalyzer,
     OllamaAnalyzer,
     OpenAIAnalyzer,
 )
+
+
+class TestBreakingChange:
+    """Test BreakingChange dataclass."""
+
+    def test_breaking_change_creation(self) -> None:
+        """Test creating a BreakingChange instance."""
+        breaking_change = BreakingChange(
+            type="api_signature_change",
+            description="Function signature changed",
+            severity="high",
+            affected_components=["api.py"],
+            migration_guidance="Update function calls",
+        )
+
+        assert breaking_change.type == "api_signature_change"
+        assert breaking_change.description == "Function signature changed"
+        assert breaking_change.severity == "high"
+        assert breaking_change.affected_components == ["api.py"]
+        assert breaking_change.migration_guidance == "Update function calls"
+
+    def test_breaking_change_creation_without_migration(self) -> None:
+        """Test creating a BreakingChange instance without migration guidance."""
+        breaking_change = BreakingChange(
+            type="deprecation_warning",
+            description="Feature deprecated",
+            severity="medium",
+            affected_components=["unknown"],
+        )
+
+        assert breaking_change.type == "deprecation_warning"
+        assert breaking_change.description == "Feature deprecated"
+        assert breaking_change.severity == "medium"
+        assert breaking_change.affected_components == ["unknown"]
+        assert breaking_change.migration_guidance is None
+
+
+class TestBreakingChangeDetector:
+    """Test BreakingChangeDetector class."""
+
+    def test_breaking_change_detector_initialization(self) -> None:
+        """Test BreakingChangeDetector initialization."""
+        detector = BreakingChangeDetector()
+        assert detector is not None
+        assert hasattr(detector, "breaking_patterns")
+        assert hasattr(detector, "high_severity_patterns")
+        assert hasattr(detector, "medium_severity_patterns")
+
+    def test_analyze_commit_message_explicit_breaking_change(self) -> None:
+        """Test detecting explicit breaking changes in commit messages."""
+        detector = BreakingChangeDetector()
+        message = "BREAKING CHANGE: API signature changed"
+
+        changes = detector._analyze_commit_message(message)
+
+        assert len(changes) == 1
+        assert changes[0].type == "explicit_breaking_change"
+        assert changes[0].severity == "high"
+        assert "BREAKING CHANGE" in changes[0].description
+
+    def test_analyze_commit_message_deprecation(self) -> None:
+        """Test detecting deprecation warnings in commit messages."""
+        detector = BreakingChangeDetector()
+        message = "deprecated: old feature"
+
+        changes = detector._analyze_commit_message(message)
+
+        assert len(changes) == 1
+        assert changes[0].type == "deprecation_warning"
+        assert changes[0].severity == "medium"
+        assert "deprecated" in changes[0].description
+
+    def test_analyze_commit_message_no_breaking_changes(self) -> None:
+        """Test commit message with no breaking changes."""
+        detector = BreakingChangeDetector()
+        message = "feat: add new feature"
+
+        changes = detector._analyze_commit_message(message)
+
+        assert len(changes) == 0
+
+    def test_analyze_commit_message_breaking_change_priority(self) -> None:
+        """Test that explicit breaking changes take priority over deprecation warnings."""
+        detector = BreakingChangeDetector()
+        message = "BREAKING CHANGE: deprecated feature removed"
+
+        changes = detector._analyze_commit_message(message)
+
+        assert len(changes) == 1
+        assert changes[0].type == "explicit_breaking_change"
+        assert changes[0].severity == "high"
+        assert "BREAKING CHANGE" in changes[0].description
+
+    def test_has_api_signature_changes(self) -> None:
+        """Test API signature change detection."""
+        detector = BreakingChangeDetector()
+
+        # Test with API signature change
+        content = "def new_function(param: str) -> int:"
+        assert detector._has_api_signature_changes(content) is True
+
+        # Test without API signature change
+        content = "print('hello world')"
+        assert detector._has_api_signature_changes(content) is False
+
+    def test_has_configuration_changes(self) -> None:
+        """Test configuration change detection."""
+        detector = BreakingChangeDetector()
+
+        # Test with configuration file
+        filename = "config.yaml"
+        content = "setting: value"
+        assert detector._has_configuration_changes(filename, content) is True
+
+        # Test with configuration content
+        filename = "main.py"
+        content = "config.setting = value"
+        assert detector._has_configuration_changes(filename, content) is True
+
+        # Test without configuration changes
+        filename = "main.py"
+        content = "print('hello')"
+        assert detector._has_configuration_changes(filename, content) is False
+
+    def test_has_database_changes(self) -> None:
+        """Test database change detection."""
+        detector = BreakingChangeDetector()
+
+        # Test with database migration file
+        filename = "migration.sql"
+        content = "CREATE TABLE users"
+        assert detector._has_database_changes(filename, content) is True
+
+        # Test with database content
+        filename = "main.py"
+        content = "ALTER TABLE users ADD COLUMN"
+        assert detector._has_database_changes(filename, content) is True
+
+        # Test without database changes
+        filename = "main.py"
+        content = "print('hello')"
+        assert detector._has_database_changes(filename, content) is False
+
+    def test_has_dependency_changes(self) -> None:
+        """Test dependency change detection."""
+        detector = BreakingChangeDetector()
+
+        # Test with dependency file
+        filename = "requirements.txt"
+        content = "requests==2.28.0"
+        assert detector._has_dependency_changes(filename, content) is True
+
+        # Test with dependency content
+        filename = "main.py"
+        content = "requirements.txt updated"
+        assert detector._has_dependency_changes(filename, content) is True
+
+        # Test without dependency changes
+        filename = "main.py"
+        content = "print('hello')"
+        assert detector._has_dependency_changes(filename, content) is False
+
+    def test_analyze_file_changes_api_signature(self) -> None:
+        """Test file analysis for API signature changes."""
+        detector = BreakingChangeDetector()
+        filename = "api.py"
+        changes = {
+            "additions": 1,
+            "deletions": 0,
+            "content": ["def new_function(param: str) -> int:"],
+        }
+
+        breaking_changes = detector._analyze_file_changes(filename, changes)
+
+        assert len(breaking_changes) == 1
+        assert breaking_changes[0].type == "api_signature_change"
+        assert breaking_changes[0].severity == "high"
+        assert "api.py" in breaking_changes[0].affected_components
+
+    def test_analyze_file_changes_configuration(self) -> None:
+        """Test file analysis for configuration changes."""
+        detector = BreakingChangeDetector()
+        filename = "config.yaml"
+        changes = {"additions": 1, "deletions": 0, "content": ["setting: new_value"]}
+
+        breaking_changes = detector._analyze_file_changes(filename, changes)
+
+        assert len(breaking_changes) == 1
+        assert breaking_changes[0].type == "configuration_change"
+        assert breaking_changes[0].severity == "medium"
+        assert "config.yaml" in breaking_changes[0].affected_components
+
+    def test_analyze_file_changes_database(self) -> None:
+        """Test file analysis for database changes."""
+        detector = BreakingChangeDetector()
+        filename = "migration.sql"
+        changes = {
+            "additions": 1,
+            "deletions": 0,
+            "content": ["ALTER TABLE users ADD COLUMN email"],
+        }
+
+        breaking_changes = detector._analyze_file_changes(filename, changes)
+
+        assert len(breaking_changes) == 1
+        assert breaking_changes[0].type == "database_schema_change"
+        assert breaking_changes[0].severity == "high"
+        assert "migration.sql" in breaking_changes[0].affected_components
+
+    def test_analyze_file_changes_dependency(self) -> None:
+        """Test file analysis for dependency changes."""
+        detector = BreakingChangeDetector()
+        filename = "requirements.txt"
+        changes = {"additions": 1, "deletions": 0, "content": ["requests==2.28.0"]}
+
+        breaking_changes = detector._analyze_file_changes(filename, changes)
+
+        assert len(breaking_changes) == 1
+        assert breaking_changes[0].type == "dependency_change"
+        assert breaking_changes[0].severity == "medium"
+        assert "requirements.txt" in breaking_changes[0].affected_components
+
+    def test_analyze_diff_content(self) -> None:
+        """Test diff content analysis."""
+        detector = BreakingChangeDetector()
+        diff_content = """
+diff --git a/api.py b/api.py
+index 123..456 100644
+--- a/api.py
++++ b/api.py
+@@ -1,3 +1,3 @@
+-def old_function():
++def new_function(param: str) -> int:
+     pass
+"""
+
+        breaking_changes = detector._analyze_diff_content(diff_content)
+
+        assert len(breaking_changes) == 1
+        assert breaking_changes[0].type == "api_signature_change"
+        assert "api.py" in breaking_changes[0].affected_components
+
+    def test_detect_breaking_changes_integration(self) -> None:
+        """Test full breaking change detection integration."""
+        detector = BreakingChangeDetector()
+        diff_content = """
+diff --git a/api.py b/api.py
+index 123..456 100644
+--- a/api.py
++++ b/api.py
+@@ -1,3 +1,3 @@
+-def old_function():
++def new_function(param: str) -> int:
+     pass
+"""
+        commit_messages = ["BREAKING CHANGE: API signature changed"]
+
+        breaking_changes = detector.detect_breaking_changes(
+            diff_content, commit_messages
+        )
+
+        assert len(breaking_changes) == 2  # One from commit message, one from diff
+        assert any(
+            change.type == "explicit_breaking_change" for change in breaking_changes
+        )
+        assert any(change.type == "api_signature_change" for change in breaking_changes)
 
 
 class TestChangeAnalysis:
@@ -39,6 +307,34 @@ class TestChangeAnalysis:
         assert analysis.deprecations == ["Deprecation 1"]
         assert analysis.recommendations == ["Recommendation 1"]
         assert analysis.confidence == 0.8
+        assert analysis.detailed_breaking_changes is None
+
+    def test_change_analysis_with_detailed_breaking_changes(self) -> None:
+        """Test creating a ChangeAnalysis instance with detailed breaking changes."""
+        detailed_changes = [
+            BreakingChange(
+                type="api_signature_change",
+                description="Function signature changed",
+                severity="high",
+                affected_components=["api.py"],
+            )
+        ]
+
+        analysis = ChangeAnalysis(
+            summary="Test summary",
+            breaking_changes=["Change 1"],
+            new_features=[],
+            bug_fixes=[],
+            security_updates=[],
+            deprecations=[],
+            recommendations=[],
+            confidence=0.8,
+            detailed_breaking_changes=detailed_changes,
+        )
+
+        assert analysis.detailed_breaking_changes == detailed_changes
+        assert len(analysis.detailed_breaking_changes) == 1
+        assert analysis.detailed_breaking_changes[0].type == "api_signature_change"
 
 
 class TestAnalysisRequest:
@@ -103,7 +399,7 @@ class TestOpenAIAnalyzer:
             custom_prompt="test prompt",
         )
 
-        prompt = analyzer._build_analysis_prompt(request)
+        prompt = analyzer._build_analysis_prompt(request, [])
         assert "test-repo" in prompt
         assert "user/fork" in prompt
         assert "upstream/repo" in prompt
@@ -235,7 +531,7 @@ class TestAnthropicAnalyzer:
             custom_prompt="test prompt",
         )
 
-        prompt = analyzer._build_analysis_prompt(request)
+        prompt = analyzer._build_analysis_prompt(request, [])
         assert "test-repo" in prompt
         assert "user/fork" in prompt
         assert "upstream/repo" in prompt
@@ -362,7 +658,7 @@ class TestOllamaAnalyzer:
             custom_prompt="test prompt",
         )
 
-        prompt = analyzer._build_analysis_prompt(request)
+        prompt = analyzer._build_analysis_prompt(request, [])
         assert "test-repo" in prompt
         assert "user/fork" in prompt
         assert "upstream/repo" in prompt
@@ -405,11 +701,8 @@ class TestOllamaAnalyzer:
         mock_client = Mock()
         mock_ollama_client.return_value = mock_client
 
-        mock_response = {
-            "message": {
-                "content": '{"summary": "Test summary", "breaking_changes": ["Change 1"], "new_features": [], "bug_fixes": [], "security_updates": [], "deprecations": [], "recommendations": [], "confidence": 0.8}'
-            }
-        }
+        mock_response = Mock()
+        mock_response.message.content = '{"summary": "Test summary", "breaking_changes": ["Change 1"], "new_features": [], "bug_fixes": [], "security_updates": [], "deprecations": [], "recommendations": [], "confidence": 0.8}'
         mock_client.chat.return_value = mock_response
 
         analyzer = OllamaAnalyzer()
@@ -429,7 +722,7 @@ class TestOllamaAnalyzer:
         result = analyzer.analyze_changes(request)
 
         assert result.summary == "Test summary"
-        assert result.breaking_changes == ["Change 1"]
+        assert "Change 1" in result.breaking_changes
         assert result.confidence == 0.8
         mock_client.chat.assert_called_once()
 
