@@ -836,6 +836,16 @@ class GitRepository:
             "has_untracked_files": False,
             "is_clean": False,
             "upstream_status": {},
+            # Health metrics fields
+            "total_commits": 0,
+            "recent_commits_30d": 0,
+            "recent_commits_7d": 0,
+            "total_contributors": 0,
+            "active_contributors_30d": 0,
+            "active_contributors_7d": 0,
+            "last_commit_days_ago": None,
+            "sync_status": "unknown",
+            "last_sync": None,
         }
 
         if not self.is_git_repository():
@@ -866,7 +876,109 @@ class GitRepository:
         except Exception as e:
             self.logger.debug(f"Error checking repository status for {self.path}: {e}")
 
+        # Calculate health metrics
+        try:
+            self._calculate_health_metrics(status)
+        except Exception as e:
+            self.logger.debug(f"Error calculating health metrics for {self.path}: {e}")
+
         return status
+
+    def _calculate_health_metrics(self, status: dict[str, Any]) -> None:
+        """Calculate health metrics for the repository.
+
+        Args:
+            status: Status dictionary to update with health metrics
+        """
+        try:
+            # Get total commit count
+            result = self._run_git_command(
+                ["rev-list", "--count", "HEAD"], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                status["total_commits"] = int(result.stdout.strip())
+
+            # Get recent commits (30 days)
+            result = self._run_git_command(
+                ["rev-list", "--count", "HEAD --since='30 days ago'"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                status["recent_commits_30d"] = int(result.stdout.strip())
+
+            # Get recent commits (7 days)
+            result = self._run_git_command(
+                ["rev-list", "--count", "HEAD --since='7 days ago'"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                status["recent_commits_7d"] = int(result.stdout.strip())
+
+            # Get last commit information
+            result = self._run_git_command(
+                ["log", "-1", "--format=%H %at"], capture_output=True, text=True
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                import time
+
+                parts = result.stdout.strip().split()
+                if len(parts) >= 2:
+                    commit_time = int(parts[1])
+                    days_ago = (time.time() - commit_time) / (24 * 3600)
+                    status["last_commit_days_ago"] = int(days_ago)
+
+            # Get contributor information (simplified)
+            result = self._run_git_command(
+                ["shortlog", "-sn", "--all"], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                status["total_contributors"] = len(lines)
+
+            # Get recent contributors (30 days)
+            result = self._run_git_command(
+                ["shortlog", "-sn", "--all", "--since='30 days ago'"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                status["active_contributors_30d"] = len(lines)
+
+            # Get recent contributors (7 days)
+            result = self._run_git_command(
+                ["shortlog", "-sn", "--all", "--since='7 days ago'"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                status["active_contributors_7d"] = len(lines)
+
+            # Determine sync status
+            upstream_status = status.get("upstream_status", {})
+            if upstream_status.get("valid", False):
+                if upstream_status.get("behind", 0) > 0:
+                    status["sync_status"] = "behind"
+                elif upstream_status.get("ahead", 0) > 0:
+                    status["sync_status"] = "ahead"
+                elif upstream_status.get("diverged", False):
+                    status["sync_status"] = "diverged"
+                else:
+                    status["sync_status"] = "up_to_date"
+            else:
+                status["sync_status"] = "unknown"
+
+            # Set last sync time (simplified - use current time if up to date)
+            if status["sync_status"] == "up_to_date":
+                from datetime import datetime
+
+                status["last_sync"] = datetime.now().isoformat()
+
+        except Exception as e:
+            self.logger.debug(f"Error calculating health metrics: {e}")
 
     def validate_repository(self) -> list[str]:
         """Validate the repository and return any errors.

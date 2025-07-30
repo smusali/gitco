@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Repository health metrics calculation with comprehensive health analysis
+- RepositoryHealthMetrics dataclass for structured health data
+- HealthSummary dataclass for repository health summaries
+- RepositoryHealthCalculator class for health metrics calculation
+- Activity metrics including commit counts and contributor statistics
+- GitHub metrics integration (stars, forks, issues, language, topics)
+- Sync health tracking with status and last sync information
+- Engagement metrics with contributor engagement scoring
+- Trending metrics for repository growth analysis
+- Overall health scoring with weighted factors (activity, sync, engagement, GitHub, stability)
+- Health status classification (excellent, good, fair, poor, critical)
+- Trending repository identification based on growth metrics
+- Declining repository identification based on activity metrics
+- Enhanced status command with health metrics display
+- Health summary display with repository statistics
+- Detailed repository health information with rich formatting
+- Export functionality for health data in JSON format
+- Integration of health metrics with existing CLI commands
+- Comprehensive testing for health metrics functionality
 - Contribution history tracking with persistent storage
 - Contribution dataclass for structured contribution data
 - ContributionStats dataclass for comprehensive statistics

@@ -83,10 +83,19 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Integration with discovery engine for history-aware recommendations
 
 ### 📊 **Repository Health Insights**
-- Shows activity levels and contributor engagement
-- Identifies trending repositories in your fork list
-- Highlights repositories that need attention
-- Provides contribution impact metrics
+- Comprehensive health metrics calculation for all repositories
+- Activity metrics including commit counts and contributor statistics
+- GitHub metrics integration (stars, forks, issues, language, topics)
+- Sync health tracking with status and last sync information
+- Engagement metrics with contributor engagement scoring
+- Trending metrics for repository growth analysis
+- Overall health scoring with weighted factors (activity, sync, engagement, GitHub, stability)
+- Health status classification (excellent, good, fair, poor, critical)
+- Trending repository identification based on growth metrics
+- Declining repository identification based on activity metrics
+- Health summary display with repository statistics
+- Detailed repository health information with rich formatting
+- Export functionality for health data in JSON format
 
 ## 📦 Installation
 

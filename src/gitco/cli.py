@@ -856,31 +856,294 @@ def status(
 
     Displays the current status of your repositories and their sync state.
     """
-    print_info_panel(
-        "Checking Repository Status",
-        "This functionality will be implemented in Commit 33.",
+    get_logger()
+    log_operation_start("repository status check")
+
+    try:
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+        github_client = create_github_client()
+
+        from .health_metrics import create_health_calculator
+
+        health_calculator = create_health_calculator(config, github_client)
+
+        if repo:
+            # Show status for specific repository
+            repo_config = None
+            for r in config.repositories:
+                if hasattr(r, "get") and r.get("name") == repo:
+                    repo_config = r
+                    break
+
+            if not repo_config:
+                print_error_panel(
+                    "Repository Not Found",
+                    f"Repository '{repo}' not found in configuration.",
+                )
+                return
+
+            metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
+            _print_repository_health(metrics, detailed)
+
+        else:
+            # Show status for all repositories
+            summary = health_calculator.calculate_health_summary(config.repositories)  # type: ignore
+            _print_health_summary(summary, detailed)
+
+            if detailed:
+                print_info_panel(
+                    "Detailed Repository Health", "Calculating detailed metrics..."
+                )
+                for repo_config in config.repositories:
+                    metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
+                    _print_repository_health(metrics, detailed=True)
+
+        # Export if requested
+        if export:
+            _export_health_data(config.repositories, health_calculator, export)
+
+        log_operation_success("repository status check")
+        print_success_panel(
+            "Status Check Completed", "✅ Repository health analysis completed!"
+        )
+
+    except Exception as e:
+        log_operation_failure("repository status check", error=e)
+        print_error_panel(
+            "Status Check Failed", f"Failed to check repository status: {e}"
+        )
+
+
+def _print_health_summary(summary: Any, detailed: bool = False) -> None:
+    """Print health summary information."""
+    from rich.table import Table
+    from rich.text import Text
+
+    # Create summary table
+    table = Table(
+        title="Repository Health Summary", show_header=True, header_style="bold magenta"
     )
+    table.add_column("Metric", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green")
 
-    # TODO: Implement status reporting
-    # This will be implemented in Commit 33
+    table.add_row("Total Repositories", str(summary.total_repositories))
+    table.add_row(
+        "Healthy Repositories",
+        f"{summary.healthy_repositories} ({(summary.healthy_repositories/summary.total_repositories*100):.1f}%)",
+    )
+    table.add_row(
+        "Needs Attention",
+        f"{summary.needs_attention_repositories} ({(summary.needs_attention_repositories/summary.total_repositories*100):.1f}%)",
+    )
+    table.add_row(
+        "Critical Repositories",
+        f"{summary.critical_repositories} ({(summary.critical_repositories/summary.total_repositories*100):.1f}%)",
+    )
+    table.add_row("", "")  # Empty row for spacing
+    table.add_row("Active (7 days)", str(summary.active_repositories_7d))
+    table.add_row("Active (30 days)", str(summary.active_repositories_30d))
+    table.add_row("Up to Date", str(summary.up_to_date_repositories))
+    table.add_row("Behind Upstream", str(summary.behind_repositories))
+    table.add_row("Diverged", str(summary.diverged_repositories))
+    table.add_row("", "")  # Empty row for spacing
+    table.add_row("High Engagement", str(summary.high_engagement_repositories))
+    table.add_row("Low Engagement", str(summary.low_engagement_repositories))
+    table.add_row("Average Activity Score", f"{summary.average_activity_score:.2f}")
 
-    if repo:
-        print_info_panel(
-            "Checking Status for Specific Repository", f"Checking status for: {repo}"
-        )
-    else:
-        print_info_panel(
-            "Checking Status for All Repositories",
-            "Checking status for all repositories",
-        )
+    console.print(table)
+
+    # Show trending repositories
+    if summary.trending_repositories:
+        trending_text = Text("📈 Trending Repositories:", style="bold green")
+        console.print(trending_text)
+        for repo in summary.trending_repositories:
+            console.print(f"  • {repo}")
+
+    # Show declining repositories
+    if summary.declining_repositories:
+        declining_text = Text("📉 Declining Repositories:", style="bold red")
+        console.print(declining_text)
+        for repo in summary.declining_repositories:
+            console.print(f"  • {repo}")
 
     if detailed:
-        print_info_panel("Detailed Mode Enabled", "Detailed mode enabled")
+        # Show additional metrics
+        metrics_table = Table(
+            title="Repository Metrics", show_header=True, header_style="bold magenta"
+        )
+        metrics_table.add_column("Metric", style="cyan")
+        metrics_table.add_column("Value", style="green")
 
-    if export:
-        print_info_panel("Exporting Status", f"Exporting status to: {export}")
+        metrics_table.add_row("Total Stars", str(summary.total_stars))
+        metrics_table.add_row("Total Forks", str(summary.total_forks))
+        metrics_table.add_row("Total Open Issues", str(summary.total_open_issues))
 
-    print_success_panel("Status Check Completed", "✅ Status check completed!")
+        console.print(metrics_table)
+
+
+def _print_repository_health(metrics: Any, detailed: bool = False) -> None:
+    """Print detailed repository health information."""
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+
+    # Determine health status color
+    status_colors = {
+        "excellent": "green",
+        "good": "blue",
+        "fair": "yellow",
+        "poor": "orange",
+        "critical": "red",
+        "unknown": "white",
+    }
+    status_color = status_colors.get(metrics.health_status, "white")
+
+    # Create health status panel
+    status_text = Text(
+        f"Health Status: {metrics.health_status.upper()}", style=f"bold {status_color}"
+    )
+    score_text = Text(f"Score: {metrics.overall_health_score:.2f}", style="cyan")
+
+    panel_content = f"{status_text}\n{score_text}"
+    panel = Panel(
+        panel_content,
+        title=f"Repository: {metrics.repository_name}",
+        border_style=status_color,
+    )
+    console.print(panel)
+
+    # Create detailed metrics table
+    table = Table(
+        title="Repository Metrics", show_header=True, header_style="bold magenta"
+    )
+    table.add_column("Metric", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green")
+
+    # Activity metrics
+    table.add_row("Recent Commits (7d)", str(metrics.recent_commits_7d))
+    table.add_row("Recent Commits (30d)", str(metrics.recent_commits_30d))
+    table.add_row("Total Commits", str(metrics.total_commits))
+    if metrics.last_commit_days_ago is not None:
+        table.add_row("Last Commit", f"{metrics.last_commit_days_ago} days ago")
+
+    # GitHub metrics
+    table.add_row("Stars", str(metrics.stars_count))
+    table.add_row("Forks", str(metrics.forks_count))
+    table.add_row("Open Issues", str(metrics.open_issues_count))
+    if metrics.language:
+        table.add_row("Language", metrics.language)
+
+    # Sync metrics
+    table.add_row("Sync Status", metrics.sync_status)
+    if metrics.days_since_last_sync is not None:
+        table.add_row("Days Since Sync", str(metrics.days_since_last_sync))
+    table.add_row("Uncommitted Changes", "Yes" if metrics.uncommitted_changes else "No")
+
+    # Engagement metrics
+    table.add_row("Engagement Score", f"{metrics.contributor_engagement_score:.2f}")
+    if metrics.issue_response_time_avg is not None:
+        table.add_row(
+            "Avg Issue Response", f"{metrics.issue_response_time_avg:.1f} hours"
+        )
+
+    # Trending metrics
+    table.add_row("Stars Growth (30d)", str(metrics.stars_growth_30d))
+    table.add_row("Forks Growth (30d)", str(metrics.forks_growth_30d))
+
+    console.print(table)
+
+    if detailed and metrics.topics:
+        topics_text = Text("Topics:", style="bold")
+        console.print(topics_text)
+        console.print(f"  {', '.join(metrics.topics)}")
+
+
+def _export_health_data(
+    repositories: Any, health_calculator: Any, export_path: str
+) -> None:
+    """Export health data to file."""
+    try:
+        import json
+        from pathlib import Path
+
+        export_data: dict[str, Any] = {"summary": {}, "repositories": []}
+
+        # Calculate summary
+        summary = health_calculator.calculate_health_summary(repositories)
+        export_data["summary"] = {
+            "total_repositories": summary.total_repositories,
+            "healthy_repositories": summary.healthy_repositories,
+            "needs_attention_repositories": summary.needs_attention_repositories,
+            "critical_repositories": summary.critical_repositories,
+            "active_repositories_7d": summary.active_repositories_7d,
+            "active_repositories_30d": summary.active_repositories_30d,
+            "average_activity_score": summary.average_activity_score,
+            "trending_repositories": summary.trending_repositories,
+            "declining_repositories": summary.declining_repositories,
+            "up_to_date_repositories": summary.up_to_date_repositories,
+            "behind_repositories": summary.behind_repositories,
+            "diverged_repositories": summary.diverged_repositories,
+            "high_engagement_repositories": summary.high_engagement_repositories,
+            "low_engagement_repositories": summary.low_engagement_repositories,
+            "total_stars": summary.total_stars,
+            "total_forks": summary.total_forks,
+            "total_open_issues": summary.total_open_issues,
+        }
+
+        # Calculate individual repository metrics
+        repositories_list = (
+            list(repositories) if hasattr(repositories, "__iter__") else []
+        )
+        for repo_config in repositories_list:
+            metrics = health_calculator.calculate_repository_health(repo_config)
+            export_data["repositories"].append(
+                {
+                    "repository_name": metrics.repository_name,
+                    "repository_path": metrics.repository_path,
+                    "upstream_url": metrics.upstream_url,
+                    "last_commit_days_ago": metrics.last_commit_days_ago,
+                    "total_commits": metrics.total_commits,
+                    "recent_commits_30d": metrics.recent_commits_30d,
+                    "recent_commits_7d": metrics.recent_commits_7d,
+                    "total_contributors": metrics.total_contributors,
+                    "active_contributors_30d": metrics.active_contributors_30d,
+                    "active_contributors_7d": metrics.active_contributors_7d,
+                    "stars_count": metrics.stars_count,
+                    "forks_count": metrics.forks_count,
+                    "open_issues_count": metrics.open_issues_count,
+                    "open_prs_count": metrics.open_prs_count,
+                    "days_since_last_sync": metrics.days_since_last_sync,
+                    "sync_status": metrics.sync_status,
+                    "uncommitted_changes": metrics.uncommitted_changes,
+                    "issue_response_time_avg": metrics.issue_response_time_avg,
+                    "pr_merge_time_avg": metrics.pr_merge_time_avg,
+                    "contributor_engagement_score": metrics.contributor_engagement_score,
+                    "stars_growth_30d": metrics.stars_growth_30d,
+                    "forks_growth_30d": metrics.forks_growth_30d,
+                    "issues_growth_30d": metrics.issues_growth_30d,
+                    "overall_health_score": metrics.overall_health_score,
+                    "health_status": metrics.health_status,
+                    "language": metrics.language,
+                    "topics": metrics.topics,
+                    "archived": metrics.archived,
+                    "disabled": metrics.disabled,
+                }
+            )
+
+        # Write to file
+        export_file = Path(export_path)
+        export_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(export_file, "w", encoding="utf-8") as f:
+            json.dump(export_data, f, indent=2, default=str)
+
+        print_success_panel(
+            "Export Successful", f"Health data exported to: {export_path}"
+        )
+
+    except Exception as e:
+        print_error_panel("Export Failed", f"Failed to export health data: {e}")
 
 
 @main.command()
