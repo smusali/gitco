@@ -99,6 +99,38 @@ View the status of your repositories:
 # Show all repository statuses
 gitco status
 
+# Show repository overview dashboard
+gitco status --overview
+
+# Filter repositories by health status
+gitco status --overview --filter healthy
+gitco status --overview --filter needs_attention
+gitco status --overview --filter critical
+
+# Sort repositories by metrics
+gitco status --overview --sort health
+gitco status --overview --sort activity
+gitco status --overview --sort stars
+gitco status --overview --sort forks
+gitco status --overview --sort engagement
+
+# Show detailed status information
+gitco status --detailed
+
+# Export status data
+gitco status --export status.json
+```
+
+**Status Features:**
+
+- **Overview Dashboard**: Comprehensive table view with health, sync, activity, and engagement metrics
+- **Health Filtering**: Filter repositories by health status (healthy, needs_attention, critical)
+- **Metric Sorting**: Sort by health score, activity, stars, forks, or engagement
+- **Visual Indicators**: Emoji-based status indicators for quick visual assessment
+- **Activity Bars**: Visual representation of recent commit activity
+- **Summary Panels**: Key metrics displayed in organized panels
+- **Alert System**: Automatic alerts for repositories needing attention
+
 # Show specific repository
 gitco status --repo django
 

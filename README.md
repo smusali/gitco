@@ -112,6 +112,16 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Health summary display with repository statistics
 - Detailed repository health information with rich formatting
 - Export functionality for health data in JSON format
+- **Repository overview dashboard with comprehensive metrics display**
+- **Filtering capabilities for repositories by health status (healthy, needs_attention, critical)**
+- **Sorting capabilities for repositories by metrics (health, activity, stars, forks, engagement)**
+- **Visual health status indicators with emoji-based status display**
+- **Sync status tracking with color-coded status indicators**
+- **Activity bars showing recent commit activity with visual indicators**
+- **Summary statistics panels showing key metrics at a glance**
+- **Alert system for repositories needing attention (health issues, sync problems)**
+- **Rich table display with comprehensive repository metrics**
+- **Summary panels showing health status, sync status, popularity, and community engagement**
 
 ## 📦 Installation
 
@@ -320,6 +330,27 @@ gitco contributions recommendations
 
 # Show repository status
 gitco status
+
+# Show repository overview dashboard
+gitco status --overview
+
+# Filter repositories by health status
+gitco status --overview --filter healthy
+gitco status --overview --filter needs_attention
+gitco status --overview --filter critical
+
+# Sort repositories by metrics
+gitco status --overview --sort health
+gitco status --overview --sort activity
+gitco status --overview --sort stars
+gitco status --overview --sort forks
+gitco status --overview --sort engagement
+
+# Show detailed status information
+gitco status --detailed
+
+# Export status data
+gitco status --export status.json
 
 # Get help
 gitco help

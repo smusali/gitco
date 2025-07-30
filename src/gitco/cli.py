@@ -152,7 +152,9 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
     border_style = (
         "green"
         if recommendation.overall_score > 0.7
-        else "yellow" if recommendation.overall_score > 0.4 else "blue"
+        else "yellow"
+        if recommendation.overall_score > 0.4
+        else "blue"
     )
 
     panel = Panel(
@@ -1135,13 +1137,31 @@ def discover(
 @click.option("--repo", "-r", help="Show specific repository")
 @click.option("--detailed", "-d", is_flag=True, help="Show detailed information")
 @click.option("--export", "-e", help="Export status to file")
+@click.option(
+    "--overview", "-o", is_flag=True, help="Show repository overview dashboard"
+)
+@click.option(
+    "--filter",
+    "-f",
+    help="Filter repositories by status (healthy, needs_attention, critical)",
+)
+@click.option(
+    "--sort", "-s", help="Sort repositories by metric (health, activity, stars, forks)"
+)
 @click.pass_context
 def status(
-    ctx: click.Context, repo: Optional[str], detailed: bool, export: Optional[str]
+    ctx: click.Context,
+    repo: Optional[str],
+    detailed: bool,
+    export: Optional[str],
+    overview: bool,
+    filter: Optional[str],
+    sort: Optional[str],
 ) -> None:
-    """Show repository status.
+    """Show repository status and overview.
 
     Displays the current status of your repositories and their sync state.
+    Provides comprehensive overview with filtering and sorting options.
     """
     get_logger()
     log_operation_start("repository status check")
@@ -1176,15 +1196,21 @@ def status(
         else:
             # Show status for all repositories
             summary = health_calculator.calculate_health_summary(config.repositories)  # type: ignore
-            _print_health_summary(summary, detailed)
 
-            if detailed:
-                print_info_panel(
-                    "Detailed Repository Health", "Calculating detailed metrics..."
+            if overview:
+                _print_repository_overview(
+                    config.repositories, health_calculator, filter, sort
                 )
-                for repo_config in config.repositories:
-                    metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
-                    _print_repository_health(metrics, detailed=True)
+            else:
+                _print_health_summary(summary, detailed)
+
+                if detailed:
+                    print_info_panel(
+                        "Detailed Repository Health", "Calculating detailed metrics..."
+                    )
+                    for repo_config in config.repositories:
+                        metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
+                        _print_repository_health(metrics, detailed=True)
 
         # Export if requested
         if export:
@@ -1344,6 +1370,181 @@ def _print_repository_health(metrics: Any, detailed: bool = False) -> None:
         topics_text = Text("Topics:", style="bold")
         console.print(topics_text)
         console.print(f"  {', '.join(metrics.topics)}")
+
+
+def _print_repository_overview(
+    repositories: Any,
+    health_calculator: Any,
+    filter_status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+) -> None:
+    """Print comprehensive repository overview dashboard."""
+    from rich import box
+    from rich.columns import Columns
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Calculate metrics for all repositories
+    all_metrics = []
+    for repo_config in repositories:
+        metrics = health_calculator.calculate_repository_health(repo_config)
+        all_metrics.append(metrics)
+
+    # Apply filtering
+    if filter_status:
+        filter_status = filter_status.lower()
+        if filter_status == "healthy":
+            all_metrics = [
+                m for m in all_metrics if m.health_status in ["excellent", "good"]
+            ]
+        elif filter_status == "needs_attention":
+            all_metrics = [
+                m for m in all_metrics if m.health_status in ["fair", "poor"]
+            ]
+        elif filter_status == "critical":
+            all_metrics = [m for m in all_metrics if m.health_status == "critical"]
+
+    # Apply sorting
+    if sort_by:
+        sort_by = sort_by.lower()
+        if sort_by == "health":
+            all_metrics.sort(key=lambda x: x.overall_health_score, reverse=True)
+        elif sort_by == "activity":
+            all_metrics.sort(key=lambda x: x.recent_commits_30d, reverse=True)
+        elif sort_by == "stars":
+            all_metrics.sort(key=lambda x: x.stars_count, reverse=True)
+        elif sort_by == "forks":
+            all_metrics.sort(key=lambda x: x.forks_count, reverse=True)
+        elif sort_by == "engagement":
+            all_metrics.sort(key=lambda x: x.contributor_engagement_score, reverse=True)
+
+    # Create overview table
+    table = Table(
+        title="Repository Overview Dashboard",
+        show_header=True,
+        header_style="bold magenta",
+        box=box.ROUNDED,
+    )
+
+    # Add columns
+    table.add_column("Repository", style="cyan", no_wrap=True)
+    table.add_column("Health", style="green", justify="center")
+    table.add_column("Sync", style="blue", justify="center")
+    table.add_column("Activity", style="yellow", justify="center")
+    table.add_column("Stars", style="magenta", justify="right")
+    table.add_column("Forks", style="cyan", justify="right")
+    table.add_column("Issues", style="red", justify="right")
+    table.add_column("Engagement", style="green", justify="center")
+
+    # Add rows
+    for metrics in all_metrics:
+        # Health status with color coding
+        health_emoji = {
+            "excellent": "🟢",
+            "good": "🟢",
+            "fair": "🟡",
+            "poor": "🟠",
+            "critical": "🔴",
+            "unknown": "⚪",
+        }.get(metrics.health_status, "⚪")
+
+        health_text = f"{health_emoji} {metrics.health_status.title()}"
+
+        # Sync status with color coding
+        sync_emoji = {
+            "up_to_date": "✅",
+            "behind": "⚠️",
+            "ahead": "🔄",
+            "diverged": "❌",
+            "unknown": "❓",
+        }.get(metrics.sync_status, "❓")
+
+        sync_text = f"{sync_emoji} {metrics.sync_status.replace('_', ' ').title()}"
+
+        # Activity indicator
+        activity_score = min(metrics.recent_commits_30d, 10)  # Cap at 10 for display
+        activity_bar = "█" * activity_score + "░" * (10 - activity_score)
+        activity_text = f"{activity_bar} {metrics.recent_commits_30d}"
+
+        # Engagement score
+        engagement_percent = int(metrics.contributor_engagement_score * 100)
+        engagement_text = f"{engagement_percent}%"
+
+        table.add_row(
+            metrics.repository_name,
+            health_text,
+            sync_text,
+            activity_text,
+            str(metrics.stars_count),
+            str(metrics.forks_count),
+            str(metrics.open_issues_count),
+            engagement_text,
+        )
+
+    console.print(table)
+
+    # Show summary statistics
+    if all_metrics:
+        total_repos = len(all_metrics)
+        healthy_count = len(
+            [m for m in all_metrics if m.health_status in ["excellent", "good"]]
+        )
+
+        up_to_date_count = len(
+            [m for m in all_metrics if m.sync_status == "up_to_date"]
+        )
+
+        total_stars = sum(m.stars_count for m in all_metrics)
+
+        avg_engagement = (
+            sum(m.contributor_engagement_score for m in all_metrics) / total_repos
+        )
+
+        # Create summary panels
+        summary_panels = [
+            Panel(
+                f"[bold green]{healthy_count}[/bold green] / {total_repos}\nHealthy",
+                title="Health Status",
+                border_style="green",
+            ),
+            Panel(
+                f"[bold blue]{up_to_date_count}[/bold blue] / {total_repos}\nUp to Date",
+                title="Sync Status",
+                border_style="blue",
+            ),
+            Panel(
+                f"[bold magenta]{total_stars:,}[/bold magenta]\nTotal Stars",
+                title="Popularity",
+                border_style="magenta",
+            ),
+            Panel(
+                f"[bold yellow]{avg_engagement:.1%}[/bold yellow]\nAvg Engagement",
+                title="Community",
+                border_style="yellow",
+            ),
+        ]
+
+        console.print("\n")
+        console.print(Columns(summary_panels, equal=True, expand=True))
+
+        # Show alerts for repositories needing attention
+        alerts = []
+        for metrics in all_metrics:
+            if metrics.health_status in ["poor", "critical"]:
+                alerts.append(f"⚠️  {metrics.repository_name} needs attention")
+            elif metrics.sync_status == "behind":
+                alerts.append(f"🔄 {metrics.repository_name} is behind upstream")
+            elif metrics.sync_status == "diverged":
+                alerts.append(f"❌ {metrics.repository_name} has diverged from upstream")
+
+        if alerts:
+            console.print("\n")
+            alert_panel = Panel(
+                "\n".join(alerts[:5]),  # Show top 5 alerts
+                title="⚠️  Alerts",
+                border_style="red",
+            )
+            console.print(alert_panel)
 
 
 def _export_health_data(
@@ -1617,9 +1818,7 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1667,9 +1866,7 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1718,9 +1915,7 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1769,9 +1964,7 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1831,9 +2024,7 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1909,9 +2100,7 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -2805,9 +2994,7 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
         if stats.collaboration_score > 0 or stats.recognition_score > 0:
             advanced_summary = ""
             if stats.collaboration_score > 0:
-                advanced_summary += (
-                    f"🤝 Collaboration: {stats.collaboration_score:.2f} "
-                )
+                advanced_summary += f"🤝 Collaboration: {stats.collaboration_score:.2f} "
             if stats.recognition_score > 0:
                 advanced_summary += f"🏆 Recognition: {stats.recognition_score:.2f} "
             if stats.influence_score > 0:
@@ -3137,9 +3324,7 @@ def trending(ctx: click.Context, days: Optional[int], export: Optional[str]) -> 
             if stats.influence_score > 0:
                 metrics_summary += f"💪 Influence: {stats.influence_score:.2f} "
             if stats.sustainability_score > 0:
-                metrics_summary += (
-                    f"🌱 Sustainability: {stats.sustainability_score:.2f}"
-                )
+                metrics_summary += f"🌱 Sustainability: {stats.sustainability_score:.2f}"
             print_info_panel("Advanced Metrics", metrics_summary)
 
         # Skill impact analysis
