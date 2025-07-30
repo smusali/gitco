@@ -89,6 +89,14 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Recent activity tracking with detailed contribution information
 - Export functionality for contribution statistics in JSON format
 - Integration with discovery engine for history-aware recommendations
+- **Enhanced impact metrics with trend analysis over 30d and 7d periods**
+- **High-impact and critical contribution identification and tracking**
+- **Skill-based and repository-based impact scoring**
+- **Contribution velocity tracking (contributions per day over 30 days)**
+- **Skill growth rate analysis with trending and declining skill identification**
+- **Repository engagement trend analysis with engagement scoring**
+- **Advanced metrics including collaboration, recognition, influence, and sustainability scores**
+- **Comprehensive trending analysis with detailed CLI output**
 
 ### 📊 **Repository Health Insights**
 - Comprehensive health metrics calculation for all repositories
@@ -243,6 +251,15 @@ gitco contributions recommendations --repository django
 
 # Limit recommendations
 gitco contributions recommendations --limit 5
+
+# Show detailed trending analysis
+gitco contributions trending
+
+# Analyze trends for last 60 days
+gitco contributions trending --days 60
+
+# Export trending analysis
+gitco contributions trending --export trends.json
 ```
 ```
 

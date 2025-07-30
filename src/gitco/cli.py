@@ -919,12 +919,112 @@ def discover(
                         f"⭐ Average Impact: {stats.average_impact_score:.2f}",
                     )
 
+                    # Enhanced impact metrics
+                    if (
+                        stats.high_impact_contributions > 0
+                        or stats.critical_contributions > 0
+                    ):
+                        impact_summary = (
+                            f"🔥 High Impact: {stats.high_impact_contributions}"
+                        )
+                        if stats.critical_contributions > 0:
+                            impact_summary += (
+                                f" | 🚀 Critical: {stats.critical_contributions}"
+                            )
+                        print_info_panel("Impact Metrics", impact_summary)
+
+                    # Trending analysis
+                    if stats.contribution_velocity > 0:
+                        velocity_trend = (
+                            "📈" if stats.contribution_velocity > 0.1 else "📊"
+                        )
+                        print_info_panel(
+                            "Contribution Velocity",
+                            f"{velocity_trend} {stats.contribution_velocity:.2f} contributions/day (30d)",
+                        )
+
+                    # Impact trends
+                    if stats.impact_trend_30d != 0 or stats.impact_trend_7d != 0:
+                        trend_summary = ""
+                        if stats.impact_trend_30d != 0:
+                            trend_icon = "📈" if stats.impact_trend_30d > 0 else "📉"
+                            trend_summary += (
+                                f"{trend_icon} 30d: {stats.impact_trend_30d:+.2f} "
+                            )
+                        if stats.impact_trend_7d != 0:
+                            trend_icon = "📈" if stats.impact_trend_7d > 0 else "📉"
+                            trend_summary += (
+                                f"{trend_icon} 7d: {stats.impact_trend_7d:+.2f}"
+                            )
+                        print_info_panel("Impact Trends", trend_summary)
+
+                    # Trending skills
+                    if stats.trending_skills:
+                        trending_list = ", ".join(stats.trending_skills[:5])  # Top 5
+                        print_info_panel(
+                            "🚀 Trending Skills",
+                            f"Skills with growing usage: {trending_list}",
+                        )
+
+                    if stats.declining_skills:
+                        declining_list = ", ".join(stats.declining_skills[:5])  # Top 5
+                        print_info_panel(
+                            "📉 Declining Skills",
+                            f"Skills with declining usage: {declining_list}",
+                        )
+
+                    # Advanced metrics
+                    if stats.collaboration_score > 0 or stats.recognition_score > 0:
+                        advanced_summary = ""
+                        if stats.collaboration_score > 0:
+                            advanced_summary += (
+                                f"🤝 Collaboration: {stats.collaboration_score:.2f} "
+                            )
+                        if stats.recognition_score > 0:
+                            advanced_summary += (
+                                f"🏆 Recognition: {stats.recognition_score:.2f} "
+                            )
+                        if stats.influence_score > 0:
+                            advanced_summary += (
+                                f"💪 Influence: {stats.influence_score:.2f}"
+                            )
+                        print_info_panel("Advanced Metrics", advanced_summary)
+
                     if stats.skills_developed:
                         skills_list = ", ".join(sorted(stats.skills_developed))
                         print_info_panel(
                             "Skills Developed",
                             f"🎯 {skills_list}",
                         )
+
+                    # Skill impact scores
+                    if stats.skill_impact_scores:
+                        top_skills = sorted(
+                            stats.skill_impact_scores.items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        )[
+                            :3
+                        ]  # Top 3
+                        skill_impact_summary = ""
+                        for skill, impact in top_skills:
+                            skill_impact_summary += f"{skill}: {impact:.2f} "
+                        print_info_panel("Top Skill Impact", skill_impact_summary)
+
+                    # Repository impact scores
+                    if stats.repository_impact_scores:
+                        top_repos = sorted(
+                            stats.repository_impact_scores.items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        )[
+                            :3
+                        ]  # Top 3
+                        repo_impact_summary = ""
+                        for repo, impact in top_repos:
+                            repo_name = repo.split("/")[-1]  # Just the repo name
+                            repo_impact_summary += f"{repo_name}: {impact:.2f} "
+                        print_info_panel("Top Repository Impact", repo_impact_summary)
 
                     if stats.recent_activity:
                         print_info_panel(
@@ -2640,7 +2740,7 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
         # Get statistics
         stats = tracker.get_contribution_stats(days)
 
-        # Display statistics
+        # Display basic statistics
         print_success_panel(
             "Contribution Statistics",
             f"📊 Total Contributions: {stats.total_contributions}\n"
@@ -2650,6 +2750,62 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
             f"⭐ Average Impact Score: {stats.average_impact_score:.2f}",
         )
 
+        # Enhanced impact metrics
+        if stats.high_impact_contributions > 0 or stats.critical_contributions > 0:
+            impact_summary = f"🔥 High Impact: {stats.high_impact_contributions}"
+            if stats.critical_contributions > 0:
+                impact_summary += f" | 🚀 Critical: {stats.critical_contributions}"
+            print_info_panel("Impact Metrics", impact_summary)
+
+        # Trending analysis
+        if stats.contribution_velocity > 0:
+            velocity_trend = "📈" if stats.contribution_velocity > 0.1 else "📊"
+            print_info_panel(
+                "Contribution Velocity",
+                f"{velocity_trend} {stats.contribution_velocity:.2f} contributions/day (30d)",
+            )
+
+        # Impact trends
+        if stats.impact_trend_30d != 0 or stats.impact_trend_7d != 0:
+            trend_summary = ""
+            if stats.impact_trend_30d != 0:
+                trend_icon = "📈" if stats.impact_trend_30d > 0 else "📉"
+                trend_summary += f"{trend_icon} 30d: {stats.impact_trend_30d:+.2f} "
+            if stats.impact_trend_7d != 0:
+                trend_icon = "📈" if stats.impact_trend_7d > 0 else "📉"
+                trend_summary += f"{trend_icon} 7d: {stats.impact_trend_7d:+.2f}"
+            print_info_panel("Impact Trends", trend_summary)
+
+        # Trending skills
+        if stats.trending_skills:
+            trending_list = ", ".join(stats.trending_skills[:5])  # Top 5
+            print_info_panel(
+                "🚀 Trending Skills",
+                f"Skills with growing usage: {trending_list}",
+            )
+
+        if stats.declining_skills:
+            declining_list = ", ".join(stats.declining_skills[:5])  # Top 5
+            print_info_panel(
+                "📉 Declining Skills",
+                f"Skills with declining usage: {declining_list}",
+            )
+
+        # Advanced metrics
+        if stats.collaboration_score > 0 or stats.recognition_score > 0:
+            advanced_summary = ""
+            if stats.collaboration_score > 0:
+                advanced_summary += f"🤝 Collaboration: {stats.collaboration_score:.2f} "
+            if stats.recognition_score > 0:
+                advanced_summary += f"🏆 Recognition: {stats.recognition_score:.2f} "
+            if stats.influence_score > 0:
+                advanced_summary += f"💪 Influence: {stats.influence_score:.2f} "
+            if stats.sustainability_score > 0:
+                advanced_summary += (
+                    f"🌱 Sustainability: {stats.sustainability_score:.2f}"
+                )
+            print_info_panel("Advanced Metrics", advanced_summary)
+
         # Show skills
         if stats.skills_developed:
             skills_list = ", ".join(sorted(stats.skills_developed))
@@ -2657,6 +2813,31 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
                 "Skills Developed",
                 f"🎯 {skills_list}",
             )
+
+        # Skill impact scores
+        if stats.skill_impact_scores:
+            top_skills = sorted(
+                stats.skill_impact_scores.items(), key=lambda x: x[1], reverse=True
+            )[
+                :3
+            ]  # Top 3
+            skill_impact_summary = ""
+            for skill, impact in top_skills:
+                skill_impact_summary += f"{skill}: {impact:.2f} "
+            print_info_panel("Top Skill Impact", skill_impact_summary)
+
+        # Repository impact scores
+        if stats.repository_impact_scores:
+            top_repos = sorted(
+                stats.repository_impact_scores.items(), key=lambda x: x[1], reverse=True
+            )[
+                :3
+            ]  # Top 3
+            repo_impact_summary = ""
+            for repo, impact in top_repos:
+                repo_name = repo.split("/")[-1]  # Just the repo name
+                repo_impact_summary += f"{repo_name}: {impact:.2f} "
+            print_info_panel("Top Repository Impact", repo_impact_summary)
 
         # Show recent activity
         if stats.recent_activity:
@@ -2693,6 +2874,25 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
                         "total_impact_score": stats.total_impact_score,
                         "average_impact_score": stats.average_impact_score,
                         "contribution_timeline": stats.contribution_timeline,
+                        # Enhanced impact metrics
+                        "high_impact_contributions": stats.high_impact_contributions,
+                        "critical_contributions": stats.critical_contributions,
+                        "impact_trend_30d": stats.impact_trend_30d,
+                        "impact_trend_7d": stats.impact_trend_7d,
+                        # Trending analysis
+                        "contribution_velocity": stats.contribution_velocity,
+                        "trending_skills": stats.trending_skills,
+                        "declining_skills": stats.declining_skills,
+                        "skill_growth_rate": stats.skill_growth_rate,
+                        "repository_engagement_trend": stats.repository_engagement_trend,
+                        # Advanced metrics
+                        "collaboration_score": stats.collaboration_score,
+                        "recognition_score": stats.recognition_score,
+                        "influence_score": stats.influence_score,
+                        "sustainability_score": stats.sustainability_score,
+                        # Impact scores by category
+                        "skill_impact_scores": stats.skill_impact_scores,
+                        "repository_impact_scores": stats.repository_impact_scores,
                     },
                     "recent_activity": [
                         {
@@ -2738,7 +2938,7 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
 def recommendations(
     ctx: click.Context, skill: Optional[str], repository: Optional[str], limit: int
 ) -> None:
-    """Get personalized contribution recommendations."""
+    """Show contribution recommendations based on history."""
     print_info_panel(
         "Generating Recommendations",
         "Analyzing your contribution history for personalized recommendations...",
@@ -2763,35 +2963,48 @@ def recommendations(
 
         tracker = create_contribution_tracker(config, github_client)
 
-        # Get user skills from configuration
-        user_skills = []
-        for repo in config.repositories:
-            user_skills.extend(repo.skills)
-        user_skills = list(set(user_skills))  # Remove duplicates
+        # Get user skills from contributions
+        stats = tracker.get_contribution_stats()
+        user_skills = list(stats.skills_developed)
 
-        if skill:
-            user_skills = [skill]
+        if not user_skills:
+            print_warning_panel(
+                "No Skills Found",
+                "No skills detected in your contribution history. "
+                "Try syncing your contributions first with 'gitco contributions sync-history'.",
+            )
+            return
 
         # Get recommendations
         recommendations = tracker.get_contribution_recommendations(user_skills)
 
+        # Filter by skill if specified
+        if skill:
+            recommendations = [
+                r
+                for r in recommendations
+                if skill.lower() in [s.lower() for s in r.skills_used]
+            ]
+
+        # Filter by repository if specified
+        if repository:
+            recommendations = [
+                r for r in recommendations if repository.lower() in r.repository.lower()
+            ]
+
+        # Limit results
+        recommendations = recommendations[:limit]
+
         if not recommendations:
             print_warning_panel(
                 "No Recommendations",
-                "No personalized recommendations found. Try syncing your contribution history first.",
+                "No recommendations found with the current filters.",
             )
             return
 
-        # Apply filters
-        if repository:
-            recommendations = [r for r in recommendations if repository in r.repository]
-
-        # Apply limit
-        recommendations = recommendations[:limit]
-
         print_success_panel(
-            "Personalized Recommendations",
-            f"🎯 Found {len(recommendations)} recommendations based on your history",
+            "Contribution Recommendations",
+            f"Found {len(recommendations)} recommendations based on your skills: {', '.join(user_skills)}",
         )
 
         for i, recommendation in enumerate(recommendations, 1):
@@ -2800,15 +3013,187 @@ def recommendations(
                 f"Repository: {recommendation.repository}\n"
                 f"Type: {recommendation.contribution_type}\n"
                 f"Status: {recommendation.status}\n"
-                f"Impact Score: {recommendation.impact_score:.2f}\n"
-                f"Skills: {', '.join(recommendation.skills_used)}\n"
-                f"URL: {recommendation.issue_url}",
+                f"Impact: {recommendation.impact_score:.2f}\n"
+                f"Skills: {', '.join(recommendation.skills_used)}",
             )
 
     except Exception as e:
         print_error_panel(
             "Recommendations Failed",
             f"An error occurred while generating recommendations: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
+
+
+@contributions.command()
+@click.option("--days", "-d", type=int, default=30, help="Analysis period in days")
+@click.option("--export", "-e", help="Export trending analysis to file")
+@click.pass_context
+def trending(ctx: click.Context, days: Optional[int], export: Optional[str]) -> None:
+    """Show detailed trending analysis of your contributions."""
+    print_info_panel(
+        "Analyzing Contribution Trends",
+        f"Calculating trending analysis for the last {days} days...",
+    )
+
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
+
+        # Create contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        tracker = create_contribution_tracker(config, github_client)
+
+        # Get statistics with enhanced metrics
+        stats = tracker.get_contribution_stats(days)
+
+        print_success_panel(
+            "Trending Analysis",
+            f"📊 Analysis period: {days} days\n"
+            f"🚀 Contribution velocity: {stats.contribution_velocity:.2f} contributions/day",
+        )
+
+        # Impact trends
+        if stats.impact_trend_30d != 0 or stats.impact_trend_7d != 0:
+            trend_summary = ""
+            if stats.impact_trend_30d != 0:
+                trend_icon = "📈" if stats.impact_trend_30d > 0 else "📉"
+                trend_summary += (
+                    f"{trend_icon} 30d trend: {stats.impact_trend_30d:+.2f} "
+                )
+            if stats.impact_trend_7d != 0:
+                trend_icon = "📈" if stats.impact_trend_7d > 0 else "📉"
+                trend_summary += f"{trend_icon} 7d trend: {stats.impact_trend_7d:+.2f}"
+            print_info_panel("Impact Trends", trend_summary)
+
+        # Skill growth analysis
+        if stats.skill_growth_rate:
+            growing_skills = [
+                skill for skill, rate in stats.skill_growth_rate.items() if rate > 0.2
+            ]
+            declining_skills = [
+                skill for skill, rate in stats.skill_growth_rate.items() if rate < -0.2
+            ]
+
+            if growing_skills:
+                print_info_panel(
+                    "🚀 Fastest Growing Skills",
+                    f"Skills with >20% growth: {', '.join(growing_skills[:5])}",
+                )
+
+            if declining_skills:
+                print_info_panel(
+                    "📉 Declining Skills",
+                    f"Skills with declining usage: {', '.join(declining_skills[:5])}",
+                )
+
+        # Repository engagement trends
+        if stats.repository_engagement_trend:
+            top_engaged = sorted(
+                stats.repository_engagement_trend.items(),
+                key=lambda x: x[1],
+                reverse=True,
+            )[:3]
+
+            if top_engaged:
+                engagement_summary = ""
+                for repo, trend in top_engaged:
+                    repo_name = repo.split("/")[-1]
+                    trend_icon = "📈" if trend > 0 else "📉"
+                    engagement_summary += f"{repo_name}: {trend_icon}{trend:+.1f} "
+                print_info_panel("Top Repository Engagement", engagement_summary)
+
+        # Advanced metrics breakdown
+        if stats.collaboration_score > 0 or stats.recognition_score > 0:
+            metrics_summary = ""
+            if stats.collaboration_score > 0:
+                metrics_summary += f"🤝 Collaboration: {stats.collaboration_score:.2f} "
+            if stats.recognition_score > 0:
+                metrics_summary += f"🏆 Recognition: {stats.recognition_score:.2f} "
+            if stats.influence_score > 0:
+                metrics_summary += f"💪 Influence: {stats.influence_score:.2f} "
+            if stats.sustainability_score > 0:
+                metrics_summary += f"🌱 Sustainability: {stats.sustainability_score:.2f}"
+            print_info_panel("Advanced Metrics", metrics_summary)
+
+        # Skill impact analysis
+        if stats.skill_impact_scores:
+            top_impact_skills = sorted(
+                stats.skill_impact_scores.items(), key=lambda x: x[1], reverse=True
+            )[:5]
+
+            impact_summary = ""
+            for skill, impact in top_impact_skills:
+                impact_summary += f"{skill}: {impact:.2f} "
+            print_info_panel("Highest Impact Skills", impact_summary)
+
+        # Repository impact analysis
+        if stats.repository_impact_scores:
+            top_impact_repos = sorted(
+                stats.repository_impact_scores.items(), key=lambda x: x[1], reverse=True
+            )[:3]
+
+            repo_impact_summary = ""
+            for repo, impact in top_impact_repos:
+                repo_name = repo.split("/")[-1]
+                repo_impact_summary += f"{repo_name}: {impact:.2f} "
+            print_info_panel("Highest Impact Repositories", repo_impact_summary)
+
+        # Export if requested
+        if export:
+            try:
+                import json
+                from datetime import datetime
+
+                export_data = {
+                    "exported_at": datetime.now().isoformat(),
+                    "analysis_period_days": days,
+                    "trending_analysis": {
+                        "contribution_velocity": stats.contribution_velocity,
+                        "impact_trend_30d": stats.impact_trend_30d,
+                        "impact_trend_7d": stats.impact_trend_7d,
+                        "trending_skills": stats.trending_skills,
+                        "declining_skills": stats.declining_skills,
+                        "skill_growth_rate": stats.skill_growth_rate,
+                        "repository_engagement_trend": stats.repository_engagement_trend,
+                        "collaboration_score": stats.collaboration_score,
+                        "recognition_score": stats.recognition_score,
+                        "influence_score": stats.influence_score,
+                        "sustainability_score": stats.sustainability_score,
+                        "skill_impact_scores": stats.skill_impact_scores,
+                        "repository_impact_scores": stats.repository_impact_scores,
+                    },
+                }
+
+                with open(export, "w", encoding="utf-8") as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                print_success_panel(
+                    "Export Successful",
+                    f"✅ Trending analysis exported to {export}",
+                )
+
+            except Exception as e:
+                print_error_panel(
+                    "Export Failed", f"Failed to export trending analysis: {e}"
+                )
+
+    except Exception as e:
+        print_error_panel(
+            "Trending Analysis Failed",
+            f"An error occurred while analyzing trends: {str(e)}",
         )
         if ctx.obj.get("verbose"):
             raise

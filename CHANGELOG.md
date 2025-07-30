@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Enhanced contribution impact metrics and trending analysis**
+- **Advanced impact score calculation with trend analysis over 30d and 7d periods**
+- **High-impact and critical contribution identification and tracking**
+- **Skill-based impact scoring with per-skill impact analysis**
+- **Repository-based impact scoring with per-repository impact analysis**
+- **Contribution velocity tracking (contributions per day over 30 days)**
+- **Skill growth rate analysis with trending and declining skill identification**
+- **Repository engagement trend analysis with engagement scoring**
+- **Advanced metrics including collaboration, recognition, influence, and sustainability scores**
+- **Enhanced discover command with detailed impact metrics display**
+- **Enhanced stats command with comprehensive trending analysis**
+- **New trending command for detailed contribution trend analysis**
+- **Export functionality for enhanced metrics and trending data**
+- **Integration of enhanced metrics with existing CLI commands**
+- **Comprehensive error handling for advanced metrics calculation**
+- **Type-safe implementation with full mypy compliance**
 - **Enhanced discover command with personalized recommendations**
 - **Personalized scoring based on contribution history and patterns**
 - **Repository familiarity bonus in recommendation scoring**

@@ -53,6 +53,39 @@ class ContributionStats:
     contribution_timeline: dict[str, int] = field(default_factory=dict)
     recent_activity: list[Contribution] = field(default_factory=list)
 
+    # Enhanced impact metrics
+    impact_trend_30d: float = 0.0  # Impact score trend over 30 days
+    impact_trend_7d: float = 0.0  # Impact score trend over 7 days
+    high_impact_contributions: int = 0  # Contributions with impact score > 0.7
+    critical_contributions: int = 0  # Contributions with impact score > 0.9
+    skill_impact_scores: dict[str, float] = field(
+        default_factory=dict
+    )  # Impact by skill
+    repository_impact_scores: dict[str, float] = field(
+        default_factory=dict
+    )  # Impact by repo
+
+    # Trending analysis
+    contribution_velocity: float = 0.0  # Contributions per day over last 30 days
+    skill_growth_rate: dict[str, float] = field(
+        default_factory=dict
+    )  # Skill development rate
+    repository_engagement_trend: dict[str, float] = field(
+        default_factory=dict
+    )  # Repo engagement trend
+    trending_skills: list[str] = field(
+        default_factory=list
+    )  # Skills with growing usage
+    declining_skills: list[str] = field(
+        default_factory=list
+    )  # Skills with declining usage
+
+    # Advanced metrics
+    collaboration_score: float = 0.0  # How much collaboration with others
+    recognition_score: float = 0.0  # Recognition from community (reactions, comments)
+    influence_score: float = 0.0  # Overall influence in projects
+    sustainability_score: float = 0.0  # Long-term contribution sustainability
+
 
 class ContributionTrackerError(APIError):
     """Raised when contribution tracking operations fail."""
@@ -306,6 +339,9 @@ class ContributionTracker:
             )
             stats.recent_activity = sorted_contributions[:10]
 
+            # Calculate enhanced impact metrics and trending analysis
+            self._calculate_enhanced_impact_metrics(contributions, stats)
+
             log_operation_success(
                 "calculating contribution stats",
                 total_contributions=stats.total_contributions,
@@ -420,6 +456,389 @@ class ContributionTracker:
             score += 0.2  # Completed work is more impactful
 
         return min(score, 1.0)  # Cap at 1.0
+
+    def _calculate_enhanced_impact_metrics(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate enhanced impact metrics and trending analysis.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            if not contributions:
+                return
+
+            # Calculate impact trends
+            self._calculate_impact_trends(contributions, stats)
+
+            # Calculate skill-based impact scores
+            self._calculate_skill_impact_scores(contributions, stats)
+
+            # Calculate repository-based impact scores
+            self._calculate_repository_impact_scores(contributions, stats)
+
+            # Calculate trending analysis
+            self._calculate_trending_analysis(contributions, stats)
+
+            # Calculate advanced metrics
+            self._calculate_advanced_metrics(contributions, stats)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate enhanced impact metrics: {e}")
+
+    def _calculate_impact_trends(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate impact score trends over time.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            now = datetime.now()
+            thirty_days_ago = now - timedelta(days=30)
+            seven_days_ago = now - timedelta(days=7)
+
+            # Filter contributions by time periods
+            recent_30d = [
+                c
+                for c in contributions
+                if datetime.fromisoformat(c.updated_at.replace("Z", "+00:00"))
+                >= thirty_days_ago
+            ]
+            recent_7d = [
+                c
+                for c in contributions
+                if datetime.fromisoformat(c.updated_at.replace("Z", "+00:00"))
+                >= seven_days_ago
+            ]
+
+            # Calculate trends (comparing recent vs older periods)
+            if recent_30d:
+                avg_recent_30d = sum(c.impact_score for c in recent_30d) / len(
+                    recent_30d
+                )
+                older_30d = [c for c in contributions if c not in recent_30d]
+                if older_30d:
+                    avg_older_30d = sum(c.impact_score for c in older_30d) / len(
+                        older_30d
+                    )
+                    stats.impact_trend_30d = avg_recent_30d - avg_older_30d
+                else:
+                    stats.impact_trend_30d = avg_recent_30d
+
+            if recent_7d:
+                avg_recent_7d = sum(c.impact_score for c in recent_7d) / len(recent_7d)
+                older_7d = [c for c in contributions if c not in recent_7d]
+                if older_7d:
+                    avg_older_7d = sum(c.impact_score for c in older_7d) / len(older_7d)
+                    stats.impact_trend_7d = avg_recent_7d - avg_older_7d
+                else:
+                    stats.impact_trend_7d = avg_recent_7d
+
+            # Count high impact contributions
+            stats.high_impact_contributions = len(
+                [c for c in contributions if c.impact_score > 0.7]
+            )
+            stats.critical_contributions = len(
+                [c for c in contributions if c.impact_score > 0.9]
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate impact trends: {e}")
+
+    def _calculate_skill_impact_scores(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate impact scores by skill.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            skill_contributions: dict[str, list[Contribution]] = {}
+
+            for contribution in contributions:
+                for skill in contribution.skills_used:
+                    if skill not in skill_contributions:
+                        skill_contributions[skill] = []
+                    skill_contributions[skill].append(contribution)
+
+            for skill, skill_contribs in skill_contributions.items():
+                if skill_contribs:
+                    avg_impact = sum(c.impact_score for c in skill_contribs) / len(
+                        skill_contribs
+                    )
+                    stats.skill_impact_scores[skill] = avg_impact
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate skill impact scores: {e}")
+
+    def _calculate_repository_impact_scores(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate impact scores by repository.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            repo_contributions: dict[str, list[Contribution]] = {}
+
+            for contribution in contributions:
+                repo = contribution.repository
+                if repo not in repo_contributions:
+                    repo_contributions[repo] = []
+                repo_contributions[repo].append(contribution)
+
+            for repo, repo_contribs in repo_contributions.items():
+                if repo_contribs:
+                    avg_impact = sum(c.impact_score for c in repo_contribs) / len(
+                        repo_contribs
+                    )
+                    stats.repository_impact_scores[repo] = avg_impact
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate repository impact scores: {e}")
+
+    def _calculate_trending_analysis(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate trending analysis for skills and repositories.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            now = datetime.now()
+            thirty_days_ago = now - timedelta(days=30)
+            sixty_days_ago = now - timedelta(days=60)
+
+            # Calculate contribution velocity (contributions per day over last 30 days)
+            recent_30d = [
+                c
+                for c in contributions
+                if datetime.fromisoformat(c.updated_at.replace("Z", "+00:00"))
+                >= thirty_days_ago
+            ]
+            stats.contribution_velocity = len(recent_30d) / 30.0
+
+            # Calculate skill growth rates
+            self._calculate_skill_growth_rates(
+                contributions, stats, thirty_days_ago, sixty_days_ago
+            )
+
+            # Calculate repository engagement trends
+            self._calculate_repository_engagement_trends(
+                contributions, stats, thirty_days_ago, sixty_days_ago
+            )
+
+            # Identify trending and declining skills
+            self._identify_trending_skills(stats)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate trending analysis: {e}")
+
+    def _calculate_skill_growth_rates(
+        self,
+        contributions: list[Contribution],
+        stats: ContributionStats,
+        thirty_days_ago: datetime,
+        sixty_days_ago: datetime,
+    ) -> None:
+        """Calculate growth rates for skills.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+            thirty_days_ago: 30 days ago timestamp
+            sixty_days_ago: 60 days ago timestamp
+        """
+        try:
+            # Group contributions by skill and time period
+            skill_periods = {}
+
+            for contribution in contributions:
+                contrib_date = datetime.fromisoformat(
+                    contribution.updated_at.replace("Z", "+00:00")
+                )
+
+                for skill in contribution.skills_used:
+                    if skill not in skill_periods:
+                        skill_periods[skill] = {"recent": 0, "older": 0}
+
+                    if contrib_date >= thirty_days_ago:
+                        skill_periods[skill]["recent"] += 1
+                    elif contrib_date >= sixty_days_ago:
+                        skill_periods[skill]["older"] += 1
+
+            # Calculate growth rates
+            for skill, periods in skill_periods.items():
+                if periods["older"] > 0:
+                    growth_rate = (periods["recent"] - periods["older"]) / periods[
+                        "older"
+                    ]
+                    stats.skill_growth_rate[skill] = growth_rate
+                elif periods["recent"] > 0:
+                    stats.skill_growth_rate[skill] = 1.0  # New skill
+                else:
+                    stats.skill_growth_rate[skill] = 0.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate skill growth rates: {e}")
+
+    def _calculate_repository_engagement_trends(
+        self,
+        contributions: list[Contribution],
+        stats: ContributionStats,
+        thirty_days_ago: datetime,
+        sixty_days_ago: datetime,
+    ) -> None:
+        """Calculate engagement trends for repositories.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+            thirty_days_ago: 30 days ago timestamp
+            sixty_days_ago: 60 days ago timestamp
+        """
+        try:
+            # Group contributions by repository and time period
+            repo_periods = {}
+
+            for contribution in contributions:
+                contrib_date = datetime.fromisoformat(
+                    contribution.updated_at.replace("Z", "+00:00")
+                )
+                repo = contribution.repository
+
+                if repo not in repo_periods:
+                    repo_periods[repo] = {"recent": 0, "older": 0}
+
+                if contrib_date >= thirty_days_ago:
+                    repo_periods[repo]["recent"] += 1
+                elif contrib_date >= sixty_days_ago:
+                    repo_periods[repo]["older"] += 1
+
+            # Calculate engagement trends
+            for repo, periods in repo_periods.items():
+                if periods["older"] > 0:
+                    trend = (periods["recent"] - periods["older"]) / periods["older"]
+                    stats.repository_engagement_trend[repo] = trend
+                elif periods["recent"] > 0:
+                    stats.repository_engagement_trend[repo] = 1.0  # New engagement
+                else:
+                    stats.repository_engagement_trend[repo] = 0.0
+
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to calculate repository engagement trends: {e}"
+            )
+
+    def _identify_trending_skills(self, stats: ContributionStats) -> None:
+        """Identify trending and declining skills.
+
+        Args:
+            stats: Stats object to update
+        """
+        try:
+            trending_threshold = 0.2  # 20% growth
+            declining_threshold = -0.2  # 20% decline
+
+            for skill, growth_rate in stats.skill_growth_rate.items():
+                if growth_rate >= trending_threshold:
+                    stats.trending_skills.append(skill)
+                elif growth_rate <= declining_threshold:
+                    stats.declining_skills.append(skill)
+
+            # Sort by growth rate
+            stats.trending_skills.sort(
+                key=lambda s: stats.skill_growth_rate.get(s, 0), reverse=True
+            )
+            stats.declining_skills.sort(key=lambda s: stats.skill_growth_rate.get(s, 0))
+
+        except Exception as e:
+            self.logger.warning(f"Failed to identify trending skills: {e}")
+
+    def _calculate_advanced_metrics(
+        self, contributions: list[Contribution], stats: ContributionStats
+    ) -> None:
+        """Calculate advanced contribution metrics.
+
+        Args:
+            contributions: List of contributions
+            stats: Stats object to update
+        """
+        try:
+            if not contributions:
+                return
+
+            # Collaboration score (based on assignees, comments, reactions)
+            collaboration_scores = []
+            for contrib in contributions:
+                collab_score = 0.0
+                if contrib.assignees:
+                    collab_score += 0.3
+                if contrib.comments_count > 0:
+                    collab_score += min(contrib.comments_count * 0.05, 0.4)
+                if contrib.reactions_count > 0:
+                    collab_score += min(contrib.reactions_count * 0.1, 0.3)
+                collaboration_scores.append(collab_score)
+
+            if collaboration_scores:
+                stats.collaboration_score = sum(collaboration_scores) / len(
+                    collaboration_scores
+                )
+
+            # Recognition score (based on reactions and comments)
+            recognition_scores = []
+            for contrib in contributions:
+                recog_score = 0.0
+                recog_score += min(contrib.reactions_count * 0.2, 0.6)
+                recog_score += min(contrib.comments_count * 0.1, 0.4)
+                recognition_scores.append(recog_score)
+
+            if recognition_scores:
+                stats.recognition_score = sum(recognition_scores) / len(
+                    recognition_scores
+                )
+
+            # Influence score (combination of impact, collaboration, and recognition)
+            influence_factors = [
+                stats.average_impact_score * 0.4,
+                stats.collaboration_score * 0.3,
+                stats.recognition_score * 0.3,
+            ]
+            stats.influence_score = sum(influence_factors)
+
+            # Sustainability score (based on consistent contribution over time)
+            if len(contributions) > 1:
+                # Calculate consistency over time
+                dates = [
+                    datetime.fromisoformat(c.updated_at.replace("Z", "+00:00"))
+                    for c in contributions
+                ]
+                dates.sort()
+
+                if len(dates) > 1:
+                    time_spans = []
+                    for i in range(1, len(dates)):
+                        span = (dates[i] - dates[i - 1]).days
+                        time_spans.append(span)
+
+                    avg_span = sum(time_spans) / len(time_spans)
+                    # Lower average span = more sustainable (consistent contributions)
+                    sustainability = max(0, 1 - (avg_span / 30))  # Normalize to 30 days
+                    stats.sustainability_score = sustainability
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate advanced metrics: {e}")
 
     def _extract_skills_from_issue(self, issue: GitHubIssue) -> list[str]:
         """Extract skills from issue labels and content.
