@@ -1,7 +1,7 @@
 """GitCo CLI interface."""
 
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import click
 
@@ -39,7 +39,7 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
     from rich.text import Text
 
     # Build the content
-    content = []
+    content: list[Union[Text, str]] = []
 
     # Issue title and URL
     title_text = Text(f"#{recommendation.issue.number}: {recommendation.issue.title}")
@@ -54,33 +54,113 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
         content.append(f"💻 Language: {recommendation.repository.language}")
     content.append("")
 
-    # Score and difficulty
+    # Score and difficulty with enhanced information
     score_text = f"Score: {recommendation.overall_score:.2f}"
     difficulty_text = f"Difficulty: {recommendation.difficulty_level.title()}"
     time_text = f"Time: {recommendation.estimated_time.title()}"
-    content.append(f"⭐ {score_text} | 🎯 {difficulty_text} | ⏱️ {time_text}")
+
+    # Add confidence indicator
+    if recommendation.overall_score > 0.8:
+        confidence_indicator = "🎯 Excellent Match"
+    elif recommendation.overall_score > 0.6:
+        confidence_indicator = "⭐ Good Match"
+    elif recommendation.overall_score > 0.4:
+        confidence_indicator = "💡 Good Opportunity"
+    else:
+        confidence_indicator = "🔍 Exploration"
+
+    content.append(
+        f"{confidence_indicator} | {score_text} | 🎯 {difficulty_text} | ⏱️ {time_text}"
+    )
     content.append("")
 
-    # Skill matches
+    # Skill matches with enhanced details
     if recommendation.skill_matches:
         content.append("🎯 Skill Matches:")
         for match in recommendation.skill_matches:
             confidence_text = f"({match.confidence:.1%})"
-            match_text = f"  • {match.skill} {confidence_text} [{match.match_type}]"
+            match_type_emoji = {
+                "exact": "🎯",
+                "partial": "📝",
+                "related": "🔗",
+                "language": "💻",
+            }.get(match.match_type, "📌")
+
+            match_text = f"  {match_type_emoji} {match.skill} {confidence_text} [{match.match_type}]"
             content.append(match_text)
+
+            # Show evidence for high-confidence matches
+            if match.confidence > 0.7 and match.evidence:
+                evidence_text = f"    Evidence: {match.evidence[0][:60]}..."
+                content.append(f"    {evidence_text}")
         content.append("")
 
-    # Tags
+    # Tags with categorization
     if recommendation.tags:
-        tags_text = "🏷️ Tags: " + ", ".join(recommendation.tags)
-        content.append(tags_text)
+        # Categorize tags
+        skill_tags = [
+            tag
+            for tag in recommendation.tags
+            if tag
+            in [
+                "python",
+                "javascript",
+                "java",
+                "go",
+                "rust",
+                "react",
+                "vue",
+                "angular",
+                "api",
+                "database",
+                "testing",
+                "devops",
+            ]
+        ]
+        difficulty_tags = [
+            tag
+            for tag in recommendation.tags
+            if tag in ["beginner", "intermediate", "advanced"]
+        ]
+        time_tags = [
+            tag for tag in recommendation.tags if tag in ["quick", "medium", "long"]
+        ]
+        special_tags = [
+            tag
+            for tag in recommendation.tags
+            if tag not in skill_tags + difficulty_tags + time_tags
+        ]
+
+        if skill_tags:
+            content.append(f"💻 Skills: {', '.join(skill_tags)}")
+        if difficulty_tags:
+            content.append(f"🎯 Level: {', '.join(difficulty_tags)}")
+        if time_tags:
+            content.append(f"⏱️ Time: {', '.join(time_tags)}")
+        if special_tags:
+            content.append(f"🏷️ Tags: {', '.join(special_tags)}")
         content.append("")
 
-    # Create the panel
+    # Personalized insights (if available)
+    if hasattr(recommendation, "personalized_insights"):
+        content.append("💡 Personalized Insights:")
+        for insight in recommendation.personalized_insights[:2]:  # Show top 2 insights
+            content.append(f"  • {insight}")
+        content.append("")
+
+    # Create the panel with dynamic styling
+    border_style = (
+        "green"
+        if recommendation.overall_score > 0.7
+        else "yellow"
+        if recommendation.overall_score > 0.4
+        else "blue"
+    )
+
     panel = Panel(
-        "\n".join(content),
+        "\n".join(str(item) for item in content),
         title=f"Recommendation #{index}",
-        border_style="green" if recommendation.overall_score > 0.7 else "yellow",
+        border_style=border_style,
     )
 
     console.print(panel)
@@ -753,6 +833,18 @@ def analyze(
     default=0.1,
     help="Minimum confidence score (0.0-1.0)",
 )
+@click.option(
+    "--personalized",
+    "-p",
+    is_flag=True,
+    help="Include personalized recommendations based on contribution history",
+)
+@click.option(
+    "--show-history",
+    "-h",
+    is_flag=True,
+    help="Show contribution history analysis",
+)
 @click.pass_context
 def discover(
     ctx: click.Context,
@@ -761,10 +853,14 @@ def discover(
     export: Optional[str],
     limit: Optional[int],
     min_confidence: float,
+    personalized: bool,
+    show_history: bool,
 ) -> None:
-    """Discover contribution opportunities.
+    """Discover contribution opportunities with personalized recommendations.
 
     Scans repositories for issues matching your skills and interests.
+    When --personalized is used, recommendations are enhanced with your
+    contribution history and skill development patterns.
     """
     print_info_panel(
         "Discovering Contribution Opportunities",
@@ -805,12 +901,57 @@ def discover(
 
         discovery_engine = create_discovery_engine(github_client, config)
 
-        # Discover opportunities
+        # Show contribution history analysis if requested
+        if show_history or personalized:
+            from .contribution_tracker import create_contribution_tracker
+
+            tracker = create_contribution_tracker(config, github_client)
+
+            try:
+                stats = tracker.get_contribution_stats()
+
+                if show_history:
+                    print_info_panel(
+                        "Contribution History Analysis",
+                        f"📊 Total Contributions: {stats.total_contributions}\n"
+                        f"🏢 Repositories: {stats.repositories_contributed_to}\n"
+                        f"💡 Skills Developed: {len(stats.skills_developed)}\n"
+                        f"⭐ Average Impact: {stats.average_impact_score:.2f}",
+                    )
+
+                    if stats.skills_developed:
+                        skills_list = ", ".join(sorted(stats.skills_developed))
+                        print_info_panel(
+                            "Skills Developed",
+                            f"🎯 {skills_list}",
+                        )
+
+                    if stats.recent_activity:
+                        print_info_panel(
+                            "Recent Activity",
+                            f"🕒 Last {len(stats.recent_activity)} contributions:",
+                        )
+                        for i, contribution in enumerate(stats.recent_activity[:3], 1):
+                            print_info_panel(
+                                f"{i}. {contribution.issue_title}",
+                                f"Repository: {contribution.repository}\n"
+                                f"Impact: {contribution.impact_score:.2f}\n"
+                                f"Skills: {', '.join(contribution.skills_used)}",
+                            )
+            except Exception as e:
+                print_warning_panel(
+                    "History Analysis Unavailable",
+                    f"Could not analyze contribution history: {e}\n"
+                    "Run 'gitco contributions sync-history --username YOUR_USERNAME' to sync your history.",
+                )
+
+        # Discover opportunities with enhanced personalization
         recommendations = discovery_engine.discover_opportunities(
             skill_filter=skill,
             label_filter=label,
             limit=limit,
             min_confidence=min_confidence,
+            include_personalization=personalized,
         )
 
         if not recommendations:
@@ -820,18 +961,66 @@ def discover(
             )
             return
 
-        # Display results
+        # Display results with enhanced information
         print_success_panel(
             "Discovery Results",
-            f"Found {len(recommendations)} contribution opportunities!",
+            f"Found {len(recommendations)} contribution opportunities!"
+            + (" (with personalized scoring)" if personalized else ""),
         )
 
-        for i, recommendation in enumerate(recommendations, 1):
-            print_issue_recommendation(recommendation, i)
+        # Group recommendations by type if personalized
+        if personalized:
+            high_confidence = [r for r in recommendations if r.overall_score > 0.7]
+            medium_confidence = [
+                r for r in recommendations if 0.4 <= r.overall_score <= 0.7
+            ]
+            low_confidence = [r for r in recommendations if r.overall_score < 0.4]
+
+            if high_confidence:
+                print_info_panel(
+                    "🎯 High Confidence Matches",
+                    f"Found {len(high_confidence)} excellent matches based on your history",
+                )
+                for i, recommendation in enumerate(high_confidence, 1):
+                    print_issue_recommendation(recommendation, i)
+
+            if medium_confidence:
+                print_info_panel(
+                    "⭐ Good Matches",
+                    f"Found {len(medium_confidence)} good matches for skill development",
+                )
+                for i, recommendation in enumerate(medium_confidence, 1):
+                    print_issue_recommendation(recommendation, len(high_confidence) + i)
+
+            if low_confidence:
+                print_info_panel(
+                    "💡 Exploration Opportunities",
+                    f"Found {len(low_confidence)} opportunities to explore new areas",
+                )
+                for i, recommendation in enumerate(low_confidence, 1):
+                    print_issue_recommendation(
+                        recommendation,
+                        len(high_confidence) + len(medium_confidence) + i,
+                    )
+        else:
+            # Standard display
+            for i, recommendation in enumerate(recommendations, 1):
+                print_issue_recommendation(recommendation, i)
 
         # Export results if requested
         if export:
             export_discovery_results(recommendations, export)
+
+        # Show personalized insights if enabled
+        if personalized:
+            print_info_panel(
+                "Personalized Insights",
+                "💡 Tips based on your contribution history:\n"
+                "• Focus on repositories where you've had high impact\n"
+                "• Consider exploring new skills to diversify your portfolio\n"
+                "• Look for issues that combine multiple skills you've used\n"
+                "• Prioritize issues in active repositories with good engagement",
+            )
 
         print_success_panel("Discovery Completed", "✅ Discovery completed!")
 

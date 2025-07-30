@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Enhanced discover command with personalized recommendations**
+- **Personalized scoring based on contribution history and patterns**
+- **Repository familiarity bonus in recommendation scoring**
+- **Skill development pattern analysis for personalized recommendations**
+- **Issue type preference analysis (PRs vs Issues)**
+- **Difficulty preference analysis based on past successful contributions**
+- **Repository activity pattern analysis for engagement scoring**
+- **Enhanced CLI output with confidence indicators and categorized recommendations**
+- **New --personalized flag for discover command to enable personalized scoring**
+- **New --show-history flag for discover command to display contribution analysis**
+- **Grouped recommendation display (High Confidence, Good Matches, Exploration)**
+- **Personalized insights and tips based on contribution history**
+- **Enhanced skill matching with evidence display for high-confidence matches**
+- **Categorized tag display (Skills, Level, Time, Special Tags)**
+- **Dynamic panel styling based on recommendation confidence scores**
+- **Integration of contribution tracker with discovery engine for personalized scoring**
+- **Comprehensive error handling for personalization features**
+- **Type-safe implementation with full mypy compliance**
 - Repository health metrics calculation with comprehensive health analysis
 - RepositoryHealthMetrics dataclass for structured health data
 - HealthSummary dataclass for repository health summaries

@@ -63,11 +63,19 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 ### 🎯 **Contribution Discovery**
 - Scans repositories for "good first issue" and "help wanted" labels
 - Matches issues to your skills using intelligent skill-based matching algorithm
-- Provides personalized contribution recommendations with confidence scores
+- **Personalized recommendations based on contribution history and patterns**
+- **Repository familiarity bonus for repositories with successful contributions**
+- **Skill development pattern analysis for improved matching**
+- **Issue type preference analysis (PRs vs Issues)**
+- **Difficulty preference analysis based on past successful contributions**
+- **Repository activity pattern analysis for engagement scoring**
 - Supports exact, partial, related, and language-based skill matching
 - Difficulty level detection (beginner, intermediate, advanced)
 - Time estimation for issues (quick, medium, long)
 - Skill filtering and label filtering for targeted discovery
+- **Enhanced CLI output with confidence indicators and categorized recommendations**
+- **Grouped recommendation display (High Confidence, Good Matches, Exploration)**
+- **Personalized insights and tips based on contribution history**
 - Export functionality for discovery results in JSON format
 - Rich CLI output with detailed recommendation information
 
@@ -201,6 +209,15 @@ gitco discover --export results.json
 # Combine filters
 gitco discover --skill python --label "good first issue" --limit 5
 
+# Personalized recommendations based on contribution history
+gitco discover --personalized
+
+# Show contribution history analysis
+gitco discover --show-history
+
+# Personalized discovery with history analysis
+gitco discover --personalized --show-history --skill python
+
 ### 6. Track Contribution History
 ```bash
 # Sync contribution history from GitHub
@@ -269,6 +286,9 @@ gitco discover --min-confidence 0.5
 
 # Export discovery results
 gitco discover --export results.json
+
+# Personalized discovery with contribution history
+gitco discover --personalized --show-history
 
 # Track contribution history
 gitco contributions sync-history --username your-username
@@ -344,6 +364,12 @@ GitCo provides intelligent contribution opportunity discovery using skill-based 
 - **Difficulty Detection**: Beginner, intermediate, or advanced issues
 - **Time Estimation**: Quick, medium, or long-term contributions
 - **Confidence Scoring**: 0.0-1.0 confidence for each recommendation
+- **Personalized Scoring**: Recommendations based on contribution history and patterns
+- **Repository Familiarity**: Bonus scoring for repositories with successful contributions
+- **Skill Development Patterns**: Analysis of past skill usage for improved matching
+- **Issue Type Preferences**: Analysis of PR vs Issue preferences
+- **Difficulty Preferences**: Analysis based on past successful contributions
+- **Repository Activity Patterns**: Engagement scoring for similar repositories
 - **Skill Filtering**: Filter by specific skills or technologies
 - **Label Filtering**: Filter by GitHub labels (e.g., "good first issue")
 - **Export Support**: Export results to JSON for further analysis
@@ -357,6 +383,15 @@ gitco discover --label "good first issue" --skill javascript
 
 # Export results for analysis
 gitco discover --export opportunities.json
+
+# Personalized recommendations based on contribution history
+gitco discover --personalized
+
+# Show contribution history analysis
+gitco discover --show-history
+
+# Personalized discovery with history analysis
+gitco discover --personalized --show-history --skill python
 ```
 
 ### Upstream Remote Management

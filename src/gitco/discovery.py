@@ -291,6 +291,7 @@ class IssueDiscovery:
         label_filter: Optional[str] = None,
         limit: Optional[int] = None,
         min_confidence: float = 0.1,
+        include_personalization: bool = False,
     ) -> list[IssueRecommendation]:
         """Discover contribution opportunities across configured repositories.
 
@@ -299,12 +300,16 @@ class IssueDiscovery:
             label_filter: Filter by GitHub labels
             limit: Maximum number of recommendations
             min_confidence: Minimum confidence score for recommendations
+            include_personalization: Include personalized scoring based on contribution history
 
         Returns:
             List of issue recommendations sorted by score
         """
         log_operation_start(
-            "issue discovery", skill_filter=skill_filter, label_filter=label_filter
+            "issue discovery",
+            skill_filter=skill_filter,
+            label_filter=label_filter,
+            personalized=include_personalization,
         )
 
         try:
@@ -318,7 +323,11 @@ class IssueDiscovery:
                     continue
 
                 repo_recommendations = self._discover_for_repository(
-                    repo, skill_filter, label_filter, min_confidence
+                    repo,
+                    skill_filter,
+                    label_filter,
+                    min_confidence,
+                    include_personalization,
                 )
                 recommendations.extend(repo_recommendations)
 
@@ -345,6 +354,7 @@ class IssueDiscovery:
         skill_filter: Optional[str],
         label_filter: Optional[str],
         min_confidence: float,
+        include_personalization: bool = False,
     ) -> list[IssueRecommendation]:
         """Discover opportunities for a specific repository."""
         try:
@@ -377,10 +387,15 @@ class IssueDiscovery:
                     user_skills, issue, repository
                 )
 
-                # Calculate overall score
-                overall_score = self._calculate_overall_score(
-                    skill_matches, issue, repository
-                )
+                # Calculate overall score with personalization if enabled
+                if include_personalization:
+                    overall_score = self._calculate_personalized_score(
+                        skill_matches, issue, repository
+                    )
+                else:
+                    overall_score = self._calculate_overall_score(
+                        skill_matches, issue, repository
+                    )
 
                 # Skip if below minimum confidence
                 if overall_score < min_confidence:
@@ -459,6 +474,182 @@ class IssueDiscovery:
         )
 
         return min(total_score, 1.0)  # Cap at 1.0
+
+    def _calculate_personalized_score(
+        self,
+        skill_matches: list[SkillMatch],
+        issue: GitHubIssue,
+        repository: Repository,
+    ) -> float:
+        """Calculate personalized score based on contribution history and patterns."""
+        try:
+            # Start with base score calculation
+            base_score = self._calculate_overall_score(skill_matches, issue, repository)
+
+            # Get contribution history
+            contributions = self.contribution_tracker.load_contribution_history()
+
+            if not contributions:
+                return base_score  # No history available
+
+            # Calculate personalized bonuses
+            personalization_bonus = 0.0
+
+            # Repository familiarity bonus
+            repo_contributions = [
+                c for c in contributions if c.repository == repository.fork
+            ]
+            if repo_contributions:
+                # Higher bonus for repositories with successful contributions
+                successful_contributions = [
+                    c
+                    for c in repo_contributions
+                    if c.status in ["closed", "merged"] and c.impact_score > 0.5
+                ]
+                familiarity_bonus = min(len(successful_contributions) * 0.08, 0.25)
+                personalization_bonus += familiarity_bonus
+
+            # Skill development pattern bonus
+            user_skills = set(repository.skills)
+            skill_usage_pattern: dict[str, int] = {}
+
+            for contribution in contributions:
+                for skill in contribution.skills_used:
+                    if skill in user_skills:
+                        skill_usage_pattern[skill] = (
+                            skill_usage_pattern.get(skill, 0) + 1
+                        )
+
+            # Bonus for skills that have been successfully used
+            for match in skill_matches:
+                if match.skill in skill_usage_pattern:
+                    # Higher bonus for skills with successful usage
+                    usage_count = skill_usage_pattern[match.skill]
+                    skill_bonus = min(usage_count * 0.03, 0.15)
+                    personalization_bonus += skill_bonus
+
+            # Issue type preference bonus
+            issue_type_bonus = self._calculate_issue_type_bonus(issue, contributions)
+            personalization_bonus += issue_type_bonus
+
+            # Difficulty preference bonus
+            difficulty_bonus = self._calculate_difficulty_preference_bonus(
+                issue, contributions
+            )
+            personalization_bonus += difficulty_bonus
+
+            # Repository activity bonus
+            activity_bonus = self._calculate_repository_activity_bonus(
+                repository, contributions
+            )
+            personalization_bonus += activity_bonus
+
+            # Combine base score with personalization
+            final_score = base_score + personalization_bonus
+
+            return min(final_score, 1.0)  # Cap at 1.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate personalized score: {e}")
+            return self._calculate_overall_score(skill_matches, issue, repository)
+
+    def _calculate_issue_type_bonus(
+        self, issue: GitHubIssue, contributions: list
+    ) -> float:
+        """Calculate bonus based on preferred issue types."""
+        try:
+            # Analyze past contribution types
+            pr_count = sum(1 for c in contributions if c.contribution_type == "pr")
+            issue_count = sum(
+                1 for c in contributions if c.contribution_type == "issue"
+            )
+
+            current_type = "pr" if "pull_request" in issue.html_url else "issue"
+
+            # Bonus for preferred type
+            if pr_count > issue_count and current_type == "pr":
+                return 0.1
+            elif issue_count > pr_count and current_type == "issue":
+                return 0.1
+
+            return 0.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate issue type bonus: {e}")
+            return 0.0
+
+    def _calculate_difficulty_preference_bonus(
+        self, issue: GitHubIssue, contributions: list
+    ) -> float:
+        """Calculate bonus based on difficulty preferences."""
+        try:
+            # Analyze past contribution difficulties
+            difficulty = self.skill_matcher.determine_difficulty(issue)
+
+            # Count successful contributions by difficulty
+            successful_contributions = [
+                c
+                for c in contributions
+                if c.status in ["closed", "merged"] and c.impact_score > 0.5
+            ]
+
+            difficulty_counts = {"beginner": 0, "intermediate": 0, "advanced": 0}
+
+            for contribution in successful_contributions:
+                # Estimate difficulty from impact score and labels
+                if contribution.impact_score > 0.8:
+                    difficulty_counts["advanced"] += 1
+                elif contribution.impact_score > 0.5:
+                    difficulty_counts["intermediate"] += 1
+                else:
+                    difficulty_counts["beginner"] += 1
+
+            # Bonus for preferred difficulty level
+            preferred_difficulty = max(
+                difficulty_counts, key=lambda k: difficulty_counts[k]
+            )
+            if (
+                difficulty == preferred_difficulty
+                and difficulty_counts[preferred_difficulty] > 0
+            ):
+                return 0.05
+
+            return 0.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate difficulty preference bonus: {e}")
+            return 0.0
+
+    def _calculate_repository_activity_bonus(
+        self, repository: Repository, contributions: list
+    ) -> float:
+        """Calculate bonus based on repository activity patterns."""
+        try:
+            # Analyze activity in similar repositories
+            repo_contributions = [
+                c
+                for c in contributions
+                if any(skill in c.skills_used for skill in repository.skills)
+            ]
+
+            if not repo_contributions:
+                return 0.0
+
+            # Bonus for repositories with good engagement
+            recent_contributions = [
+                c
+                for c in repo_contributions
+                if c.status in ["closed", "merged"] and c.impact_score > 0.6
+            ]
+
+            if recent_contributions:
+                return 0.05
+
+            return 0.0
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate repository activity bonus: {e}")
+            return 0.0
 
     def _calculate_history_bonus(
         self, issue: GitHubIssue, repository: Repository
