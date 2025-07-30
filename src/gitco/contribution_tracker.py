@@ -8,13 +8,13 @@ from typing import Optional
 
 from .config import Config
 from .github_client import GitHubClient, GitHubIssue
-from .utils import (
-    APIError,
+from .utils.common import (
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
+from .utils.exception import ContributionTrackerError
 
 
 @dataclass
@@ -85,12 +85,6 @@ class ContributionStats:
     recognition_score: float = 0.0  # Recognition from community (reactions, comments)
     influence_score: float = 0.0  # Overall influence in projects
     sustainability_score: float = 0.0  # Long-term contribution sustainability
-
-
-class ContributionTrackerError(APIError):
-    """Raised when contribution tracking operations fail."""
-
-    pass
 
 
 class ContributionTracker:

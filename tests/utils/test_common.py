@@ -3,16 +3,10 @@
 import logging
 import os
 import tempfile
-from collections.abc import Generator
 
 import pytest
 
-from gitco.utils import (
-    APIError,
-    ConfigurationError,
-    GitCoError,
-    GitOperationError,
-    ValidationError,
+from gitco.utils.common import (
     create_progress_context,
     ensure_directory_exists,
     format_error_message,
@@ -35,19 +29,13 @@ from gitco.utils import (
     validate_directory_exists,
     validate_file_exists,
 )
-
-
-@pytest.fixture
-def temp_log_file() -> Generator[str, None, None]:
-    """Create a temporary log file."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
-        temp_file = f.name
-
-    yield temp_file
-
-    # Cleanup
-    if os.path.exists(temp_file):
-        os.unlink(temp_file)
+from gitco.utils.exception import (
+    APIError,
+    ConfigurationError,
+    GitCoError,
+    GitOperationError,
+    ValidationError,
+)
 
 
 def test_gitco_error() -> None:

@@ -12,12 +12,12 @@ from typing import Any, Callable, Optional
 from rich import box
 from rich.table import Table
 
-from .utils import (
-    GitOperationError,
+from .utils.common import (
     console,
     create_progress_bar,
     get_logger,
 )
+from .utils.exception import GitOperationError
 
 
 @dataclass

@@ -328,7 +328,7 @@ class TestContributionTrackerError:
         assert isinstance(error, ContributionTrackerError)
         assert isinstance(error, Exception)
         # Should inherit from APIError (which inherits from GitCoError)
-        from gitco.utils import APIError, GitCoError
+        from gitco.utils.exception import APIError, GitCoError
 
         assert isinstance(error, APIError)
         assert isinstance(error, GitCoError)

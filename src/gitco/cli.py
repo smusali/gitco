@@ -17,8 +17,7 @@ from .exporter import (
 )
 from .git_ops import GitRepository, GitRepositoryManager
 from .github_client import create_github_client
-from .utils import (
-    ValidationError,
+from .utils.common import (
     console,
     create_progress_bar,
     get_logger,
@@ -33,6 +32,7 @@ from .utils import (
     set_quiet_mode,
     setup_logging,
 )
+from .utils.exception import ValidationError
 
 
 def print_issue_recommendation(recommendation: Any, index: int) -> None:
@@ -180,9 +180,28 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.option("--log-file", help="Log to file")
+@click.option(
+    "--detailed-log",
+    is_flag=True,
+    help="Use detailed log format with function names and line numbers",
+)
+@click.option(
+    "--max-log-size",
+    type=int,
+    help="Maximum log file size in MB before rotation (default: 10)",
+)
+@click.option(
+    "--log-backups", type=int, help="Number of backup log files to keep (default: 5)"
+)
 @click.pass_context
 def main(
-    ctx: click.Context, verbose: bool, quiet: bool, log_file: Optional[str]
+    ctx: click.Context,
+    verbose: bool,
+    quiet: bool,
+    log_file: Optional[str],
+    detailed_log: bool,
+    max_log_size: Optional[int],
+    log_backups: Optional[int],
 ) -> None:
     """GitCo - A simple CLI tool for intelligent OSS fork management and contribution discovery.
 
@@ -198,12 +217,27 @@ def main(
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
     ctx.obj["log_file"] = log_file
+    ctx.obj["detailed_log"] = detailed_log
+    ctx.obj["max_log_size"] = max_log_size
+    ctx.obj["log_backups"] = log_backups
 
     # Set global quiet mode state
     set_quiet_mode(quiet)
 
-    # Setup logging
-    setup_logging(verbose=verbose, quiet=quiet, log_file=log_file)
+    # Calculate max file size in bytes if specified
+    max_file_size = None
+    if max_log_size:
+        max_file_size = max_log_size * 1024 * 1024  # Convert MB to bytes
+
+    # Setup logging with enhanced options
+    setup_logging(
+        verbose=verbose,
+        quiet=quiet,
+        log_file=log_file,
+        detailed=detailed_log,
+        max_file_size=max_file_size,
+        backup_count=log_backups,
+    )
 
     logger = get_logger()
     logger.debug("GitCo CLI started")
@@ -269,6 +303,19 @@ def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
 @click.option("--export", "-e", help="Export report to file")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.option("--log", "-l", help="Log to file")
+@click.option(
+    "--detailed-log",
+    is_flag=True,
+    help="Use detailed log format with function names and line numbers",
+)
+@click.option(
+    "--max-log-size",
+    type=int,
+    help="Maximum log file size in MB before rotation (default: 10)",
+)
+@click.option(
+    "--log-backups", type=int, help="Number of backup log files to keep (default: 5)"
+)
 @click.option("--batch", "-b", is_flag=True, help="Process all repositories in batch")
 @click.option(
     "--max-workers",
@@ -285,6 +332,9 @@ def sync(
     export: Optional[str],
     quiet: bool,
     log: Optional[str],
+    detailed_log: bool,
+    max_log_size: Optional[int],
+    log_backups: Optional[int],
     batch: bool,
     max_workers: int,
 ) -> None:
@@ -292,9 +342,31 @@ def sync(
 
     Fetches the latest changes from upstream repositories and merges them into your forks.
     """
+    # Setup logging for sync command if log file specified
+    if log:
+        # Calculate max file size in bytes if specified
+        max_file_size = None
+        if max_log_size:
+            max_file_size = max_log_size * 1024 * 1024  # Convert MB to bytes
+
+        # Setup logging with enhanced options
+        setup_logging(
+            verbose=ctx.obj.get("verbose", False),
+            quiet=quiet,
+            log_file=log,
+            detailed=detailed_log,
+            max_file_size=max_file_size,
+            backup_count=log_backups,
+        )
+
     logger = get_logger()
     log_operation_start(
-        "repository synchronization", repo=repo, batch=batch, analyze=analyze
+        "repository synchronization",
+        repo=repo,
+        batch=batch,
+        analyze=analyze,
+        log_file=log,
+        detailed_log=detailed_log,
     )
 
     try:
@@ -1608,6 +1680,38 @@ def _print_repository_overview(
                 border_style="red",
             )
             console.print(alert_panel)
+
+
+@main.command()
+@click.option(
+    "--export", "-e", help="Export performance summary to file (.json or .csv)"
+)
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["json", "csv"]),
+    default="json",
+    help="Export format",
+)
+@click.pass_context
+def logs(ctx: click.Context, export: Optional[str], format: str) -> None:
+    """View and export detailed logging information.
+
+    Shows performance summaries and allows exporting log data for analysis.
+    """
+    from .utils.logging import get_gitco_logger
+
+    gitco_logger = get_gitco_logger()
+
+    if export:
+        gitco_logger.export_logs(export, format)
+        print_success_panel(
+            "Logs exported successfully",
+            f"Performance summary exported to: {export}\nFormat: {format.upper()}",
+        )
+    else:
+        # Print performance summary
+        gitco_logger.print_performance_summary()
 
 
 @main.command()

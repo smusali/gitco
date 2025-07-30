@@ -8,13 +8,17 @@ from typing import Any, Optional
 import requests
 from github import Github, GithubException
 
-from .utils import (
-    APIError,
+from .utils.common import (
     get_logger,
     log_api_call,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
+)
+from .utils.exception import (
+    APIError,
+    GitHubAuthenticationError,
+    GitHubRateLimitExceeded,
 )
 
 
@@ -55,18 +59,6 @@ class GitHubRepository:
     topics: Optional[list[str]] = None
     archived: bool = False
     disabled: bool = False
-
-
-class GitHubRateLimitExceeded(APIError):
-    """Raised when GitHub API rate limit is exceeded."""
-
-    pass
-
-
-class GitHubAuthenticationError(APIError):
-    """Raised when GitHub authentication fails."""
-
-    pass
 
 
 class GitHubClient:

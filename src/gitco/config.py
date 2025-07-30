@@ -7,8 +7,7 @@ from typing import Any, Optional, Union
 import yaml
 
 from .git_ops import GitRepositoryManager
-from .utils import (
-    ConfigurationError,
+from .utils.common import (
     get_logger,
     log_configuration_loaded,
     log_operation_failure,
@@ -16,6 +15,7 @@ from .utils import (
     log_operation_success,
     log_validation_result,
 )
+from .utils.exception import ConfigurationError
 
 
 @dataclass

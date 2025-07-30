@@ -19,7 +19,7 @@ from .detector import (
 )
 from .git_ops import GitRepository
 from .prompts import PromptManager
-from .utils import (
+from .utils.common import (
     console,
     get_logger,
 )

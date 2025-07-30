@@ -8,13 +8,13 @@ from typing import Any, Optional
 from .config import Config
 from .git_ops import GitRepository
 from .github_client import GitHubClient
-from .utils import (
-    APIError,
+from .utils.common import (
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
+from .utils.exception import HealthMetricsError
 
 
 @dataclass
@@ -99,12 +99,6 @@ class HealthSummary:
     total_stars: int = 0
     total_forks: int = 0
     total_open_issues: int = 0
-
-
-class HealthMetricsError(APIError):
-    """Raised when health metrics calculation fails."""
-
-    pass
 
 
 class RepositoryHealthCalculator:

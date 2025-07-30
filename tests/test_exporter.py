@@ -12,12 +12,6 @@ from click.testing import CliRunner
 from gitco.cli import main
 
 
-@pytest.fixture
-def runner() -> CliRunner:
-    """Create a Click test runner."""
-    return CliRunner()
-
-
 def test_sync_export_functionality(runner: CliRunner, tmp_path: Path) -> None:
     """Test sync command with export functionality."""
     # Create a mock repository

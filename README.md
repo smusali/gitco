@@ -98,6 +98,22 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - **Direct contribution data export with filtering by time period**
 - Integration with discovery engine for history-aware recommendations
 - **Enhanced impact metrics with trend analysis over 30d and 7d periods**
+
+### 📊 **Enhanced Logging & Performance Tracking**
+- **Detailed logging with file output and log rotation**
+- **Structured logging with context and performance tracking**
+- **Log rotation with configurable file size and backup count**
+- **Detailed log format with function names and line numbers**
+- **Performance metrics tracking for all operations**
+- **API interaction logging with timing and status codes**
+- **Repository operation logging with detailed status tracking**
+- **Validation result logging with comprehensive details**
+- **Configuration change logging with structured data**
+- **Error logging with full stack traces and context**
+- **Performance summary display with rich formatting**
+- **Log export functionality in JSON and CSV formats**
+- **New `logs` command for viewing and exporting log data**
+- **Enhanced logging configuration options in CLI commands**
 - **High-impact and critical contribution identification and tracking**
 - **Skill-based and repository-based impact scoring**
 - **Contribution velocity tracking (contributions per day over 30 days)**
@@ -287,6 +303,33 @@ gitco contributions trending --export trends.json
 # Export trending analysis to CSV
 gitco contributions trending --export trends.csv
 
+### 7. Enhanced Logging & Performance Tracking
+```bash
+# View performance summary
+gitco logs
+
+# Export performance summary to JSON
+gitco logs --export performance.json
+
+# Export performance summary to CSV
+gitco logs --export performance.csv
+
+# Sync with detailed logging
+gitco sync --log sync.log --detailed-log
+
+# Sync with log rotation (10MB max file size, 5 backups)
+gitco sync --log sync.log --max-log-size 10 --log-backups 5
+
+# Analyze with performance tracking
+gitco analyze --repo django --log analysis.log
+
+# Discover with detailed logging
+gitco discover --log discovery.log --detailed-log
+
+# Status with performance tracking
+gitco status --log status.log
+```
+
 # Export contribution data to CSV
 gitco contributions export --output contributions.csv
 
@@ -380,6 +423,11 @@ gitco status --export status.json
 
 # Get help
 gitco help
+
+# View and export logging information
+gitco logs
+gitco logs --export performance.json
+gitco logs --export performance.csv --format csv
 
 # Validate Git repositories
 gitco validate-repo --path ~/code/django
@@ -647,6 +695,15 @@ gitco sync --batch --export batch-report.json
 # Schedule sync (cron-friendly)
 gitco sync --quiet --log sync.log
 
+# Sync with detailed logging and log rotation
+gitco sync --log sync.log --detailed-log --max-log-size 10 --log-backups 5
+
+# View performance summary
+gitco logs
+
+# Export performance data
+gitco logs --export performance.json
+
 # Validate repositories recursively
 gitco validate-repo --recursive --detailed
 ```
@@ -761,6 +818,47 @@ export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
 Supports multiple providers:
 - OpenAI (GPT-3.5/GPT-4)
 - Anthropic (Claude)
+
+## 🔧 CLI Options
+
+### Global Options
+```bash
+# Enable verbose output
+gitco --verbose <command>
+
+# Suppress output (quiet mode)
+gitco --quiet <command>
+
+# Log to file
+gitco --log-file sync.log <command>
+
+# Use detailed log format with function names and line numbers
+gitco --detailed-log <command>
+
+# Set maximum log file size in MB before rotation (default: 10)
+gitco --max-log-size 20 <command>
+
+# Set number of backup log files to keep (default: 5)
+gitco --log-backups 10 <command>
+```
+
+### Command-Specific Logging Options
+```bash
+# Sync with detailed logging
+gitco sync --log sync.log --detailed-log
+
+# Sync with log rotation
+gitco sync --log sync.log --max-log-size 10 --log-backups 5
+
+# Analyze with performance tracking
+gitco analyze --repo django --log analysis.log
+
+# Discover with detailed logging
+gitco discover --log discovery.log --detailed-log
+
+# Status with performance tracking
+gitco status --log status.log
+```
 
 ## 🧪 Development
 

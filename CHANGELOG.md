@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Enhanced detailed logging with file output**
+- **Structured logging with context and performance tracking**
+- **Log rotation with configurable file size and backup count**
+- **Detailed log format with function names and line numbers**
+- **Performance metrics tracking for all operations**
+- **API interaction logging with timing and status codes**
+- **Repository operation logging with detailed status tracking**
+- **Validation result logging with comprehensive details**
+- **Configuration change logging with structured data**
+- **Error logging with full stack traces and context**
+- **Performance summary display with rich formatting**
+- **Log export functionality in JSON and CSV formats**
+- **New `logs` command for viewing and exporting log data**
+- **Enhanced logging configuration options in CLI commands**
+- **Log file rotation with automatic backup management**
+- **Structured log entries with timestamp, level, and context**
+- **Performance tracking for sync, analyze, discover, and status operations**
+- **Integration of enhanced logging with existing CLI commands**
+- **Comprehensive error handling for logging operations**
+- **Type-safe implementation with full mypy compliance**
 - **Enhanced quiet mode for automated/cron usage**
 - **Global quiet mode state management across all CLI commands**
 - **Quiet mode support for sync, analyze, discover, status, and contribution commands**

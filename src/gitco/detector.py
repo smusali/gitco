@@ -17,7 +17,7 @@ from .patterns import (
     MEDIUM_SEVERITY_PATTERNS,
     SECURITY_PATTERNS,
 )
-from .utils import get_logger
+from .utils.common import get_logger
 
 
 @dataclass

@@ -15,7 +15,7 @@ from gitco.github_client import (
     GitHubRepository,
     create_github_client,
 )
-from gitco.utils import APIError
+from gitco.utils.exception import APIError
 
 
 class TestGitHubIssue:
@@ -950,7 +950,7 @@ def test_github_rate_limit_exceeded_inheritance() -> None:
     assert isinstance(error, GitHubRateLimitExceeded)
     assert isinstance(error, Exception)
     # Should inherit from APIError (which inherits from GitCoError)
-    from gitco.utils import GitCoError
+    from gitco.utils.exception import GitCoError
 
     assert isinstance(error, APIError)
     assert isinstance(error, GitCoError)
@@ -1001,7 +1001,7 @@ def test_github_authentication_error_inheritance() -> None:
     assert isinstance(error, GitHubAuthenticationError)
     assert isinstance(error, Exception)
     # Should inherit from APIError (which inherits from GitCoError)
-    from gitco.utils import GitCoError
+    from gitco.utils.exception import GitCoError
 
     assert isinstance(error, APIError)
     assert isinstance(error, GitCoError)

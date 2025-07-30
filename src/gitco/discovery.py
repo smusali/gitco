@@ -7,13 +7,13 @@ from typing import Optional
 from .config import Config, Repository
 from .github_client import GitHubClient, GitHubIssue
 from .patterns.constants import DIFFICULTY_INDICATORS, SKILL_SYNONYMS, TIME_PATTERNS
-from .utils import (
-    APIError,
+from .utils.common import (
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
+from .utils.exception import DiscoveryError
 
 
 @dataclass
@@ -37,12 +37,6 @@ class IssueRecommendation:
     difficulty_level: str  # 'beginner', 'intermediate', 'advanced'
     estimated_time: str  # 'quick', 'medium', 'long'
     tags: list[str]
-
-
-class DiscoveryError(APIError):
-    """Raised when discovery operations fail."""
-
-    pass
 
 
 class SkillMatcher:

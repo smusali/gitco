@@ -1,8 +1,6 @@
 """Test GitCo configuration management."""
 
 import os
-import tempfile
-from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -15,46 +13,6 @@ from gitco.config import (
     create_sample_config,
     get_config_manager,
 )
-
-
-@pytest.fixture
-def temp_config_file() -> Generator[str, None, None]:
-    """Create a temporary configuration file."""
-    # Create a unique temporary file name
-    temp_file = tempfile.mktemp(suffix=".yml")
-
-    # Ensure the file doesn't exist initially
-    if os.path.exists(temp_file):
-        os.unlink(temp_file)
-
-    yield temp_file
-
-    # Cleanup
-    if os.path.exists(temp_file):
-        os.unlink(temp_file)
-
-
-@pytest.fixture
-def sample_config_data() -> dict[str, Any]:
-    """Create sample configuration data."""
-    return {
-        "repositories": [
-            {
-                "name": "test-repo",
-                "fork": "user/fork",
-                "upstream": "upstream/repo",
-                "local_path": "/path/to/repo",
-                "skills": ["python"],
-            }
-        ],
-        "settings": {
-            "llm_provider": "openai",
-            "api_key_env": "TEST_API_KEY",
-            "default_path": "/path/to/code",
-            "analysis_enabled": True,
-            "max_repos_per_batch": 5,
-        },
-    }
 
 
 def test_repository_dataclass() -> None:

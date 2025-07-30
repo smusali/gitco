@@ -1,36 +1,10 @@
 """Test GitCo CLI functionality."""
 
-from collections.abc import Generator
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from gitco.cli import main
-
-
-@pytest.fixture
-def runner() -> CliRunner:
-    """Create a Click test runner."""
-    return CliRunner()
-
-
-@pytest.fixture
-def mock_config_manager() -> Generator[Mock, None, None]:
-    """Mock config manager."""
-    from unittest.mock import patch
-
-    with patch("gitco.cli.ConfigManager") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_git_repo() -> Generator[Mock, None, None]:
-    """Mock git repository."""
-    from unittest.mock import patch
-
-    with patch("gitco.cli.GitRepository") as mock:
-        yield mock
 
 
 def test_cli_version(runner: CliRunner) -> None:
@@ -168,78 +142,245 @@ def test_analyze_command_with_provider_validation(
     assert "anthropic" in result.output
 
 
-def test_discover_command(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.discovery.create_discovery_engine")
+def test_discover_command(
+    mock_discovery_engine: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the discover command."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_config.repositories = [Mock()]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github.test_connection.return_value = True
+    mock_github_client.return_value = mock_github
+
+    # Mock discovery engine
+    mock_discovery = Mock()
+    mock_discovery.discover_opportunities.return_value = []
+    mock_discovery_engine.return_value = mock_discovery
+
     result = runner.invoke(main, ["discover"])
     assert result.exit_code == 0
     assert "Discovering Contribution Opportunities" in result.output
 
 
-def test_discover_command_with_skill(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.discovery.create_discovery_engine")
+def test_discover_command_with_skill(
+    mock_discovery_engine: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the discover command with skill filter."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_config.repositories = [Mock()]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github.test_connection.return_value = True
+    mock_github_client.return_value = mock_github
+
+    # Mock discovery engine
+    mock_discovery = Mock()
+    mock_discovery.discover_opportunities.return_value = []
+    mock_discovery_engine.return_value = mock_discovery
+
     result = runner.invoke(main, ["discover", "--skill", "python"])
-    # Should fail due to missing GitHub credentials
     assert result.exit_code == 0
-    assert "Discovery Failed" in result.output
+    assert (
+        "Discovery Results" in result.output
+        or "No Opportunities Found" in result.output
+    )
 
 
-def test_discover_command_with_label(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.discovery.create_discovery_engine")
+def test_discover_command_with_label(
+    mock_discovery_engine: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the discover command with label filter."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_config.repositories = [Mock()]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github.test_connection.return_value = True
+    mock_github_client.return_value = mock_github
+
+    # Mock discovery engine
+    mock_discovery = Mock()
+    mock_discovery.discover_opportunities.return_value = []
+    mock_discovery_engine.return_value = mock_discovery
+
     result = runner.invoke(main, ["discover", "--label", "good first issue"])
-    # Should fail due to missing GitHub credentials
     assert result.exit_code == 0
-    assert "Discovery Failed" in result.output
+    assert (
+        "Discovery Results" in result.output
+        or "No Opportunities Found" in result.output
+    )
 
 
-def test_status_command(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.health_metrics.create_health_calculator")
+def test_status_command(
+    mock_health_calculator: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the status command."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_config.repositories = [Mock()]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github_client.return_value = mock_github
+
+    # Mock health calculator
+    mock_health = Mock()
+    mock_summary = Mock()
+    mock_summary.total_repositories = 1
+    mock_summary.healthy_repositories = 1
+    mock_summary.needs_attention_repositories = 0
+    mock_summary.critical_repositories = 0
+    mock_summary.active_repositories_7d = 1
+    mock_summary.active_repositories_30d = 1
+    mock_summary.up_to_date_repositories = 1
+    mock_summary.behind_repositories = 0
+    mock_summary.diverged_repositories = 0
+    mock_summary.high_engagement_repositories = 1
+    mock_summary.low_engagement_repositories = 0
+    mock_summary.average_activity_score = 0.8
+    mock_summary.trending_repositories = []
+    mock_summary.declining_repositories = []
+    mock_summary.total_stars = 100
+    mock_summary.total_forks = 50
+    mock_summary.total_open_issues = 10
+    mock_health.calculate_health_summary.return_value = mock_summary
+    mock_health_calculator.return_value = mock_health
+
     result = runner.invoke(main, ["status"])
-    # The status command may fail due to missing config or GitHub auth, but should handle errors gracefully
-    assert result.exit_code in [0, 1]
-    assert any(
-        text in result.output
-        for text in [
-            "Repository Health Summary",
-            "Status Check Completed",
-            "Status Check Failed",
-            "Configuration file not found",
-            "GitHub authentication failed",
-        ]
-    )
+    assert result.exit_code == 0
+    assert "Repository Health Summary" in result.output
 
 
-def test_status_command_with_repo(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.health_metrics.create_health_calculator")
+def test_status_command_with_repo(
+    mock_health_calculator: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the status command with specific repository."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_repo = Mock()
+    mock_repo.name = "django"
+    mock_config.repositories = [mock_repo]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github_client.return_value = mock_github
+
+    # Mock health calculator
+    mock_health = Mock()
+    mock_metrics = Mock()
+    mock_metrics.repository_name = "django"
+    mock_metrics.health_status = "good"
+    mock_metrics.overall_health_score = 0.8
+    mock_metrics.recent_commits_7d = 5
+    mock_metrics.recent_commits_30d = 20
+    mock_metrics.total_commits = 1000
+    mock_metrics.last_commit_days_ago = 2
+    mock_metrics.stars_count = 50
+    mock_metrics.forks_count = 25
+    mock_metrics.open_issues_count = 5
+    mock_metrics.language = "Python"
+    mock_metrics.sync_status = "up_to_date"
+    mock_metrics.days_since_last_sync = 1
+    mock_metrics.uncommitted_changes = False
+    mock_metrics.contributor_engagement_score = 0.7
+    mock_metrics.issue_response_time_avg = 24.0
+    mock_metrics.stars_growth_30d = 2
+    mock_metrics.forks_growth_30d = 1
+    mock_metrics.topics = ["web", "framework"]
+    mock_health.calculate_repository_health.return_value = mock_metrics
+    mock_health_calculator.return_value = mock_health
+
     result = runner.invoke(main, ["status", "--repo", "django"])
-    # The command should either show the repository health or an error if not found
-    assert result.exit_code in [0, 1]
-    assert any(
-        text in result.output
-        for text in [
-            "django",
-            "Repository Not Found",
-            "Status Check Failed",
-            "Configuration file not found",
-            "GitHub authentication failed",
-        ]
-    )
+    assert result.exit_code == 0
+    assert "django" in result.output
 
 
-def test_status_command_with_detailed(runner: CliRunner) -> None:
+@patch("gitco.cli.get_config_manager")
+@patch("gitco.cli.create_github_client")
+@patch("gitco.health_metrics.create_health_calculator")
+def test_status_command_with_detailed(
+    mock_health_calculator: Mock,
+    mock_github_client: Mock,
+    mock_config_manager: Mock,
+    runner: CliRunner,
+) -> None:
     """Test the status command with detailed output."""
+    # Mock config manager
+    mock_config = Mock()
+    mock_config.repositories = [Mock()]
+    mock_config_manager.return_value.load_config.return_value = mock_config
+
+    # Mock GitHub client
+    mock_github = Mock()
+    mock_github_client.return_value = mock_github
+
+    # Mock health calculator
+    mock_health = Mock()
+    mock_summary = Mock()
+    mock_summary.total_repositories = 1
+    mock_summary.healthy_repositories = 1
+    mock_summary.needs_attention_repositories = 0
+    mock_summary.critical_repositories = 0
+    mock_summary.active_repositories_7d = 1
+    mock_summary.active_repositories_30d = 1
+    mock_summary.up_to_date_repositories = 1
+    mock_summary.behind_repositories = 0
+    mock_summary.diverged_repositories = 0
+    mock_summary.high_engagement_repositories = 1
+    mock_summary.low_engagement_repositories = 0
+    mock_summary.average_activity_score = 0.8
+    mock_summary.trending_repositories = []
+    mock_summary.declining_repositories = []
+    mock_summary.total_stars = 100
+    mock_summary.total_forks = 50
+    mock_summary.total_open_issues = 10
+    mock_health.calculate_health_summary.return_value = mock_summary
+    mock_health_calculator.return_value = mock_health
+
     result = runner.invoke(main, ["status", "--detailed"])
-    # The detailed command should show health metrics or handle errors gracefully
-    assert result.exit_code in [0, 1]
-    assert any(
-        text in result.output
-        for text in [
-            "Repository Health Summary",
-            "Status Check Completed",
-            "Status Check Failed",
-            "Configuration file not found",
-            "GitHub authentication failed",
-        ]
-    )
+    assert result.exit_code == 0
+    assert "Repository Health Summary" in result.output
 
 
 def test_upstream_group_help(runner: CliRunner) -> None:
