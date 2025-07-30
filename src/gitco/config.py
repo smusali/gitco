@@ -29,6 +29,7 @@ class Repository:
     skills: list[str] = field(default_factory=list)
     analysis_enabled: bool = True
     sync_frequency: Optional[str] = None
+    language: Optional[str] = None
 
 
 @dataclass

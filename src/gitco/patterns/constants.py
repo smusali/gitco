@@ -1,5 +1,120 @@
 """Regex pattern constants for GitCo detection."""
 
+# Discovery skill synonyms and related terms
+SKILL_SYNONYMS: dict[str, list[str]] = {
+    "python": ["python", "py", "django", "flask", "fastapi", "pandas", "numpy"],
+    "javascript": ["javascript", "js", "node", "react", "vue", "angular", "typescript"],
+    "java": ["java", "spring", "android", "kotlin"],
+    "cpp": ["cpp", "c++", "cplusplus", "qt", "boost"],
+    "csharp": ["c#", "csharp", "dotnet", "asp.net"],
+    "go": ["go", "golang"],
+    "rust": ["rust"],
+    "php": ["php", "laravel", "symfony", "wordpress"],
+    "ruby": ["ruby", "rails", "sinatra"],
+    "swift": ["swift", "ios", "macos"],
+    "kotlin": ["kotlin", "android"],
+    "scala": ["scala", "akka", "play"],
+    "r": ["r", "rlang"],
+    "matlab": ["matlab"],
+    "perl": ["perl"],
+    "shell": ["bash", "shell", "zsh", "powershell"],
+    "sql": ["sql", "mysql", "postgresql", "sqlite"],
+    "html": ["html", "css", "frontend"],
+    "docker": ["docker", "container", "kubernetes"],
+    "aws": ["aws", "amazon", "cloud"],
+    "azure": ["azure", "microsoft"],
+    "gcp": ["gcp", "google", "cloud"],
+    "linux": ["linux", "unix", "ubuntu", "debian"],
+    "windows": ["windows", "win"],
+    "macos": ["macos", "mac", "apple"],
+    "api": ["api", "rest", "graphql", "openapi"],
+    "database": ["database", "db", "orm", "migration"],
+    "testing": ["test", "testing", "unit", "integration", "e2e"],
+    "ci": ["ci", "cd", "pipeline", "github actions", "jenkins"],
+    "security": ["security", "auth", "oauth", "jwt"],
+    "performance": ["performance", "optimization", "caching"],
+    "ui": ["ui", "ux", "frontend", "design"],
+    "mobile": ["mobile", "ios", "android", "react native"],
+    "ml": ["ml", "ai", "machine learning", "tensorflow", "pytorch"],
+    "data": ["data", "analytics", "visualization"],
+    "devops": ["devops", "deployment", "infrastructure"],
+    "documentation": ["docs", "documentation", "readme"],
+    "internationalization": ["i18n", "l10n", "translation"],
+    "accessibility": ["a11y", "accessibility", "wcag"],
+}
+
+# Discovery difficulty indicators
+DIFFICULTY_INDICATORS: dict[str, list[str]] = {
+    "beginner": [
+        "good first issue",
+        "first-timers-only",
+        "beginner-friendly",
+        "easy",
+        "starter",
+        "newcomer",
+        "junior",
+        "help wanted",
+        "documentation",
+        "docs",
+        "readme",
+        "tutorial",
+    ],
+    "intermediate": [
+        "intermediate",
+        "medium",
+        "moderate",
+        "enhancement",
+        "feature",
+        "improvement",
+        "refactor",
+    ],
+    "advanced": [
+        "advanced",
+        "expert",
+        "hard",
+        "complex",
+        "architecture",
+        "performance",
+        "optimization",
+        "security",
+        "critical",
+    ],
+}
+
+# Discovery time estimation patterns
+TIME_PATTERNS: dict[str, list[str]] = {
+    "quick": [
+        "typo",
+        "documentation",
+        "readme",
+        "comment",
+        "formatting",
+        "lint",
+        "style",
+        "quick fix",
+        "small",
+        "minor",
+    ],
+    "medium": [
+        "feature",
+        "enhancement",
+        "improvement",
+        "refactor",
+        "test",
+        "bug fix",
+        "moderate",
+    ],
+    "long": [
+        "architecture",
+        "major",
+        "rewrite",
+        "redesign",
+        "performance",
+        "optimization",
+        "complex",
+    ],
+}
+
 # Security update patterns
 SECURITY_PATTERNS: dict[str, list[str]] = {
     "vulnerability_fix": [

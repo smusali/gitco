@@ -190,7 +190,143 @@ gitco analyze --batch
 
 # Discover across all repositories
 gitco discover --batch
+
+# Filter by skill
+gitco discover --skill python
+
+# Filter by label
+gitco discover --label "good first issue"
+
+# Set minimum confidence score
+gitco discover --min-confidence 0.5
+
+# Limit results
+gitco discover --limit 10
+
+# Export discovery results
+gitco discover --export opportunities.json
 ```
+
+### Contribution Discovery
+
+GitCo provides intelligent contribution opportunity discovery using skill-based matching algorithms. The discovery system analyzes GitHub issues across your configured repositories and matches them to your skills and interests.
+
+#### Skill-Based Matching
+
+The discovery engine uses multiple matching strategies:
+
+**Exact Matches**: Direct skill matches in issue content
+- Example: "python" matches issues containing "python", "django", "flask"
+- Confidence: 1.0 (highest)
+
+**Partial Matches**: Skill-related terms and synonyms
+- Example: "javascript" matches "react", "vue", "node.js"
+- Confidence: 0.6-0.8
+
+**Related Matches**: Related technologies and frameworks
+- Example: "api" matches "rest", "graphql", "openapi"
+- Confidence: 0.4
+
+**Language Matches**: Repository language alignment
+- Example: Python skill matches Python repository
+- Confidence: 0.2-0.3
+
+#### Difficulty Detection
+
+Issues are automatically categorized by difficulty:
+
+**Beginner**: Good for newcomers
+- Labels: "good first issue", "beginner-friendly", "help wanted"
+- Content: Documentation, tutorials, simple fixes
+- Time: Quick to medium
+
+**Intermediate**: Requires some experience
+- Labels: "enhancement", "feature", "improvement"
+- Content: New features, refactoring, moderate complexity
+- Time: Medium
+
+**Advanced**: Complex changes
+- Labels: "architecture", "performance", "security"
+- Content: Major refactoring, optimization, security fixes
+- Time: Long
+
+#### Time Estimation
+
+Issues are estimated by time commitment:
+
+**Quick**: 1-2 hours
+- Typo fixes, documentation updates, simple formatting
+- Labels: "typo", "documentation", "style"
+
+**Medium**: 1-2 days
+- Feature additions, bug fixes, moderate refactoring
+- Labels: "feature", "bug", "enhancement"
+
+**Long**: 1-2 weeks
+- Major features, architecture changes, complex refactoring
+- Labels: "architecture", "major", "rewrite"
+
+#### Confidence Scoring
+
+Each recommendation includes a confidence score (0.0-1.0):
+
+- **0.9-1.0**: Perfect match with your skills
+- **0.7-0.8**: Strong match with multiple skill alignments
+- **0.5-0.6**: Good match with some skill overlap
+- **0.3-0.4**: Moderate match with related skills
+- **0.1-0.2**: Weak match, mostly language-based
+
+#### Filtering Options
+
+**Skill Filtering**: Focus on specific skills
+```bash
+gitco discover --skill python
+gitco discover --skill javascript --skill react
+```
+
+**Label Filtering**: Focus on specific issue types
+```bash
+gitco discover --label "good first issue"
+gitco discover --label "help wanted" --label "bug"
+```
+
+**Confidence Threshold**: Set minimum confidence
+```bash
+gitco discover --min-confidence 0.7
+```
+
+**Result Limiting**: Control output size
+```bash
+gitco discover --limit 5
+```
+
+#### Export Functionality
+
+Export discovery results for external analysis:
+
+```bash
+# Export to JSON
+gitco discover --export opportunities.json
+
+# Export with filtering
+gitco discover --skill python --export python-opportunities.json
+```
+
+The exported JSON includes:
+- Issue details (title, URL, labels, description)
+- Repository information
+- Skill matches with confidence scores
+- Difficulty and time estimates
+- Overall recommendation score
+
+#### Best Practices
+
+1. **Start Broad**: Run `gitco discover` without filters to see all opportunities
+2. **Use Skill Filters**: Focus on your strongest skills first
+3. **Check Confidence**: Higher confidence scores indicate better matches
+4. **Consider Difficulty**: Start with beginner issues if you're new to a project
+5. **Export Results**: Save interesting opportunities for later review
+6. **Combine Filters**: Use multiple filters for targeted discovery
 
 ### Export and Reporting
 

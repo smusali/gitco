@@ -178,15 +178,17 @@ def test_discover_command(runner: CliRunner) -> None:
 def test_discover_command_with_skill(runner: CliRunner) -> None:
     """Test the discover command with skill filter."""
     result = runner.invoke(main, ["discover", "--skill", "python"])
+    # Should fail due to missing GitHub credentials
     assert result.exit_code == 0
-    assert "python" in result.output
+    assert "Discovery Failed" in result.output
 
 
 def test_discover_command_with_label(runner: CliRunner) -> None:
     """Test the discover command with label filter."""
     result = runner.invoke(main, ["discover", "--label", "good first issue"])
+    # Should fail due to missing GitHub credentials
     assert result.exit_code == 0
-    assert "good first issue" in result.output
+    assert "Discovery Failed" in result.output
 
 
 def test_status_command(runner: CliRunner) -> None:

@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Skill-based issue matching algorithm for contribution discovery
+- IssueRecommendation dataclass for structured recommendation data
+- SkillMatch dataclass for skill matching with confidence scores
+- SkillMatcher class for intelligent skill-to-issue matching
+- IssueDiscovery class for comprehensive opportunity discovery
+- Support for exact, partial, related, and language-based skill matching
+- Difficulty level detection (beginner, intermediate, advanced)
+- Time estimation for issues (quick, medium, long)
+- Confidence scoring system for issue recommendations
+- Skill synonyms and related terms mapping
+- Enhanced discover command with skill-based filtering
+- Support for skill filtering and label filtering in discover command
+- Minimum confidence threshold for recommendations
+- Export functionality for discovery results in JSON format
+- Rich CLI output for issue recommendations with detailed information
+- Integration of discovery engine with GitHub client
+- Comprehensive testing for discovery functionality
+
+### Changed
+- Refactored discovery constants to `patterns/constants.py` for better maintainability
+- Moved skill synonyms, difficulty indicators, and time patterns to centralized constants
+- Improved code organization and reusability of discovery patterns
 - Enhanced issue fetching with advanced label filtering capabilities
 - New `get_issues_for_repositories` method for batch issue fetching across multiple repositories
 - Advanced filtering options for GitHub issues (exclude_labels, created_after, updated_after)

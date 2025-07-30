@@ -62,9 +62,14 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 
 ### 🎯 **Contribution Discovery**
 - Scans repositories for "good first issue" and "help wanted" labels
-- Matches issues to your past contributions and skills
-- Provides personalized contribution recommendations
-- Tracks your contribution history across projects
+- Matches issues to your skills using intelligent skill-based matching algorithm
+- Provides personalized contribution recommendations with confidence scores
+- Supports exact, partial, related, and language-based skill matching
+- Difficulty level detection (beginner, intermediate, advanced)
+- Time estimation for issues (quick, medium, long)
+- Skill filtering and label filtering for targeted discovery
+- Export functionality for discovery results in JSON format
+- Rich CLI output with detailed recommendation information
 
 ### 📊 **Repository Health Insights**
 - Shows activity levels and contributor engagement
@@ -158,8 +163,23 @@ gitco sync --analyze
 # Find all opportunities
 gitco discover
 
-# Find issues by skill/language
-gitco discover --skill python --label "good first issue"
+# Filter by skill
+gitco discover --skill python
+
+# Filter by label
+gitco discover --label "good first issue"
+
+# Set minimum confidence score
+gitco discover --min-confidence 0.5
+
+# Limit results
+gitco discover --limit 10
+
+# Export results
+gitco discover --export results.json
+
+# Combine filters
+gitco discover --skill python --label "good first issue" --limit 5
 ```
 
 ## 📖 Usage
@@ -190,6 +210,18 @@ gitco analyze --repo fastapi --export analysis.json
 
 # Find contribution opportunities
 gitco discover
+
+# Filter by skill
+gitco discover --skill python
+
+# Filter by label
+gitco discover --label "good first issue"
+
+# Set minimum confidence score
+gitco discover --min-confidence 0.5
+
+# Export discovery results
+gitco discover --export results.json
 
 # Show repository status
 gitco status
@@ -241,6 +273,35 @@ The analysis provides:
 - **Security Updates**: Security-related changes
 - **Deprecations**: Deprecated functionality
 - **Recommendations**: Suggestions for contributors
+
+### Contribution Discovery
+
+GitCo provides intelligent contribution opportunity discovery using skill-based matching:
+
+**Skill Matching:**
+- **Exact Matches**: Direct skill matches in issue content
+- **Partial Matches**: Skill-related terms and synonyms
+- **Related Matches**: Related technologies and frameworks
+- **Language Matches**: Repository language alignment
+
+**Features:**
+- **Difficulty Detection**: Beginner, intermediate, or advanced issues
+- **Time Estimation**: Quick, medium, or long-term contributions
+- **Confidence Scoring**: 0.0-1.0 confidence for each recommendation
+- **Skill Filtering**: Filter by specific skills or technologies
+- **Label Filtering**: Filter by GitHub labels (e.g., "good first issue")
+- **Export Support**: Export results to JSON for further analysis
+
+```bash
+# Discover opportunities with skill filtering
+gitco discover --skill python --min-confidence 0.7
+
+# Find beginner-friendly issues
+gitco discover --label "good first issue" --skill javascript
+
+# Export results for analysis
+gitco discover --export opportunities.json
+```
 
 ### Upstream Remote Management
 

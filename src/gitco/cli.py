@@ -1,13 +1,13 @@
 """GitCo CLI interface."""
 
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
 from . import __version__
 from .analyzer import ChangeAnalyzer
-from .config import ConfigManager, create_sample_config
+from .config import ConfigManager, create_sample_config, get_config_manager
 from .git_ops import GitRepository, GitRepositoryManager
 from .github_client import create_github_client
 from .utils import (
@@ -25,6 +25,127 @@ from .utils import (
     print_warning_panel,
     setup_logging,
 )
+
+
+def print_issue_recommendation(recommendation: Any, index: int) -> None:
+    """Print a formatted issue recommendation."""
+    from .discovery import IssueRecommendation
+
+    if not isinstance(recommendation, IssueRecommendation):
+        return
+
+    # Create a rich panel for the recommendation
+    from rich.panel import Panel
+    from rich.text import Text
+
+    # Build the content
+    content = []
+
+    # Issue title and URL
+    title_text = Text(f"#{recommendation.issue.number}: {recommendation.issue.title}")
+    title_text.stylize("bold blue")
+    content.append(title_text)
+    content.append(f"🔗 {recommendation.issue.html_url}")
+    content.append("")
+
+    # Repository info
+    content.append(f"📁 Repository: {recommendation.repository.name}")
+    if recommendation.repository.language:
+        content.append(f"💻 Language: {recommendation.repository.language}")
+    content.append("")
+
+    # Score and difficulty
+    score_text = f"Score: {recommendation.overall_score:.2f}"
+    difficulty_text = f"Difficulty: {recommendation.difficulty_level.title()}"
+    time_text = f"Time: {recommendation.estimated_time.title()}"
+    content.append(f"⭐ {score_text} | 🎯 {difficulty_text} | ⏱️ {time_text}")
+    content.append("")
+
+    # Skill matches
+    if recommendation.skill_matches:
+        content.append("🎯 Skill Matches:")
+        for match in recommendation.skill_matches:
+            confidence_text = f"({match.confidence:.1%})"
+            match_text = f"  • {match.skill} {confidence_text} [{match.match_type}]"
+            content.append(match_text)
+        content.append("")
+
+    # Tags
+    if recommendation.tags:
+        tags_text = "🏷️ Tags: " + ", ".join(recommendation.tags)
+        content.append(tags_text)
+        content.append("")
+
+    # Create the panel
+    panel = Panel(
+        "\n".join(content),
+        title=f"Recommendation #{index}",
+        border_style="green" if recommendation.overall_score > 0.7 else "yellow",
+    )
+
+    console.print(panel)
+    console.print()  # Add spacing
+
+
+def export_discovery_results(recommendations: Any, export_path: str) -> None:
+    """Export discovery results to a file."""
+    import json
+    from pathlib import Path
+
+    try:
+        # Convert recommendations to serializable format
+        export_data = []
+        for recommendation in recommendations:
+            export_data.append(
+                {
+                    "issue": {
+                        "number": recommendation.issue.number,
+                        "title": recommendation.issue.title,
+                        "state": recommendation.issue.state,
+                        "labels": recommendation.issue.labels,
+                        "html_url": recommendation.issue.html_url,
+                        "created_at": recommendation.issue.created_at,
+                        "updated_at": recommendation.issue.updated_at,
+                    },
+                    "repository": {
+                        "name": recommendation.repository.name,
+                        "fork": recommendation.repository.fork,
+                        "upstream": recommendation.repository.upstream,
+                        "language": recommendation.repository.language,
+                    },
+                    "skill_matches": [
+                        {
+                            "skill": match.skill,
+                            "confidence": match.confidence,
+                            "match_type": match.match_type,
+                            "evidence": match.evidence,
+                        }
+                        for match in recommendation.skill_matches
+                    ],
+                    "overall_score": recommendation.overall_score,
+                    "difficulty_level": recommendation.difficulty_level,
+                    "estimated_time": recommendation.estimated_time,
+                    "tags": recommendation.tags,
+                }
+            )
+
+        # Write to file
+        export_file = Path(export_path)
+        export_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(export_file, "w", encoding="utf-8") as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+        print_success_panel(
+            "Export Successful",
+            f"Discovery results exported to: {export_path}",
+        )
+
+    except Exception as e:
+        print_error_panel(
+            "Export Failed",
+            f"Failed to export results: {str(e)}",
+        )
 
 
 @click.group()
@@ -625,6 +746,13 @@ def analyze(
 @click.option("--label", "-l", help="Filter by label")
 @click.option("--export", "-e", help="Export results to file")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
+@click.option(
+    "--min-confidence",
+    "-c",
+    type=float,
+    default=0.1,
+    help="Minimum confidence score (0.0-1.0)",
+)
 @click.pass_context
 def discover(
     ctx: click.Context,
@@ -632,6 +760,7 @@ def discover(
     label: Optional[str],
     export: Optional[str],
     limit: Optional[int],
+    min_confidence: float,
 ) -> None:
     """Discover contribution opportunities.
 
@@ -639,25 +768,80 @@ def discover(
     """
     print_info_panel(
         "Discovering Contribution Opportunities",
-        "This functionality will be implemented in Commit 30.",
+        "Searching for issues that match your skills and interests...",
     )
 
-    # TODO: Implement opportunity discovery
-    # This will be implemented in Commit 30
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
 
-    if skill:
-        print_info_panel("Filtering by Skill", f"Filtering by skill: {skill}")
+        if not config.repositories:
+            print_error_panel(
+                "No Repositories Configured",
+                "Please add repositories to your configuration first using 'gitco init' or edit gitco-config.yml",
+            )
+            return
 
-    if label:
-        print_info_panel("Filtering by Label", f"Filtering by label: {label}")
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
 
-    if export:
-        print_info_panel("Exporting Results", f"Exporting results to: {export}")
+        # Test GitHub connection
+        if not github_client.test_connection():
+            print_error_panel(
+                "GitHub Connection Failed",
+                "Unable to connect to GitHub API. Please check your credentials.",
+            )
+            return
 
-    if limit:
-        print_info_panel("Limiting Results", f"Limiting results to: {limit}")
+        # Create discovery engine
+        from .discovery import create_discovery_engine
 
-    print_success_panel("Discovery Completed", "✅ Discovery completed!")
+        discovery_engine = create_discovery_engine(github_client, config)
+
+        # Discover opportunities
+        recommendations = discovery_engine.discover_opportunities(
+            skill_filter=skill,
+            label_filter=label,
+            limit=limit,
+            min_confidence=min_confidence,
+        )
+
+        if not recommendations:
+            print_warning_panel(
+                "No Opportunities Found",
+                "No matching issues found with the current filters. Try adjusting your search criteria.",
+            )
+            return
+
+        # Display results
+        print_success_panel(
+            "Discovery Results",
+            f"Found {len(recommendations)} contribution opportunities!",
+        )
+
+        for i, recommendation in enumerate(recommendations, 1):
+            print_issue_recommendation(recommendation, i)
+
+        # Export results if requested
+        if export:
+            export_discovery_results(recommendations, export)
+
+        print_success_panel("Discovery Completed", "✅ Discovery completed!")
+
+    except Exception as e:
+        print_error_panel(
+            "Discovery Failed",
+            f"An error occurred during discovery: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
 
 
 @main.command()
