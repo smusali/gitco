@@ -322,6 +322,12 @@ gitco github get-issues --repo owner/repository
 
 # Get issues with filters
 gitco github get-issues --repo owner/repository --state open --labels "bug,help wanted" --limit 10
+
+# Get issues with advanced filtering
+gitco github get-issues --repo owner/repository --state open --labels "bug,help wanted" --exclude-labels "wontfix" --created-after "2024-01-01" --detailed
+
+# Get issues from multiple repositories
+gitco github get-issues-multi --repos "owner/repo1,owner/repo2" --labels "good first issue" --export results.json
 ```
 
 **Environment Variables:**
@@ -350,7 +356,11 @@ settings:
 - **Error Handling**: Comprehensive error handling for API failures
 - **Authentication**: Multiple authentication methods with fallback support
 - **Repository Info**: Detailed repository metadata and statistics
-- **Issue Management**: Issue fetching with filtering and search
+- **Issue Management**: Advanced issue fetching with comprehensive filtering
+- **Multi-Repository Support**: Fetch issues from multiple repositories in batch
+- **Advanced Filtering**: Filter by labels, exclude labels, date ranges, assignees, milestones
+- **Export Functionality**: Export issue results to JSON format
+- **Detailed Information**: Show comprehensive issue details with --detailed flag
 - **Connection Testing**: Validate GitHub API connectivity and credentials
 - **Rich Output**: Color-coded and formatted API response display
 

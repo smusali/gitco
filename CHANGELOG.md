@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced issue fetching with advanced label filtering capabilities
+- New `get_issues_for_repositories` method for batch issue fetching across multiple repositories
+- Advanced filtering options for GitHub issues (exclude_labels, created_after, updated_after)
+- Enhanced CLI commands with detailed issue information display
+- New `get_issues_multi` command for fetching issues from multiple repositories
+- Export functionality for issue results in JSON format
+- Improved type safety with comprehensive mypy compliance
+- Enhanced error handling for GitHub API operations with graceful degradation
 - GitHub API client with authentication and rate limiting
 - GitHubClient class for comprehensive GitHub API integration
 - Support for multiple authentication methods (token, username/password, environment variables)

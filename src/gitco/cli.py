@@ -1446,18 +1446,24 @@ def test_connection(ctx: click.Context) -> None:
 
         # Create GitHub client
         github_client = create_github_client(
-            token=credentials["token"]
-            if isinstance(credentials["token"], str)
-            else None,
-            username=credentials["username"]
-            if isinstance(credentials["username"], str)
-            else None,
-            password=credentials["password"]
-            if isinstance(credentials["password"], str)
-            else None,
-            base_url=str(credentials["base_url"])
-            if credentials["base_url"]
-            else "https://api.github.com",
+            token=(
+                credentials["token"] if isinstance(credentials["token"], str) else None
+            ),
+            username=(
+                credentials["username"]
+                if isinstance(credentials["username"], str)
+                else None
+            ),
+            password=(
+                credentials["password"]
+                if isinstance(credentials["password"], str)
+                else None
+            ),
+            base_url=(
+                str(credentials["base_url"])
+                if credentials["base_url"]
+                else "https://api.github.com"
+            ),
         )
 
         # Test connection
@@ -1524,18 +1530,24 @@ def get_repo(ctx: click.Context, repo: str) -> None:
 
         # Create GitHub client
         github_client = create_github_client(
-            token=credentials["token"]
-            if isinstance(credentials["token"], str)
-            else None,
-            username=credentials["username"]
-            if isinstance(credentials["username"], str)
-            else None,
-            password=credentials["password"]
-            if isinstance(credentials["password"], str)
-            else None,
-            base_url=str(credentials["base_url"])
-            if credentials["base_url"]
-            else "https://api.github.com",
+            token=(
+                credentials["token"] if isinstance(credentials["token"], str) else None
+            ),
+            username=(
+                credentials["username"]
+                if isinstance(credentials["username"], str)
+                else None
+            ),
+            password=(
+                credentials["password"]
+                if isinstance(credentials["password"], str)
+                else None
+            ),
+            base_url=(
+                str(credentials["base_url"])
+                if credentials["base_url"]
+                else "https://api.github.com"
+            ),
         )
 
         # Get repository information
@@ -1581,18 +1593,30 @@ def get_repo(ctx: click.Context, repo: str) -> None:
 @click.option("--repo", "-r", required=True, help="Repository name (owner/repo)")
 @click.option("--state", "-s", default="open", help="Issue state (open, closed, all)")
 @click.option("--labels", "-l", help="Filter by labels (comma-separated)")
+@click.option("--exclude-labels", "-e", help="Exclude labels (comma-separated)")
+@click.option("--assignee", "-a", help="Filter by assignee")
+@click.option("--milestone", "-m", help="Filter by milestone")
 @click.option("--limit", "-n", type=int, help="Maximum number of issues")
+@click.option("--created-after", help="Filter issues created after date (YYYY-MM-DD)")
+@click.option("--updated-after", help="Filter issues updated after date (YYYY-MM-DD)")
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed issue information")
 @click.pass_context
 def get_issues(
     ctx: click.Context,
     repo: str,
     state: str,
     labels: Optional[str],
+    exclude_labels: Optional[str],
+    assignee: Optional[str],
+    milestone: Optional[str],
     limit: Optional[int],
+    created_after: Optional[str],
+    updated_after: Optional[str],
+    detailed: bool,
 ) -> None:
-    """Get issues from a GitHub repository.
+    """Get issues from a GitHub repository with advanced filtering.
 
-    Fetches issues from the specified repository with optional filtering.
+    Fetches issues from the specified repository with comprehensive filtering options.
     """
     log_operation_start("github issues fetch", repo=repo, state=state)
 
@@ -1606,18 +1630,24 @@ def get_issues(
 
         # Create GitHub client
         github_client = create_github_client(
-            token=credentials["token"]
-            if isinstance(credentials["token"], str)
-            else None,
-            username=credentials["username"]
-            if isinstance(credentials["username"], str)
-            else None,
-            password=credentials["password"]
-            if isinstance(credentials["password"], str)
-            else None,
-            base_url=str(credentials["base_url"])
-            if credentials["base_url"]
-            else "https://api.github.com",
+            token=(
+                credentials["token"] if isinstance(credentials["token"], str) else None
+            ),
+            username=(
+                credentials["username"]
+                if isinstance(credentials["username"], str)
+                else None
+            ),
+            password=(
+                credentials["password"]
+                if isinstance(credentials["password"], str)
+                else None
+            ),
+            base_url=(
+                str(credentials["base_url"])
+                if credentials["base_url"]
+                else "https://api.github.com"
+            ),
         )
 
         # Parse labels
@@ -1625,12 +1655,21 @@ def get_issues(
         if labels:
             label_list = [label.strip() for label in labels.split(",")]
 
+        exclude_label_list = None
+        if exclude_labels:
+            exclude_label_list = [label.strip() for label in exclude_labels.split(",")]
+
         # Get issues
         issues = github_client.get_issues(
             repo_name=repo,
             state=state,
             labels=label_list,
+            exclude_labels=exclude_label_list,
+            assignee=assignee,
+            milestone=milestone,
             limit=limit,
+            created_after=created_after,
+            updated_after=updated_after,
         )
 
         log_operation_success("github issues fetch", repo=repo, count=len(issues))
@@ -1640,17 +1679,227 @@ def get_issues(
         )
 
         for issue in issues:
-            print_info_panel(
-                f"#{issue.number} - {issue.title}",
-                f"State: {issue.state}\n"
-                f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
-                f"Created: {issue.created_at}\n"
-                f"Updated: {issue.updated_at}\n"
-                f"URL: {issue.html_url}",
-            )
+            if detailed:
+                print_info_panel(
+                    f"#{issue.number} - {issue.title}",
+                    f"State: {issue.state}\n"
+                    f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
+                    f"Assignees: {', '.join(issue.assignees) if issue.assignees else 'None'}\n"
+                    f"User: {issue.user or 'Unknown'}\n"
+                    f"Milestone: {issue.milestone or 'None'}\n"
+                    f"Comments: {issue.comments_count}\n"
+                    f"Reactions: {issue.reactions_count}\n"
+                    f"Created: {issue.created_at}\n"
+                    f"Updated: {issue.updated_at}\n"
+                    f"URL: {issue.html_url}",
+                )
+            else:
+                print_info_panel(
+                    f"#{issue.number} - {issue.title}",
+                    f"State: {issue.state}\n"
+                    f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
+                    f"Created: {issue.created_at}\n"
+                    f"Updated: {issue.updated_at}\n"
+                    f"URL: {issue.html_url}",
+                )
 
     except Exception as e:
         log_operation_failure("github issues fetch", e)
+        print_error_panel("Error fetching issues", str(e))
+        sys.exit(1)
+
+
+@github.command()
+@click.option("--repos", "-r", required=True, help="Repository names (comma-separated)")
+@click.option("--state", "-s", default="open", help="Issue state (open, closed, all)")
+@click.option("--labels", "-l", help="Filter by labels (comma-separated)")
+@click.option("--exclude-labels", "-e", help="Exclude labels (comma-separated)")
+@click.option("--assignee", "-a", help="Filter by assignee")
+@click.option("--milestone", "-m", help="Filter by milestone")
+@click.option("--limit-per-repo", type=int, help="Maximum issues per repository")
+@click.option(
+    "--total-limit", type=int, help="Maximum total issues across all repositories"
+)
+@click.option("--created-after", help="Filter issues created after date (YYYY-MM-DD)")
+@click.option("--updated-after", help="Filter issues updated after date (YYYY-MM-DD)")
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed issue information")
+@click.option("--export", help="Export results to JSON file")
+@click.pass_context
+def get_issues_multi(
+    ctx: click.Context,
+    repos: str,
+    state: str,
+    labels: Optional[str],
+    exclude_labels: Optional[str],
+    assignee: Optional[str],
+    milestone: Optional[str],
+    limit_per_repo: Optional[int],
+    total_limit: Optional[int],
+    created_after: Optional[str],
+    updated_after: Optional[str],
+    detailed: bool,
+    export: Optional[str],
+) -> None:
+    """Get issues from multiple GitHub repositories with advanced filtering.
+
+    Fetches issues from multiple repositories with comprehensive filtering options.
+    """
+    log_operation_start("github issues fetch multiple repos", repos=repos, state=state)
+
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config_manager.load_config()
+
+        # Get GitHub credentials
+        credentials = config_manager.get_github_credentials()
+
+        # Create GitHub client
+        github_client = create_github_client(
+            token=(
+                credentials["token"] if isinstance(credentials["token"], str) else None
+            ),
+            username=(
+                credentials["username"]
+                if isinstance(credentials["username"], str)
+                else None
+            ),
+            password=(
+                credentials["password"]
+                if isinstance(credentials["password"], str)
+                else None
+            ),
+            base_url=(
+                str(credentials["base_url"])
+                if credentials["base_url"]
+                else "https://api.github.com"
+            ),
+        )
+
+        # Parse repository list
+        repo_list = [repo.strip() for repo in repos.split(",")]
+
+        # Parse labels
+        label_list = None
+        if labels:
+            label_list = [label.strip() for label in labels.split(",")]
+
+        exclude_label_list = None
+        if exclude_labels:
+            exclude_label_list = [label.strip() for label in exclude_labels.split(",")]
+
+        # Get issues from multiple repositories
+        all_issues = github_client.get_issues_for_repositories(
+            repositories=repo_list,
+            state=state,
+            labels=label_list,
+            exclude_labels=exclude_label_list,
+            assignee=assignee,
+            milestone=milestone,
+            limit_per_repo=limit_per_repo,
+            total_limit=total_limit,
+            created_after=created_after,
+            updated_after=updated_after,
+        )
+
+        total_issues = sum(len(issues) for issues in all_issues.values())
+        log_operation_success(
+            "github issues fetch multiple repos", repos=repos, total_count=total_issues
+        )
+        print_success_panel(
+            f"Found {total_issues} issues across {len(repo_list)} repositories",
+            f"📋 Found {total_issues} issues across {len(repo_list)} repositories",
+        )
+
+        # Display results by repository
+        for repo_name, issues in all_issues.items():
+            if issues:
+                print_info_panel(
+                    f"Repository: {repo_name}",
+                    f"Found {len(issues)} issues",
+                )
+
+                for issue in issues:
+                    if detailed:
+                        print_info_panel(
+                            f"#{issue.number} - {issue.title}",
+                            f"Repository: {repo_name}\n"
+                            f"State: {issue.state}\n"
+                            f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
+                            f"Assignees: {', '.join(issue.assignees) if issue.assignees else 'None'}\n"
+                            f"User: {issue.user or 'Unknown'}\n"
+                            f"Milestone: {issue.milestone or 'None'}\n"
+                            f"Comments: {issue.comments_count}\n"
+                            f"Reactions: {issue.reactions_count}\n"
+                            f"Created: {issue.created_at}\n"
+                            f"Updated: {issue.updated_at}\n"
+                            f"URL: {issue.html_url}",
+                        )
+                    else:
+                        print_info_panel(
+                            f"#{issue.number} - {issue.title}",
+                            f"Repository: {repo_name}\n"
+                            f"State: {issue.state}\n"
+                            f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
+                            f"Created: {issue.created_at}\n"
+                            f"Updated: {issue.updated_at}\n"
+                            f"URL: {issue.html_url}",
+                        )
+
+        # Export results if requested
+        if export:
+            try:
+                import json
+                from datetime import datetime
+
+                export_data = {
+                    "exported_at": datetime.now().isoformat(),
+                    "filters": {
+                        "state": state,
+                        "labels": label_list,
+                        "exclude_labels": exclude_label_list,
+                        "assignee": assignee,
+                        "milestone": milestone,
+                        "created_after": created_after,
+                        "updated_after": updated_after,
+                    },
+                    "repositories": repo_list,
+                    "total_issues": total_issues,
+                    "issues_by_repo": {
+                        repo: [
+                            {
+                                "number": issue.number,
+                                "title": issue.title,
+                                "state": issue.state,
+                                "labels": issue.labels,
+                                "assignees": issue.assignees,
+                                "created_at": issue.created_at,
+                                "updated_at": issue.updated_at,
+                                "html_url": issue.html_url,
+                                "user": issue.user,
+                                "milestone": issue.milestone,
+                                "comments_count": issue.comments_count,
+                                "reactions_count": issue.reactions_count,
+                            }
+                            for issue in issues
+                        ]
+                        for repo, issues in all_issues.items()
+                    },
+                }
+
+                with open(export, "w", encoding="utf-8") as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                print_success_panel(
+                    "Export Successful",
+                    f"✅ Results exported to {export}",
+                )
+
+            except Exception as e:
+                print_error_panel("Export Failed", f"Failed to export results: {e}")
+
+    except Exception as e:
+        log_operation_failure("github issues fetch multiple repos", e)
         print_error_panel("Error fetching issues", str(e))
         sys.exit(1)
 

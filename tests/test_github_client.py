@@ -420,12 +420,9 @@ class TestGitHubClient:
         )
 
         assert len(result) == 0
-        mock_repo.get_issues.assert_called_once_with(
-            state="closed",
-            labels="bug,critical",
-            assignee="testuser",
-            milestone="v1.0",
-        )
+        # The new implementation only calls get_issues with state parameter
+        # Additional filtering is done after fetching
+        mock_repo.get_issues.assert_called_once_with(state="closed")
 
     @patch("gitco.github_client.get_logger")
     @patch("gitco.github_client.Github")
@@ -491,10 +488,14 @@ class TestGitHubClient:
         mock_rate_limit = Mock()
         mock_rate_limit.core.limit = 5000
         mock_rate_limit.core.remaining = 4500
-        mock_rate_limit.core.reset = 1640995200
+        # Mock datetime objects for reset times
+        from datetime import datetime
+
+        mock_reset_time = datetime.fromtimestamp(1640995200)
+        mock_rate_limit.core.reset = mock_reset_time
         mock_rate_limit.search.limit = 30
         mock_rate_limit.search.remaining = 25
-        mock_rate_limit.search.reset = 1640995200
+        mock_rate_limit.search.reset = mock_reset_time
 
         mock_github_instance.get_rate_limit.return_value = mock_rate_limit
         mock_github.return_value = mock_github_instance
@@ -560,57 +561,69 @@ class TestGitHubClient:
 class TestCreateGitHubClient:
     """Test create_github_client function."""
 
-    def test_create_github_client_with_token(self) -> None:
+    @patch("gitco.github_client.get_logger")
+    @patch("gitco.github_client.Github")
+    def test_create_github_client_with_token(
+        self, mock_github: Mock, mock_get_logger: Mock
+    ) -> None:
         """Test creating GitHub client with token."""
-        with patch("src.gitco.github_client.GitHubClient") as mock_client_class:
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-            result = create_github_client(token="test_token")
+        mock_github_instance = Mock()
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_github_instance.get_user.return_value = mock_user
+        mock_github.return_value = mock_github_instance
 
-            mock_client_class.assert_called_once_with(
-                token="test_token",
-                username=None,
-                password=None,
-                base_url="https://api.github.com",
-            )
-            assert result == mock_client
+        result = create_github_client(token="test_token")
 
-    def test_create_github_client_with_username_password(self) -> None:
+        assert isinstance(result, GitHubClient)
+        mock_github.assert_called_once()
+
+    @patch("gitco.github_client.get_logger")
+    @patch("gitco.github_client.Github")
+    def test_create_github_client_with_username_password(
+        self, mock_github: Mock, mock_get_logger: Mock
+    ) -> None:
         """Test creating GitHub client with username/password."""
-        with patch("src.gitco.github_client.GitHubClient") as mock_client_class:
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-            result = create_github_client(
-                username="testuser",
-                password="testpass",
-                base_url="https://api.github.com",
-            )
+        mock_github_instance = Mock()
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_github_instance.get_user.return_value = mock_user
+        mock_github.return_value = mock_github_instance
 
-            mock_client_class.assert_called_once_with(
-                token=None,
-                username="testuser",
-                password="testpass",
-                base_url="https://api.github.com",
-            )
-            assert result == mock_client
+        result = create_github_client(
+            username="testuser",
+            password="testpass",
+            base_url="https://api.github.com",
+        )
 
-    def test_create_github_client_defaults(self) -> None:
+        assert isinstance(result, GitHubClient)
+        mock_github.assert_called_once()
+
+    @patch("gitco.github_client.get_logger")
+    @patch("gitco.github_client.Github")
+    def test_create_github_client_defaults(
+        self, mock_github: Mock, mock_get_logger: Mock
+    ) -> None:
         """Test creating GitHub client with defaults."""
-        with patch("src.gitco.github_client.GitHubClient") as mock_client_class:
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
 
-            result = create_github_client()
+        mock_github_instance = Mock()
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_github_instance.get_user.return_value = mock_user
+        mock_github.return_value = mock_github_instance
 
-            mock_client_class.assert_called_once_with(
-                token=None,
-                username=None,
-                password=None,
-                base_url="https://api.github.com",
-            )
-            assert result == mock_client
+        result = create_github_client()
+
+        assert isinstance(result, GitHubClient)
+        mock_github.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -373,16 +373,22 @@ class GitHubClient:
         assignee: Optional[str] = None,
         milestone: Optional[str] = None,
         limit: Optional[int] = None,
+        exclude_labels: Optional[list[str]] = None,
+        created_after: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> list[GitHubIssue]:
-        """Get issues from repository.
+        """Get issues from repository with advanced filtering.
 
         Args:
             repo_name: Repository name (owner/repo)
             state: Issue state (open, closed, all)
-            labels: Filter by labels
+            labels: Filter by labels (include)
             assignee: Filter by assignee
             milestone: Filter by milestone
             limit: Maximum number of issues to return
+            exclude_labels: Filter by labels (exclude)
+            created_after: Filter issues created after this date (ISO format)
+            updated_after: Filter issues updated after this date (ISO format)
 
         Returns:
             List of issues
@@ -392,24 +398,56 @@ class GitHubClient:
         try:
             repo = self.github.get_repo(repo_name)
 
-            # Build query parameters
-            query_params = {"state": state}
-            if labels:
-                query_params["labels"] = ",".join(labels)
-            if assignee:
-                query_params["assignee"] = assignee
-            if milestone:
-                query_params["milestone"] = milestone
+            # Build query parameters for PyGithub
+            # PyGithub expects specific types, so we need to handle them properly
+            all_issues = repo.get_issues(state=state)
 
-            issues = repo.get_issues(**query_params)
+            # Apply additional filtering after fetching
+            filtered_issues = []
+            for issue in all_issues:
+                # Filter by labels if specified
+                if labels:
+                    issue_labels = [label.name for label in issue.labels]
+                    if not any(label in issue_labels for label in labels):
+                        continue
 
-            # Convert to our data structure
+                # Filter by assignee if specified
+                if assignee:
+                    issue_assignees = [assignee.login for assignee in issue.assignees]
+                    if assignee not in issue_assignees:
+                        continue
+
+                # Filter by milestone if specified
+                if milestone and issue.milestone:
+                    if issue.milestone.title != milestone:
+                        continue
+                elif milestone and not issue.milestone:
+                    continue
+
+                filtered_issues.append(issue)
+
+            issues = filtered_issues
+
+            # Convert to our data structure with additional filtering
             github_issues = []
             count = 0
 
             for issue in issues:
                 if limit and count >= limit:
                     break
+
+                # Apply additional filters
+                if exclude_labels and any(
+                    label in exclude_labels
+                    for label in [label.name for label in issue.labels]
+                ):
+                    continue
+
+                if created_after and issue.created_at.isoformat() < created_after:
+                    continue
+
+                if updated_after and issue.updated_at.isoformat() < updated_after:
+                    continue
 
                 github_issue = GitHubIssue(
                     number=issue.number,
@@ -424,7 +462,7 @@ class GitHubClient:
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=issue.reactions.totalCount,
+                    reactions_count=getattr(issue.reactions, "totalCount", 0),
                 )
 
                 github_issues.append(github_issue)
@@ -446,15 +484,21 @@ class GitHubClient:
         labels: Optional[list[str]] = None,
         language: Optional[str] = None,
         limit: Optional[int] = None,
+        exclude_labels: Optional[list[str]] = None,
+        created_after: Optional[str] = None,
+        updated_after: Optional[str] = None,
     ) -> list[GitHubIssue]:
-        """Search for issues across repositories.
+        """Search for issues across repositories with advanced filtering.
 
         Args:
             query: Search query
             state: Issue state (open, closed, all)
-            labels: Filter by labels
+            labels: Filter by labels (include)
             language: Filter by programming language
             limit: Maximum number of issues to return
+            exclude_labels: Filter by labels (exclude)
+            created_after: Filter issues created after this date (ISO format)
+            updated_after: Filter issues updated after this date (ISO format)
 
         Returns:
             List of matching issues
@@ -473,13 +517,26 @@ class GitHubClient:
 
             issues = self.github.search_issues(search_query)
 
-            # Convert to our data structure
+            # Convert to our data structure with additional filtering
             github_issues = []
             count = 0
 
             for issue in issues:
                 if limit and count >= limit:
                     break
+
+                # Apply additional filters
+                if exclude_labels and any(
+                    label in exclude_labels
+                    for label in [label.name for label in issue.labels]
+                ):
+                    continue
+
+                if created_after and issue.created_at.isoformat() < created_after:
+                    continue
+
+                if updated_after and issue.updated_at.isoformat() < updated_after:
+                    continue
 
                 github_issue = GitHubIssue(
                     number=issue.number,
@@ -494,7 +551,7 @@ class GitHubClient:
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=issue.reactions.totalCount,
+                    reactions_count=getattr(issue.reactions, "totalCount", 0),
                 )
 
                 github_issues.append(github_issue)
@@ -509,6 +566,84 @@ class GitHubClient:
             log_operation_failure("github issues search", e, query=query)
             raise APIError(f"Failed to search issues: {e}") from e
 
+    def get_issues_for_repositories(
+        self,
+        repositories: list[str],
+        state: str = "open",
+        labels: Optional[list[str]] = None,
+        exclude_labels: Optional[list[str]] = None,
+        assignee: Optional[str] = None,
+        milestone: Optional[str] = None,
+        limit_per_repo: Optional[int] = None,
+        total_limit: Optional[int] = None,
+        created_after: Optional[str] = None,
+        updated_after: Optional[str] = None,
+    ) -> dict[str, list[GitHubIssue]]:
+        """Get issues from multiple repositories with advanced filtering.
+
+        Args:
+            repositories: List of repository names (owner/repo)
+            state: Issue state (open, closed, all)
+            labels: Filter by labels (include)
+            exclude_labels: Filter by labels (exclude)
+            assignee: Filter by assignee
+            milestone: Filter by milestone
+            limit_per_repo: Maximum number of issues per repository
+            total_limit: Maximum total number of issues across all repositories
+            created_after: Filter issues created after this date (ISO format)
+            updated_after: Filter issues updated after this date (ISO format)
+
+        Returns:
+            Dictionary mapping repository names to lists of issues
+        """
+        log_operation_start(
+            "github issues fetch multiple repos",
+            repositories=repositories,
+            state=state,
+        )
+
+        try:
+            all_issues: dict[str, list[GitHubIssue]] = {}
+            total_count = 0
+
+            for repo_name in repositories:
+                if total_limit and total_count >= total_limit:
+                    break
+
+                try:
+                    repo_issues = self.get_issues(
+                        repo_name=repo_name,
+                        state=state,
+                        labels=labels,
+                        exclude_labels=exclude_labels,
+                        assignee=assignee,
+                        milestone=milestone,
+                        limit=limit_per_repo,
+                        created_after=created_after,
+                        updated_after=updated_after,
+                    )
+
+                    all_issues[repo_name] = repo_issues
+                    total_count += len(repo_issues)
+
+                except Exception as e:
+                    # Log error but continue with other repositories
+                    self.logger.warning(f"Failed to fetch issues from {repo_name}: {e}")
+                    all_issues[repo_name] = []
+
+            log_operation_success(
+                "github issues fetch multiple repos",
+                repositories=repositories,
+                total_count=total_count,
+            )
+            return all_issues
+
+        except Exception as e:
+            log_operation_failure("github issues fetch multiple repos", e)
+            raise APIError(
+                f"Failed to fetch issues from multiple repositories: {e}"
+            ) from e
+
     def get_rate_limit_status(self) -> dict[str, dict[str, int]]:
         """Get current rate limit status.
 
@@ -521,12 +656,12 @@ class GitHubClient:
                 "core": {
                     "limit": rate_limit.core.limit,
                     "remaining": rate_limit.core.remaining,
-                    "reset": rate_limit.core.reset,
+                    "reset": int(rate_limit.core.reset.timestamp()),
                 },
                 "search": {
                     "limit": rate_limit.search.limit,
                     "remaining": rate_limit.search.remaining,
-                    "reset": rate_limit.search.reset,
+                    "reset": int(rate_limit.search.reset.timestamp()),
                 },
             }
         except GithubException as e:
