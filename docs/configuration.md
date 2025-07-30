@@ -61,6 +61,12 @@ settings:
 | `max_repos_per_batch` | integer | `10` | Maximum repositories to process in batch |
 | `ollama_host` | string | `http://localhost:11434` | Ollama server host URL |
 | `ollama_model` | string | `llama2` | Ollama model name |
+| `github_token_env` | string | `GITHUB_TOKEN` | Environment variable for GitHub token |
+| `github_username_env` | string | `GITHUB_USERNAME` | Environment variable for GitHub username |
+| `github_password_env` | string | `GITHUB_PASSWORD` | Environment variable for GitHub password |
+| `github_api_url` | string | `https://api.github.com` | GitHub API base URL |
+| `github_timeout` | integer | `30` | GitHub API request timeout in seconds |
+| `github_max_retries` | integer | `3` | Maximum retries for GitHub API requests |
 
 ## Advanced Configuration
 
@@ -90,6 +96,49 @@ repositories:
     sync_frequency: daily    # Custom sync frequency
 ```
 
+### GitHub Configuration
+
+GitCo supports comprehensive GitHub API integration with multiple authentication methods:
+
+```yaml
+settings:
+  # GitHub API settings
+  github_token_env: GITHUB_TOKEN
+  github_username_env: GITHUB_USERNAME
+  github_password_env: GITHUB_PASSWORD
+  github_api_url: https://api.github.com
+  github_timeout: 30
+  github_max_retries: 3
+```
+
+#### GitHub Authentication Methods
+
+**1. Personal Access Token (Recommended):**
+```bash
+export GITHUB_TOKEN="your-personal-access-token"
+```
+
+**2. Username/Password (Less Secure):**
+```bash
+export GITHUB_USERNAME="your-username"
+export GITHUB_PASSWORD="your-password"
+```
+
+**3. Environment Variables:**
+GitCo automatically detects GitHub credentials from environment variables:
+- `GITHUB_TOKEN` - Personal access token
+- `GITHUB_USERNAME` - GitHub username
+- `GITHUB_PASSWORD` - GitHub password
+
+#### GitHub API Features
+
+- **Rate Limiting**: Automatic handling of GitHub API rate limits
+- **Retry Logic**: Exponential backoff for failed requests
+- **Error Handling**: Comprehensive error handling for API failures
+- **Connection Testing**: Validate GitHub API connectivity
+- **Repository Info**: Fetch detailed repository metadata
+- **Issue Management**: Get issues with filtering and search
+
 ### Environment Variables
 
 GitCo supports environment variables for sensitive configuration:
@@ -111,6 +160,11 @@ export OLLAMA_MODEL="llama2"
 
 # Optional: Custom endpoint
 export AETHERIUM_CUSTOM_ENDPOINT="https://your-endpoint.com"
+
+# GitHub API credentials (optional)
+export GITHUB_TOKEN="your-github-token"
+export GITHUB_USERNAME="your-github-username"
+export GITHUB_PASSWORD="your-github-password"
 ```
 
 **API Key Priority:**

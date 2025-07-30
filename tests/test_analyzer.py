@@ -432,9 +432,9 @@ class TestOpenAIAnalyzer:
 
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = (
-            '{"summary": "Test", "confidence": 0.8}'
-        )
+        mock_response.choices[
+            0
+        ].message.content = '{"summary": "Test", "confidence": 0.8}'
         mock_client.chat.completions.create.return_value = mock_response
 
         analyzer = OpenAIAnalyzer(api_key="test-key")

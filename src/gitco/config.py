@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import yaml
 
@@ -45,6 +45,13 @@ class Settings:
     log_level: str = "INFO"
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "llama2"
+    # GitHub API settings
+    github_token_env: str = "GITHUB_TOKEN"
+    github_username_env: str = "GITHUB_USERNAME"
+    github_password_env: str = "GITHUB_PASSWORD"
+    github_api_url: str = "https://api.github.com"
+    github_timeout: int = 30
+    github_max_retries: int = 3
 
 
 @dataclass
@@ -328,6 +335,23 @@ class ConfigManager:
         ]
         return len(self.config.repositories) < initial_count
 
+    def get_github_credentials(self) -> dict[str, Union[Optional[str], int]]:
+        """Get GitHub credentials from environment variables.
+
+        Returns:
+            Dictionary with GitHub credentials.
+        """
+        settings = self.config.settings
+
+        return {
+            "token": os.getenv(settings.github_token_env),
+            "username": os.getenv(settings.github_username_env),
+            "password": os.getenv(settings.github_password_env),
+            "base_url": settings.github_api_url,
+            "timeout": settings.github_timeout,
+            "max_retries": settings.github_max_retries,
+        }
+
     def _parse_config(self, data: dict[str, Any]) -> Config:
         """Parse configuration from dictionary.
 
@@ -367,6 +391,19 @@ class ConfigManager:
                 log_level=settings_data.get("log_level", "INFO"),
                 ollama_host=settings_data.get("ollama_host", "http://localhost:11434"),
                 ollama_model=settings_data.get("ollama_model", "llama2"),
+                # GitHub settings
+                github_token_env=settings_data.get("github_token_env", "GITHUB_TOKEN"),
+                github_username_env=settings_data.get(
+                    "github_username_env", "GITHUB_USERNAME"
+                ),
+                github_password_env=settings_data.get(
+                    "github_password_env", "GITHUB_PASSWORD"
+                ),
+                github_api_url=settings_data.get(
+                    "github_api_url", "https://api.github.com"
+                ),
+                github_timeout=settings_data.get("github_timeout", 30),
+                github_max_retries=settings_data.get("github_max_retries", 3),
             )
 
         return config
@@ -393,6 +430,13 @@ class ConfigManager:
                 "log_level": config.settings.log_level,
                 "ollama_host": config.settings.ollama_host,
                 "ollama_model": config.settings.ollama_model,
+                # GitHub settings
+                "github_token_env": config.settings.github_token_env,
+                "github_username_env": config.settings.github_username_env,
+                "github_password_env": config.settings.github_password_env,
+                "github_api_url": config.settings.github_api_url,
+                "github_timeout": config.settings.github_timeout,
+                "github_max_retries": config.settings.github_max_retries,
             },
         }
 

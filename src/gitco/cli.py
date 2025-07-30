@@ -9,6 +9,7 @@ from . import __version__
 from .analyzer import ChangeAnalyzer
 from .config import ConfigManager, create_sample_config
 from .git_ops import GitRepository, GitRepositoryManager
+from .github_client import create_github_client
 from .utils import (
     ValidationError,
     console,
@@ -877,9 +878,7 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -927,9 +926,7 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -978,9 +975,7 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1029,9 +1024,7 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1091,9 +1084,7 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1169,9 +1160,7 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel(
-                "Invalid Repository Path", "❌ Invalid repository path:\n"
-            )
+            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1428,6 +1417,241 @@ def validate_repo(
     except Exception as e:
         log_operation_failure("repository validation", e)
         print_error_panel("Error validating repository", str(e))
+        sys.exit(1)
+
+
+@main.group()
+@click.pass_context
+def github(ctx: click.Context) -> None:
+    """GitHub API operations."""
+    pass
+
+
+@github.command()
+@click.pass_context
+def test_connection(ctx: click.Context) -> None:
+    """Test GitHub API connection and authentication.
+
+    Tests the GitHub API connection using configured credentials.
+    """
+    log_operation_start("github connection test")
+
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config_manager.load_config()
+
+        # Get GitHub credentials
+        credentials = config_manager.get_github_credentials()
+
+        # Create GitHub client
+        github_client = create_github_client(
+            token=credentials["token"]
+            if isinstance(credentials["token"], str)
+            else None,
+            username=credentials["username"]
+            if isinstance(credentials["username"], str)
+            else None,
+            password=credentials["password"]
+            if isinstance(credentials["password"], str)
+            else None,
+            base_url=str(credentials["base_url"])
+            if credentials["base_url"]
+            else "https://api.github.com",
+        )
+
+        # Test connection
+        if github_client.test_connection():
+            log_operation_success("github connection test")
+            print_success_panel(
+                "GitHub API Connection Successful!",
+                "✅ Successfully connected to GitHub API\n\n"
+                "Authentication: Working\n"
+                "Rate Limits: Available\n"
+                "API Endpoint: Ready",
+            )
+
+            # Show rate limit status
+            try:
+                rate_limit = github_client.get_rate_limit_status()
+                print_info_panel(
+                    "Rate Limit Status",
+                    f"Core API: {rate_limit['core']['remaining']}/{rate_limit['core']['limit']} remaining\n"
+                    f"Search API: {rate_limit['search']['remaining']}/{rate_limit['search']['limit']} remaining",
+                )
+            except Exception as e:
+                print_warning_panel(
+                    "Rate Limit Info",
+                    f"Could not retrieve rate limit information: {e}",
+                )
+        else:
+            log_operation_failure(
+                "github connection test", Exception("Connection test failed")
+            )
+            print_error_panel(
+                "GitHub API Connection Failed",
+                "❌ Failed to connect to GitHub API\n\n"
+                "Please check:\n"
+                "1. Your GitHub credentials (GITHUB_TOKEN or GITHUB_USERNAME/GITHUB_PASSWORD)\n"
+                "2. Network connectivity\n"
+                "3. GitHub API status",
+            )
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("github connection test", e)
+        print_error_panel("Error testing GitHub connection", str(e))
+        sys.exit(1)
+
+
+@github.command()
+@click.option("--repo", "-r", required=True, help="Repository name (owner/repo)")
+@click.pass_context
+def get_repo(ctx: click.Context, repo: str) -> None:
+    """Get repository information from GitHub.
+
+    Fetches detailed information about a GitHub repository.
+    """
+    log_operation_start("github repository fetch", repo=repo)
+
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config_manager.load_config()
+
+        # Get GitHub credentials
+        credentials = config_manager.get_github_credentials()
+
+        # Create GitHub client
+        github_client = create_github_client(
+            token=credentials["token"]
+            if isinstance(credentials["token"], str)
+            else None,
+            username=credentials["username"]
+            if isinstance(credentials["username"], str)
+            else None,
+            password=credentials["password"]
+            if isinstance(credentials["password"], str)
+            else None,
+            base_url=str(credentials["base_url"])
+            if credentials["base_url"]
+            else "https://api.github.com",
+        )
+
+        # Get repository information
+        github_repo = github_client.get_repository(repo)
+
+        if github_repo:
+            log_operation_success("github repository fetch", repo=repo)
+            print_success_panel(
+                f"Repository: {github_repo.name}",
+                f"📁 {github_repo.full_name}\n\n"
+                f"Description: {github_repo.description or 'No description'}\n"
+                f"Language: {github_repo.language or 'Unknown'}\n"
+                f"Stars: {github_repo.stargazers_count}\n"
+                f"Forks: {github_repo.forks_count}\n"
+                f"Open Issues: {github_repo.open_issues_count}\n"
+                f"Default Branch: {github_repo.default_branch}\n"
+                f"Last Updated: {github_repo.updated_at}\n"
+                f"URL: {github_repo.html_url}",
+            )
+
+            if github_repo.topics:
+                print_info_panel(
+                    "Topics",
+                    f"Topics: {', '.join(github_repo.topics)}",
+                )
+        else:
+            log_operation_failure(
+                "github repository fetch", Exception("Repository not found")
+            )
+            print_error_panel(
+                "Repository Not Found",
+                f"❌ Repository '{repo}' not found or not accessible",
+            )
+            sys.exit(1)
+
+    except Exception as e:
+        log_operation_failure("github repository fetch", e)
+        print_error_panel("Error fetching repository", str(e))
+        sys.exit(1)
+
+
+@github.command()
+@click.option("--repo", "-r", required=True, help="Repository name (owner/repo)")
+@click.option("--state", "-s", default="open", help="Issue state (open, closed, all)")
+@click.option("--labels", "-l", help="Filter by labels (comma-separated)")
+@click.option("--limit", "-n", type=int, help="Maximum number of issues")
+@click.pass_context
+def get_issues(
+    ctx: click.Context,
+    repo: str,
+    state: str,
+    labels: Optional[str],
+    limit: Optional[int],
+) -> None:
+    """Get issues from a GitHub repository.
+
+    Fetches issues from the specified repository with optional filtering.
+    """
+    log_operation_start("github issues fetch", repo=repo, state=state)
+
+    try:
+        # Load configuration
+        config_manager = ConfigManager()
+        config_manager.load_config()
+
+        # Get GitHub credentials
+        credentials = config_manager.get_github_credentials()
+
+        # Create GitHub client
+        github_client = create_github_client(
+            token=credentials["token"]
+            if isinstance(credentials["token"], str)
+            else None,
+            username=credentials["username"]
+            if isinstance(credentials["username"], str)
+            else None,
+            password=credentials["password"]
+            if isinstance(credentials["password"], str)
+            else None,
+            base_url=str(credentials["base_url"])
+            if credentials["base_url"]
+            else "https://api.github.com",
+        )
+
+        # Parse labels
+        label_list = None
+        if labels:
+            label_list = [label.strip() for label in labels.split(",")]
+
+        # Get issues
+        issues = github_client.get_issues(
+            repo_name=repo,
+            state=state,
+            labels=label_list,
+            limit=limit,
+        )
+
+        log_operation_success("github issues fetch", repo=repo, count=len(issues))
+        print_success_panel(
+            f"Found {len(issues)} issues",
+            f"📋 Found {len(issues)} issues in {repo}",
+        )
+
+        for issue in issues:
+            print_info_panel(
+                f"#{issue.number} - {issue.title}",
+                f"State: {issue.state}\n"
+                f"Labels: {', '.join(issue.labels) if issue.labels else 'None'}\n"
+                f"Created: {issue.created_at}\n"
+                f"Updated: {issue.updated_at}\n"
+                f"URL: {issue.html_url}",
+            )
+
+    except Exception as e:
+        log_operation_failure("github issues fetch", e)
+        print_error_panel("Error fetching issues", str(e))
         sys.exit(1)
 
 

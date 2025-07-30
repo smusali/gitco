@@ -22,6 +22,12 @@ settings:
   api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   git_timeout: 300
+  github_api_url: https://api.github.com
+  github_max_retries: 3
+  github_password_env: GITHUB_PASSWORD
+  github_timeout: 30
+  github_token_env: GITHUB_TOKEN
+  github_username_env: GITHUB_USERNAME
   llm_provider: openai
   log_level: INFO
   max_repos_per_batch: 10

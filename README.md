@@ -301,6 +301,65 @@ GitCo provides advanced merge functionality with automatic conflict detection an
 6. Provides options for automatic or manual conflict resolution
 7. Reports merge success with commit information
 
+### GitHub API Integration
+
+GitCo provides comprehensive GitHub API integration for repository and issue management:
+
+**Supported Authentication Methods:**
+- **Personal Access Token**: Most secure and recommended method
+- **Username/Password**: Basic authentication (less secure)
+- **Environment Variables**: Automatic detection of credentials
+
+```bash
+# Test GitHub API connection
+gitco github test-connection
+
+# Get repository information
+gitco github get-repo --repo owner/repository
+
+# Get issues from repository
+gitco github get-issues --repo owner/repository
+
+# Get issues with filters
+gitco github get-issues --repo owner/repository --state open --labels "bug,help wanted" --limit 10
+```
+
+**Environment Variables:**
+```bash
+# Set GitHub token (recommended)
+export GITHUB_TOKEN="your-personal-access-token"
+
+# Or set username/password (less secure)
+export GITHUB_USERNAME="your-username"
+export GITHUB_PASSWORD="your-password"
+```
+
+**Configuration Settings:**
+```yaml
+settings:
+  github_token_env: GITHUB_TOKEN
+  github_username_env: GITHUB_USERNAME
+  github_password_env: GITHUB_PASSWORD
+  github_api_url: https://api.github.com
+  github_timeout: 30
+  github_max_retries: 3
+```
+
+**Key Features:**
+- **Rate Limiting**: Automatic rate limit handling with retry logic
+- **Error Handling**: Comprehensive error handling for API failures
+- **Authentication**: Multiple authentication methods with fallback support
+- **Repository Info**: Detailed repository metadata and statistics
+- **Issue Management**: Issue fetching with filtering and search
+- **Connection Testing**: Validate GitHub API connectivity and credentials
+- **Rich Output**: Color-coded and formatted API response display
+
+**Rate Limiting:**
+- Automatically handles GitHub API rate limits
+- Implements exponential backoff for retries
+- Displays current rate limit status
+- Waits for rate limit reset when needed
+
 ### Safe Stashing and Change Management
 
 GitCo provides comprehensive stashing functionality to safely handle local changes during operations:
