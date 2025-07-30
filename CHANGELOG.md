@@ -98,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - View contribution statistics with filtering options (contributions stats)
 - Get personalized recommendations based on history (contributions recommendations)
 - Export functionality for contribution statistics in JSON format
+- **CSV export functionality for contribution data**
+- **Comprehensive CSV export with detailed contribution information**
+- **CSV export support for stats and trending commands**
+- **Automatic CSV format detection based on file extension**
+- **Separate statistics CSV file generation with summary metrics**
+- **Enhanced export command for direct contribution data export**
+- **Filtering capabilities for CSV export by time period**
+- **Structured CSV output with all contribution fields**
+- **Integration of CSV export with existing CLI export patterns**
 - Integration of contribution history with discovery engine
 - History-based scoring for issue recommendations
 - Repository familiarity bonus in recommendation scoring

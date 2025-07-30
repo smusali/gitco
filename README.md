@@ -92,6 +92,10 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Repository familiarity scoring for improved recommendations
 - Recent activity tracking with detailed contribution information
 - Export functionality for contribution statistics in JSON format
+- **CSV export functionality for detailed contribution data**
+- **Automatic format detection based on file extension (.csv or .json)**
+- **Separate statistics CSV file generation with summary metrics**
+- **Direct contribution data export with filtering by time period**
 - Integration with discovery engine for history-aware recommendations
 - **Enhanced impact metrics with trend analysis over 30d and 7d periods**
 - **High-impact and critical contribution identification and tracking**
@@ -256,6 +260,9 @@ gitco contributions stats --days 30
 # Export statistics
 gitco contributions stats --export stats.json
 
+# Export statistics to CSV
+gitco contributions stats --export stats.csv
+
 # Get personalized recommendations
 gitco contributions recommendations
 
@@ -276,6 +283,21 @@ gitco contributions trending --days 60
 
 # Export trending analysis
 gitco contributions trending --export trends.json
+
+# Export trending analysis to CSV
+gitco contributions trending --export trends.csv
+
+# Export contribution data to CSV
+gitco contributions export --output contributions.csv
+
+# Export recent contributions (last 30 days)
+gitco contributions export --days 30 --output recent.csv
+
+# Export with summary statistics
+gitco contributions export --output data.csv --include-stats
+
+# Export to JSON format
+gitco contributions export --output data.json
 ```
 ```
 

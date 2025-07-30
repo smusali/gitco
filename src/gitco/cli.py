@@ -9,6 +9,12 @@ import click
 from . import __version__
 from .analyzer import ChangeAnalyzer
 from .config import ConfigManager, create_sample_config, get_config_manager
+from .exporter import (
+    export_contribution_data_to_csv,
+    export_discovery_results,
+    export_health_data,
+    export_sync_results,
+)
 from .git_ops import GitRepository, GitRepositoryManager
 from .github_client import create_github_client
 from .utils import (
@@ -166,128 +172,6 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 
     console.print(panel)
     console.print()  # Add spacing
-
-
-def export_sync_results(
-    sync_data: dict[str, Any], export_path: str, repo_name: Optional[str] = None
-) -> None:
-    """Export sync results to a JSON file.
-
-    Args:
-        sync_data: Dictionary containing sync results and metadata
-        export_path: Path to export the JSON file
-        repo_name: Optional repository name for single repo syncs
-    """
-    import json
-    from datetime import datetime
-    from pathlib import Path
-
-    try:
-        # Prepare export data structure
-        export_data = {
-            "exported_at": datetime.now().isoformat(),
-            "sync_metadata": {
-                "total_repositories": sync_data.get("total_repositories", 0),
-                "successful_syncs": sync_data.get("successful", 0),
-                "failed_syncs": sync_data.get("failed", 0),
-                "batch_mode": sync_data.get("batch_mode", False),
-                "analysis_enabled": sync_data.get("analysis_enabled", False),
-                "max_workers": sync_data.get("max_workers", 1),
-            },
-            "repository_results": sync_data.get("repository_results", []),
-            "summary": {
-                "success_rate": sync_data.get("success_rate", 0.0),
-                "total_duration": sync_data.get("total_duration", 0.0),
-                "errors": sync_data.get("errors", []),
-                "warnings": sync_data.get("warnings", []),
-            },
-        }
-
-        # Add single repository info if provided
-        if repo_name:
-            export_data["single_repository"] = {
-                "name": repo_name,
-                "result": sync_data.get("single_result", {}),
-            }
-
-        # Write to file
-        export_file = Path(export_path)
-        export_file.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(export_file, "w", encoding="utf-8") as f:
-            json.dump(export_data, f, indent=2, ensure_ascii=False, default=str)
-
-        print_success_panel(
-            "Export Successful",
-            f"Sync report exported to: {export_path}",
-        )
-
-    except Exception as e:
-        print_error_panel(
-            "Export Failed",
-            f"Failed to export sync results: {str(e)}",
-        )
-
-
-def export_discovery_results(recommendations: Any, export_path: str) -> None:
-    """Export discovery results to a file."""
-    import json
-    from pathlib import Path
-
-    try:
-        # Convert recommendations to serializable format
-        export_data = []
-        for recommendation in recommendations:
-            export_data.append(
-                {
-                    "issue": {
-                        "number": recommendation.issue.number,
-                        "title": recommendation.issue.title,
-                        "state": recommendation.issue.state,
-                        "labels": recommendation.issue.labels,
-                        "html_url": recommendation.issue.html_url,
-                        "created_at": recommendation.issue.created_at,
-                        "updated_at": recommendation.issue.updated_at,
-                    },
-                    "repository": {
-                        "name": recommendation.repository.name,
-                        "fork": recommendation.repository.fork,
-                        "upstream": recommendation.repository.upstream,
-                        "language": recommendation.repository.language,
-                    },
-                    "skill_matches": [
-                        {
-                            "skill": match.skill,
-                            "confidence": match.confidence,
-                            "match_type": match.match_type,
-                            "evidence": match.evidence,
-                        }
-                        for match in recommendation.skill_matches
-                    ],
-                    "overall_score": recommendation.overall_score,
-                    "difficulty_level": recommendation.difficulty_level,
-                    "estimated_time": recommendation.estimated_time,
-                    "tags": recommendation.tags,
-                }
-            )
-
-        # Write to file
-        export_file = Path(export_path)
-        export_file.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(export_file, "w", encoding="utf-8") as f:
-            json.dump(export_data, f, indent=2, ensure_ascii=False)
-
-        print_success_panel(
-            "Export Successful",
-            f"Discovery results exported to: {export_path}",
-        )
-
-    except Exception as e:
-        print_error_panel(
-            "Export Failed",
-            f"Failed to export results: {str(e)}",
-        )
 
 
 @click.group()
@@ -1383,7 +1267,7 @@ def status(
 
         # Export if requested
         if export:
-            _export_health_data(config.repositories, health_calculator, export)
+            export_health_data(config.repositories, health_calculator, export)
 
         log_operation_success("repository status check")
         print_success_panel(
@@ -1714,93 +1598,6 @@ def _print_repository_overview(
                 border_style="red",
             )
             console.print(alert_panel)
-
-
-def _export_health_data(
-    repositories: Any, health_calculator: Any, export_path: str
-) -> None:
-    """Export health data to file."""
-    try:
-        import json
-        from pathlib import Path
-
-        export_data: dict[str, Any] = {"summary": {}, "repositories": []}
-
-        # Calculate summary
-        summary = health_calculator.calculate_health_summary(repositories)
-        export_data["summary"] = {
-            "total_repositories": summary.total_repositories,
-            "healthy_repositories": summary.healthy_repositories,
-            "needs_attention_repositories": summary.needs_attention_repositories,
-            "critical_repositories": summary.critical_repositories,
-            "active_repositories_7d": summary.active_repositories_7d,
-            "active_repositories_30d": summary.active_repositories_30d,
-            "average_activity_score": summary.average_activity_score,
-            "trending_repositories": summary.trending_repositories,
-            "declining_repositories": summary.declining_repositories,
-            "up_to_date_repositories": summary.up_to_date_repositories,
-            "behind_repositories": summary.behind_repositories,
-            "diverged_repositories": summary.diverged_repositories,
-            "high_engagement_repositories": summary.high_engagement_repositories,
-            "low_engagement_repositories": summary.low_engagement_repositories,
-            "total_stars": summary.total_stars,
-            "total_forks": summary.total_forks,
-            "total_open_issues": summary.total_open_issues,
-        }
-
-        # Calculate individual repository metrics
-        repositories_list = (
-            list(repositories) if hasattr(repositories, "__iter__") else []
-        )
-        for repo_config in repositories_list:
-            metrics = health_calculator.calculate_repository_health(repo_config)
-            export_data["repositories"].append(
-                {
-                    "repository_name": metrics.repository_name,
-                    "repository_path": metrics.repository_path,
-                    "upstream_url": metrics.upstream_url,
-                    "last_commit_days_ago": metrics.last_commit_days_ago,
-                    "total_commits": metrics.total_commits,
-                    "recent_commits_30d": metrics.recent_commits_30d,
-                    "recent_commits_7d": metrics.recent_commits_7d,
-                    "total_contributors": metrics.total_contributors,
-                    "active_contributors_30d": metrics.active_contributors_30d,
-                    "active_contributors_7d": metrics.active_contributors_7d,
-                    "stars_count": metrics.stars_count,
-                    "forks_count": metrics.forks_count,
-                    "open_issues_count": metrics.open_issues_count,
-                    "open_prs_count": metrics.open_prs_count,
-                    "days_since_last_sync": metrics.days_since_last_sync,
-                    "sync_status": metrics.sync_status,
-                    "uncommitted_changes": metrics.uncommitted_changes,
-                    "issue_response_time_avg": metrics.issue_response_time_avg,
-                    "pr_merge_time_avg": metrics.pr_merge_time_avg,
-                    "contributor_engagement_score": metrics.contributor_engagement_score,
-                    "stars_growth_30d": metrics.stars_growth_30d,
-                    "forks_growth_30d": metrics.forks_growth_30d,
-                    "issues_growth_30d": metrics.issues_growth_30d,
-                    "overall_health_score": metrics.overall_health_score,
-                    "health_status": metrics.health_status,
-                    "language": metrics.language,
-                    "topics": metrics.topics,
-                    "archived": metrics.archived,
-                    "disabled": metrics.disabled,
-                }
-            )
-
-        # Write to file
-        export_file = Path(export_path)
-        export_file.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(export_file, "w", encoding="utf-8") as f:
-            json.dump(export_data, f, indent=2, default=str)
-
-        print_success_panel(
-            "Export Successful", f"Health data exported to: {export_path}"
-        )
-
-    except Exception as e:
-        print_error_panel("Export Failed", f"Failed to export health data: {e}")
 
 
 @main.command()
@@ -3077,7 +2874,7 @@ def sync_history(ctx: click.Context, username: str, force: bool) -> None:
 
 @contributions.command()
 @click.option("--days", "-d", type=int, help="Show stats for last N days")
-@click.option("--export", "-e", help="Export stats to file")
+@click.option("--export", "-e", help="Export stats to file (.json or .csv)")
 @click.pass_context
 def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> None:
     """Show contribution statistics."""
@@ -3226,65 +3023,90 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
         # Export if requested
         if export:
             try:
-                import json
-                from datetime import datetime
+                from pathlib import Path
 
-                export_data = {
-                    "exported_at": datetime.now().isoformat(),
-                    "period_days": days,
-                    "statistics": {
-                        "total_contributions": stats.total_contributions,
-                        "open_contributions": stats.open_contributions,
-                        "closed_contributions": stats.closed_contributions,
-                        "merged_contributions": stats.merged_contributions,
-                        "repositories_contributed_to": stats.repositories_contributed_to,
-                        "skills_developed": list(stats.skills_developed),
-                        "total_impact_score": stats.total_impact_score,
-                        "average_impact_score": stats.average_impact_score,
-                        "contribution_timeline": stats.contribution_timeline,
-                        # Enhanced impact metrics
-                        "high_impact_contributions": stats.high_impact_contributions,
-                        "critical_contributions": stats.critical_contributions,
-                        "impact_trend_30d": stats.impact_trend_30d,
-                        "impact_trend_7d": stats.impact_trend_7d,
-                        # Trending analysis
-                        "contribution_velocity": stats.contribution_velocity,
-                        "trending_skills": stats.trending_skills,
-                        "declining_skills": stats.declining_skills,
-                        "skill_growth_rate": stats.skill_growth_rate,
-                        "repository_engagement_trend": stats.repository_engagement_trend,
-                        # Advanced metrics
-                        "collaboration_score": stats.collaboration_score,
-                        "recognition_score": stats.recognition_score,
-                        "influence_score": stats.influence_score,
-                        "sustainability_score": stats.sustainability_score,
-                        # Impact scores by category
-                        "skill_impact_scores": stats.skill_impact_scores,
-                        "repository_impact_scores": stats.repository_impact_scores,
-                    },
-                    "recent_activity": [
-                        {
-                            "repository": c.repository,
-                            "issue_number": c.issue_number,
-                            "issue_title": c.issue_title,
-                            "contribution_type": c.contribution_type,
-                            "status": c.status,
-                            "impact_score": c.impact_score,
-                            "skills_used": c.skills_used,
-                            "created_at": c.created_at,
-                            "updated_at": c.updated_at,
-                        }
-                        for c in stats.recent_activity
-                    ],
-                }
+                # Determine export format based on file extension
+                export_path = Path(export)
+                is_csv_export = export_path.suffix.lower() == ".csv"
 
-                with open(export, "w", encoding="utf-8") as f:
-                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+                if is_csv_export:
+                    # Get all contributions for CSV export
+                    all_contributions = tracker.load_contribution_history()
 
-                print_success_panel(
-                    "Export Successful",
-                    f"✅ Statistics exported to {export}",
-                )
+                    # Filter by days if specified
+                    if days:
+                        from datetime import datetime, timedelta
+
+                        cutoff_date = datetime.now() - timedelta(days=days)
+                        all_contributions = [
+                            c
+                            for c in all_contributions
+                            if datetime.fromisoformat(c.created_at) >= cutoff_date
+                        ]
+
+                    # Export to CSV
+                    export_contribution_data_to_csv(all_contributions, export)
+                else:
+                    # JSON export (existing functionality)
+                    import json
+                    from datetime import datetime
+
+                    export_data = {
+                        "exported_at": datetime.now().isoformat(),
+                        "period_days": days,
+                        "statistics": {
+                            "total_contributions": stats.total_contributions,
+                            "open_contributions": stats.open_contributions,
+                            "closed_contributions": stats.closed_contributions,
+                            "merged_contributions": stats.merged_contributions,
+                            "repositories_contributed_to": stats.repositories_contributed_to,
+                            "skills_developed": list(stats.skills_developed),
+                            "total_impact_score": stats.total_impact_score,
+                            "average_impact_score": stats.average_impact_score,
+                            "contribution_timeline": stats.contribution_timeline,
+                            # Enhanced impact metrics
+                            "high_impact_contributions": stats.high_impact_contributions,
+                            "critical_contributions": stats.critical_contributions,
+                            "impact_trend_30d": stats.impact_trend_30d,
+                            "impact_trend_7d": stats.impact_trend_7d,
+                            # Trending analysis
+                            "contribution_velocity": stats.contribution_velocity,
+                            "trending_skills": stats.trending_skills,
+                            "declining_skills": stats.declining_skills,
+                            "skill_growth_rate": stats.skill_growth_rate,
+                            "repository_engagement_trend": stats.repository_engagement_trend,
+                            # Advanced metrics
+                            "collaboration_score": stats.collaboration_score,
+                            "recognition_score": stats.recognition_score,
+                            "influence_score": stats.influence_score,
+                            "sustainability_score": stats.sustainability_score,
+                            # Impact scores by category
+                            "skill_impact_scores": stats.skill_impact_scores,
+                            "repository_impact_scores": stats.repository_impact_scores,
+                        },
+                        "recent_activity": [
+                            {
+                                "repository": c.repository,
+                                "issue_number": c.issue_number,
+                                "issue_title": c.issue_title,
+                                "contribution_type": c.contribution_type,
+                                "status": c.status,
+                                "impact_score": c.impact_score,
+                                "skills_used": c.skills_used,
+                                "created_at": c.created_at,
+                                "updated_at": c.updated_at,
+                            }
+                            for c in stats.recent_activity
+                        ],
+                    }
+
+                    with open(export, "w", encoding="utf-8") as f:
+                        json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                    print_success_panel(
+                        "Export Successful",
+                        f"✅ Statistics exported to {export}",
+                    )
 
             except Exception as e:
                 print_error_panel("Export Failed", f"Failed to export statistics: {e}")
@@ -3395,8 +3217,119 @@ def recommendations(
 
 
 @contributions.command()
+@click.option("--days", "-d", type=int, help="Export contributions from last N days")
+@click.option("--output", "-o", required=True, help="Output file path (.csv or .json)")
+@click.option("--include-stats", "-s", is_flag=True, help="Include summary statistics")
+@click.pass_context
+def export(
+    ctx: click.Context, days: Optional[int], output: str, include_stats: bool
+) -> None:
+    """Export contribution data to CSV or JSON format."""
+    print_info_panel(
+        "Exporting Contribution Data",
+        f"Preparing contribution data for export to {output}...",
+    )
+
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
+
+        # Create contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        tracker = create_contribution_tracker(config, github_client)
+
+        # Get all contributions
+        all_contributions = tracker.load_contribution_history()
+
+        # Filter by days if specified
+        if days:
+            from datetime import datetime, timedelta
+
+            cutoff_date = datetime.now() - timedelta(days=days)
+            all_contributions = [
+                c
+                for c in all_contributions
+                if datetime.fromisoformat(c.created_at) >= cutoff_date
+            ]
+
+        if not all_contributions:
+            print_warning_panel(
+                "No Contributions Found",
+                "No contributions found for the specified period.",
+            )
+            return
+
+        # Determine export format based on file extension
+        from pathlib import Path
+
+        export_path = Path(output)
+        is_csv_export = export_path.suffix.lower() == ".csv"
+
+        if is_csv_export:
+            # Export to CSV
+            export_contribution_data_to_csv(all_contributions, output, include_stats)
+        else:
+            # Export to JSON
+            import json
+            from datetime import datetime
+
+            export_data = {
+                "exported_at": datetime.now().isoformat(),
+                "period_days": days,
+                "total_contributions": len(all_contributions),
+                "contributions": [
+                    {
+                        "repository": c.repository,
+                        "issue_number": c.issue_number,
+                        "issue_title": c.issue_title,
+                        "issue_url": c.issue_url,
+                        "contribution_type": c.contribution_type,
+                        "status": c.status,
+                        "created_at": c.created_at,
+                        "updated_at": c.updated_at,
+                        "skills_used": c.skills_used,
+                        "impact_score": c.impact_score,
+                        "labels": c.labels,
+                        "milestone": c.milestone,
+                        "assignees": c.assignees,
+                        "comments_count": c.comments_count,
+                        "reactions_count": c.reactions_count,
+                    }
+                    for c in all_contributions
+                ],
+            }
+
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+            print_success_panel(
+                "Export Successful",
+                f"✅ Contribution data exported to {output}",
+            )
+
+    except Exception as e:
+        print_error_panel(
+            "Export Failed",
+            f"An error occurred while exporting contribution data: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
+
+
+@contributions.command()
 @click.option("--days", "-d", type=int, default=30, help="Analysis period in days")
-@click.option("--export", "-e", help="Export trending analysis to file")
+@click.option("--export", "-e", help="Export trending analysis to file (.json or .csv)")
 @click.pass_context
 def trending(ctx: click.Context, days: Optional[int], export: Optional[str]) -> None:
     """Show detailed trending analysis of your contributions."""
@@ -3522,36 +3455,61 @@ def trending(ctx: click.Context, days: Optional[int], export: Optional[str]) -> 
         # Export if requested
         if export:
             try:
-                import json
-                from datetime import datetime
+                from pathlib import Path
 
-                export_data = {
-                    "exported_at": datetime.now().isoformat(),
-                    "analysis_period_days": days,
-                    "trending_analysis": {
-                        "contribution_velocity": stats.contribution_velocity,
-                        "impact_trend_30d": stats.impact_trend_30d,
-                        "impact_trend_7d": stats.impact_trend_7d,
-                        "trending_skills": stats.trending_skills,
-                        "declining_skills": stats.declining_skills,
-                        "skill_growth_rate": stats.skill_growth_rate,
-                        "repository_engagement_trend": stats.repository_engagement_trend,
-                        "collaboration_score": stats.collaboration_score,
-                        "recognition_score": stats.recognition_score,
-                        "influence_score": stats.influence_score,
-                        "sustainability_score": stats.sustainability_score,
-                        "skill_impact_scores": stats.skill_impact_scores,
-                        "repository_impact_scores": stats.repository_impact_scores,
-                    },
-                }
+                # Determine export format based on file extension
+                export_path = Path(export)
+                is_csv_export = export_path.suffix.lower() == ".csv"
 
-                with open(export, "w", encoding="utf-8") as f:
-                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+                if is_csv_export:
+                    # Get all contributions for CSV export
+                    all_contributions = tracker.load_contribution_history()
 
-                print_success_panel(
-                    "Export Successful",
-                    f"✅ Trending analysis exported to {export}",
-                )
+                    # Filter by days if specified
+                    if days:
+                        from datetime import datetime, timedelta
+
+                        cutoff_date = datetime.now() - timedelta(days=days)
+                        all_contributions = [
+                            c
+                            for c in all_contributions
+                            if datetime.fromisoformat(c.created_at) >= cutoff_date
+                        ]
+
+                    # Export to CSV
+                    export_contribution_data_to_csv(all_contributions, export)
+                else:
+                    # JSON export (existing functionality)
+                    import json
+                    from datetime import datetime
+
+                    export_data = {
+                        "exported_at": datetime.now().isoformat(),
+                        "analysis_period_days": days,
+                        "trending_analysis": {
+                            "contribution_velocity": stats.contribution_velocity,
+                            "impact_trend_30d": stats.impact_trend_30d,
+                            "impact_trend_7d": stats.impact_trend_7d,
+                            "trending_skills": stats.trending_skills,
+                            "declining_skills": stats.declining_skills,
+                            "skill_growth_rate": stats.skill_growth_rate,
+                            "repository_engagement_trend": stats.repository_engagement_trend,
+                            "collaboration_score": stats.collaboration_score,
+                            "recognition_score": stats.recognition_score,
+                            "influence_score": stats.influence_score,
+                            "sustainability_score": stats.sustainability_score,
+                            "skill_impact_scores": stats.skill_impact_scores,
+                            "repository_impact_scores": stats.repository_impact_scores,
+                        },
+                    }
+
+                    with open(export, "w", encoding="utf-8") as f:
+                        json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                    print_success_panel(
+                        "Export Successful",
+                        f"✅ Trending analysis exported to {export}",
+                    )
 
             except Exception as e:
                 print_error_panel(
