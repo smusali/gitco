@@ -30,6 +30,7 @@ from .utils import (
     print_info_panel,
     print_success_panel,
     print_warning_panel,
+    set_quiet_mode,
     setup_logging,
 )
 
@@ -197,6 +198,9 @@ def main(
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
     ctx.obj["log_file"] = log_file
+
+    # Set global quiet mode state
+    set_quiet_mode(quiet)
 
     # Setup logging
     setup_logging(verbose=verbose, quiet=quiet, log_file=log_file)
@@ -735,6 +739,7 @@ def sync(
 @click.option("--provider", help="LLM provider to use (openai, anthropic)")
 @click.option("--repos", help="Analyze multiple repositories (comma-separated)")
 @click.option("--export", "-e", help="Export analysis to file")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.pass_context
 def analyze(
     ctx: click.Context,
@@ -743,6 +748,7 @@ def analyze(
     provider: Optional[str],
     repos: Optional[str],
     export: Optional[str],
+    quiet: bool,
 ) -> None:
     """Analyze repository changes with AI.
 
@@ -898,6 +904,7 @@ def analyze(
     is_flag=True,
     help="Show contribution history analysis",
 )
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.pass_context
 def discover(
     ctx: click.Context,
@@ -908,6 +915,7 @@ def discover(
     min_confidence: float,
     personalized: bool,
     show_history: bool,
+    quiet: bool,
 ) -> None:
     """Discover contribution opportunities with personalized recommendations.
 
@@ -1201,6 +1209,7 @@ def discover(
 @click.option(
     "--sort", "-s", help="Sort repositories by metric (health, activity, stars, forks)"
 )
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.pass_context
 def status(
     ctx: click.Context,
@@ -1210,6 +1219,7 @@ def status(
     overview: bool,
     filter: Optional[str],
     sort: Optional[str],
+    quiet: bool,
 ) -> None:
     """Show repository status and overview.
 
@@ -2820,8 +2830,9 @@ def contributions(ctx: click.Context) -> None:
 @contributions.command()
 @click.option("--username", "-u", required=True, help="GitHub username to sync")
 @click.option("--force", "-f", is_flag=True, help="Force sync even if recent")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.pass_context
-def sync_history(ctx: click.Context, username: str, force: bool) -> None:
+def sync_history(ctx: click.Context, username: str, force: bool, quiet: bool) -> None:
     """Sync contribution history from GitHub."""
     print_info_panel(
         "Syncing Contribution History",
@@ -2875,8 +2886,11 @@ def sync_history(ctx: click.Context, username: str, force: bool) -> None:
 @contributions.command()
 @click.option("--days", "-d", type=int, help="Show stats for last N days")
 @click.option("--export", "-e", help="Export stats to file (.json or .csv)")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
 @click.pass_context
-def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> None:
+def stats(
+    ctx: click.Context, days: Optional[int], export: Optional[str], quiet: bool
+) -> None:
     """Show contribution statistics."""
     print_info_panel(
         "Calculating Contribution Statistics",

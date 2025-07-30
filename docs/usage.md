@@ -375,19 +375,82 @@ gitco discover --export opportunities.csv
 gitco status --export status-report.json
 ```
 
-### Automation
+### Automation and Quiet Mode
 
-Use GitCo in automated workflows:
+GitCo supports automated workflows with comprehensive quiet mode functionality:
+
+#### Quiet Mode Usage
 
 ```bash
-# Quiet mode for scripts
+# Basic quiet mode - suppresses all user-facing output
 gitco sync --quiet
 
-# Log to file
-gitco sync --log sync.log
+# Quiet mode with logging to file
+gitco sync --quiet --log sync.log
 
-# Cron-friendly output
-gitco sync --cron
+# Quiet mode for other commands
+gitco analyze --repo django --quiet
+gitco discover --skill python --quiet
+gitco status --quiet
+gitco contributions stats --quiet
+
+# Cron job example (sync every 6 hours)
+0 */6 * * * gitco sync --quiet --log /var/log/gitco-sync.log
+```
+
+#### Quiet Mode Features
+
+**What's Suppressed:**
+- Progress bars and spinners
+- Success, error, info, and warning panels
+- Console messages and status updates
+- Repository operation details
+
+**What's Preserved:**
+- Logging functionality (when `--log` is specified)
+- Error reporting for critical issues
+- Exit codes for script integration
+- File exports and data output
+
+**Use Cases:**
+- **Cron jobs**: Automated repository synchronization
+- **CI/CD pipelines**: Integration with build systems
+- **Scripts**: Programmatic usage without user interaction
+- **Monitoring**: Background operations with log-based monitoring
+
+#### Automation Examples
+
+**Cron Job Setup:**
+```bash
+# Add to crontab for daily sync
+0 2 * * * gitco sync --quiet --log /var/log/gitco/daily-sync.log
+
+# Add to crontab for hourly discovery
+0 * * * * gitco discover --skill python --quiet --export /tmp/opportunities.json
+```
+
+**Script Integration:**
+```bash
+#!/bin/bash
+# Sync repositories and check for failures
+if gitco sync --quiet --log sync.log; then
+    echo "Sync completed successfully"
+else
+    echo "Sync failed - check sync.log for details"
+    exit 1
+fi
+```
+
+**CI/CD Pipeline:**
+```yaml
+# GitHub Actions example
+- name: Sync repositories
+  run: |
+    gitco sync --quiet --log sync.log
+    if [ $? -ne 0 ]; then
+      echo "Sync failed - uploading logs"
+      # Upload logs for debugging
+    fi
 ```
 
 ## Command Reference

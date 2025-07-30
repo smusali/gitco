@@ -49,9 +49,11 @@ def export_sync_results(
         if repo_name:
             export_data["single_repository"] = {
                 "name": repo_name,
-                "sync_result": sync_data.get("repository_results", [{}])[0]
-                if sync_data.get("repository_results")
-                else {},
+                "sync_result": (
+                    sync_data.get("repository_results", [{}])[0]
+                    if sync_data.get("repository_results")
+                    else {}
+                ),
             }
 
         # Write to file

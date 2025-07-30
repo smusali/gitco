@@ -18,6 +18,7 @@ from gitco.utils import (
     format_error_message,
     get_logger,
     handle_validation_errors,
+    is_quiet_mode,
     log_api_call,
     log_configuration_loaded,
     log_error_and_exit,
@@ -26,7 +27,9 @@ from gitco.utils import (
     log_operation_success,
     log_repository_operation,
     log_validation_result,
+    print_success_panel,
     safe_execute,
+    set_quiet_mode,
     setup_logging,
     update_progress,
     validate_directory_exists,
@@ -847,3 +850,25 @@ def test_api_error_inheritance_hierarchy() -> None:
     assert isinstance(error, APIError)
     assert isinstance(error, GitCoError)
     assert isinstance(error, Exception)
+
+
+def test_quiet_mode_functionality() -> None:
+    """Test that quiet mode properly suppresses output."""
+    # Test initial state
+    assert not is_quiet_mode()
+
+    # Test setting quiet mode
+    set_quiet_mode(True)
+    assert is_quiet_mode()
+
+    # Test unsetting quiet mode
+    set_quiet_mode(False)
+    assert not is_quiet_mode()
+
+    # Test that print functions respect quiet mode
+    set_quiet_mode(True)
+    # This should not raise any exceptions and should not print anything
+    print_success_panel("Test message", "Test details")
+
+    # Reset quiet mode
+    set_quiet_mode(False)

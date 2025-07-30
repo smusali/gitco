@@ -20,6 +20,28 @@ from rich.table import Table
 # Global console instance for consistent styling
 console = Console()
 
+# Global quiet mode state
+_quiet_mode = False
+
+
+def set_quiet_mode(enabled: bool) -> None:
+    """Set the global quiet mode state.
+
+    Args:
+        enabled: Whether to enable quiet mode.
+    """
+    global _quiet_mode
+    _quiet_mode = enabled
+
+
+def is_quiet_mode() -> bool:
+    """Check if quiet mode is enabled.
+
+    Returns:
+        True if quiet mode is enabled, False otherwise.
+    """
+    return _quiet_mode
+
 
 class GitCoError(Exception):
     """Base exception for GitCo errors."""
@@ -126,10 +148,12 @@ def log_error_and_exit(
     logger = get_logger()
     if error:
         logger.error(f"{message}: {error}")
-        console.print(f"[red]❌ {message}: {error}[/red]")
+        if not is_quiet_mode():
+            console.print(f"[red]❌ {message}: {error}[/red]")
     else:
         logger.error(message)
-        console.print(f"[red]❌ {message}[/red]")
+        if not is_quiet_mode():
+            console.print(f"[red]❌ {message}[/red]")
     sys.exit(exit_code)
 
 
@@ -371,6 +395,9 @@ def print_success_panel(message: str, details: Optional[str] = None) -> None:
         message: Success message.
         details: Optional details to include.
     """
+    if is_quiet_mode():
+        return
+
     content = message
     if details:
         content += f"\n\n{details}"
@@ -391,6 +418,9 @@ def print_error_panel(message: str, details: Optional[str] = None) -> None:
         message: Error message.
         details: Optional details to include.
     """
+    if is_quiet_mode():
+        return
+
     content = message
     if details:
         content += f"\n\n{details}"
@@ -411,6 +441,9 @@ def print_info_panel(message: str, details: Optional[str] = None) -> None:
         message: Info message.
         details: Optional details to include.
     """
+    if is_quiet_mode():
+        return
+
     content = message
     if details:
         content += f"\n\n{details}"
@@ -431,6 +464,9 @@ def print_warning_panel(message: str, details: Optional[str] = None) -> None:
         message: Warning message.
         details: Optional details to include.
     """
+    if is_quiet_mode():
+        return
+
     content = message
     if details:
         content += f"\n\n{details}"
@@ -455,8 +491,9 @@ def log_configuration_loaded(config_path: str, repo_count: int) -> None:
     logger.info(f"Configuration loaded from {config_path}")
     logger.info(f"Found {repo_count} repositories")
 
-    console.print(f"[green]📋 Configuration loaded from {config_path}[/green]")
-    console.print(f"[green]📦 Found {repo_count} repositories[/green]")
+    if not is_quiet_mode():
+        console.print(f"[green]📋 Configuration loaded from {config_path}[/green]")
+        console.print(f"[green]📦 Found {repo_count} repositories[/green]")
 
 
 def log_repository_operation(

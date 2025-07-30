@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Enhanced quiet mode for automated/cron usage**
+- **Global quiet mode state management across all CLI commands**
+- **Quiet mode support for sync, analyze, discover, status, and contribution commands**
+- **Suppressed output for progress bars, panels, and console messages in quiet mode**
+- **Maintained logging functionality while suppressing user-facing output**
+- **Cron-friendly operation with minimal output for automated workflows**
 - **JSON export functionality for sync reports**
 - **Comprehensive sync report export with detailed repository results**
 - **Export support for single repository and batch sync operations**

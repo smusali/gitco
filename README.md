@@ -693,10 +693,31 @@ GitCo provides a rich, user-friendly CLI experience with progress indicators and
 ```
 
 **Quiet Mode:**
-For automated usage or cron jobs, use the `--quiet` flag to suppress progress indicators:
+For automated usage or cron jobs, use the `--quiet` flag to suppress progress indicators and user-facing output:
+
 ```bash
+# Basic quiet mode
+gitco sync --quiet
+
+# Quiet mode with logging to file
 gitco sync --quiet --log sync.log
+
+# Quiet mode for other commands
+gitco analyze --repo django --quiet
+gitco discover --skill python --quiet
+gitco status --quiet
+gitco contributions stats --quiet
+
+# Cron job example
+0 */6 * * * gitco sync --quiet --log /var/log/gitco-sync.log
 ```
+
+**Quiet Mode Features:**
+- **Suppresses all user-facing output** (progress bars, panels, console messages)
+- **Maintains logging functionality** for debugging and monitoring
+- **Preserves error reporting** for critical issues
+- **Ideal for automated workflows** and cron jobs
+- **Available on all major commands** (sync, analyze, discover, status, contributions)
 
 ## 🔧 Configuration
 
