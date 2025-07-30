@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Contribution history tracking with persistent storage
+- Contribution dataclass for structured contribution data
+- ContributionStats dataclass for comprehensive statistics
+- ContributionTracker class for managing contribution history
+- GitHub contribution synchronization with automatic skill extraction
+- Impact score calculation based on engagement and contribution type
+- Skill development tracking across repositories
+- Personalized contribution recommendations based on history
+- Contribution timeline analysis for activity patterns
+- Recent activity tracking with detailed contribution information
+- CLI commands for contribution management (contributions group)
+- Sync contribution history from GitHub (contributions sync-history)
+- View contribution statistics with filtering options (contributions stats)
+- Get personalized recommendations based on history (contributions recommendations)
+- Export functionality for contribution statistics in JSON format
+- Integration of contribution history with discovery engine
+- History-based scoring for issue recommendations
+- Repository familiarity bonus in recommendation scoring
+- Skill development bonus in recommendation scoring
+- High-impact contribution bonus in recommendation scoring
 - Skill-based issue matching algorithm for contribution discovery
 - IssueRecommendation dataclass for structured recommendation data
 - SkillMatch dataclass for skill matching with confidence scores

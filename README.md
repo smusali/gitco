@@ -71,6 +71,17 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Export functionality for discovery results in JSON format
 - Rich CLI output with detailed recommendation information
 
+### 📈 **Contribution History Tracking**
+- Persistent storage of contribution history across repositories
+- Automatic skill extraction from GitHub issues and pull requests
+- Impact score calculation based on engagement and contribution type
+- Skill development tracking and timeline analysis
+- Personalized contribution recommendations based on historical patterns
+- Repository familiarity scoring for improved recommendations
+- Recent activity tracking with detailed contribution information
+- Export functionality for contribution statistics in JSON format
+- Integration with discovery engine for history-aware recommendations
+
 ### 📊 **Repository Health Insights**
 - Shows activity levels and contributor engagement
 - Identifies trending repositories in your fork list
@@ -180,6 +191,33 @@ gitco discover --export results.json
 
 # Combine filters
 gitco discover --skill python --label "good first issue" --limit 5
+
+### 6. Track Contribution History
+```bash
+# Sync contribution history from GitHub
+gitco contributions sync-history --username your-username
+
+# View contribution statistics
+gitco contributions stats
+
+# View stats for last 30 days
+gitco contributions stats --days 30
+
+# Export statistics
+gitco contributions stats --export stats.json
+
+# Get personalized recommendations
+gitco contributions recommendations
+
+# Filter recommendations by skill
+gitco contributions recommendations --skill python
+
+# Filter by repository
+gitco contributions recommendations --repository django
+
+# Limit recommendations
+gitco contributions recommendations --limit 5
+```
 ```
 
 ## 📖 Usage
@@ -222,6 +260,15 @@ gitco discover --min-confidence 0.5
 
 # Export discovery results
 gitco discover --export results.json
+
+# Track contribution history
+gitco contributions sync-history --username your-username
+
+# View contribution statistics
+gitco contributions stats
+
+# Get personalized recommendations
+gitco contributions recommendations
 
 # Show repository status
 gitco status

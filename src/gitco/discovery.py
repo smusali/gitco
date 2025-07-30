@@ -280,6 +280,11 @@ class IssueDiscovery:
         self.skill_matcher = SkillMatcher()
         self.logger = get_logger()
 
+        # Initialize contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        self.contribution_tracker = create_contribution_tracker(config, github_client)
+
     def discover_opportunities(
         self,
         skill_filter: Optional[str] = None,
@@ -373,7 +378,9 @@ class IssueDiscovery:
                 )
 
                 # Calculate overall score
-                overall_score = self._calculate_overall_score(skill_matches, issue)
+                overall_score = self._calculate_overall_score(
+                    skill_matches, issue, repository
+                )
 
                 # Skip if below minimum confidence
                 if overall_score < min_confidence:
@@ -407,7 +414,10 @@ class IssueDiscovery:
             return []
 
     def _calculate_overall_score(
-        self, skill_matches: list[SkillMatch], issue: GitHubIssue
+        self,
+        skill_matches: list[SkillMatch],
+        issue: GitHubIssue,
+        repository: Repository,
     ) -> float:
         """Calculate overall recommendation score."""
         if not skill_matches:
@@ -436,15 +446,61 @@ class IssueDiscovery:
         # Bonus for recent issues
         recency_bonus = 0.1  # Could be enhanced with actual date logic
 
+        # Contribution history bonus
+        history_bonus = self._calculate_history_bonus(issue, repository)
+
         total_score = (
             skill_score
             + diversity_bonus
             + high_confidence_bonus
             + beginner_bonus
             + recency_bonus
+            + history_bonus
         )
 
         return min(total_score, 1.0)  # Cap at 1.0
+
+    def _calculate_history_bonus(
+        self, issue: GitHubIssue, repository: Repository
+    ) -> float:
+        """Calculate bonus score based on contribution history."""
+        try:
+            # Get contribution history for this repository
+            contributions = self.contribution_tracker.load_contribution_history()
+            repo_contributions = [
+                c for c in contributions if c.repository == repository.fork
+            ]
+
+            if not repo_contributions:
+                return 0.0  # No history, no bonus
+
+            # Calculate repository familiarity bonus
+            repo_contribution_count = len(repo_contributions)
+            familiarity_bonus = min(repo_contribution_count * 0.05, 0.2)
+
+            # Calculate skill development bonus
+            user_skills = set(repository.skills)
+            developed_skills = set()
+            for contribution in repo_contributions:
+                developed_skills.update(contribution.skills_used)
+
+            # Bonus for skills that have been successfully used in this repo
+            skill_bonus = 0.0
+            for skill in user_skills:
+                if skill in developed_skills:
+                    skill_bonus += 0.05
+
+            # Bonus for high-impact contributions in this repo
+            high_impact_contributions = [
+                c for c in repo_contributions if c.impact_score > 0.7
+            ]
+            impact_bonus = min(len(high_impact_contributions) * 0.03, 0.15)
+
+            return min(familiarity_bonus + skill_bonus + impact_bonus, 0.3)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate history bonus: {e}")
+            return 0.0
 
     def _generate_tags(
         self,

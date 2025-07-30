@@ -908,6 +908,11 @@ def help(ctx: click.Context) -> None:
     click.echo("  status    Show repository status")
     click.echo("  help      Show this help message")
     click.echo()
+    click.echo("Contribution Tracking:")
+    click.echo("  contributions sync-history  Sync contribution history from GitHub")
+    click.echo("  contributions stats         Show contribution statistics")
+    click.echo("  contributions recommendations  Get personalized recommendations")
+    click.echo()
     click.echo("For detailed help on any command, use:")
     click.echo("  gitco <command> --help")
     click.echo()
@@ -2086,6 +2091,275 @@ def get_issues_multi(
         log_operation_failure("github issues fetch multiple repos", e)
         print_error_panel("Error fetching issues", str(e))
         sys.exit(1)
+
+
+@main.group()
+@click.pass_context
+def contributions(ctx: click.Context) -> None:
+    """Manage contribution history and tracking."""
+    pass
+
+
+@contributions.command()
+@click.option("--username", "-u", required=True, help="GitHub username to sync")
+@click.option("--force", "-f", is_flag=True, help="Force sync even if recent")
+@click.pass_context
+def sync_history(ctx: click.Context, username: str, force: bool) -> None:
+    """Sync contribution history from GitHub."""
+    print_info_panel(
+        "Syncing Contribution History",
+        f"Fetching contributions for user: {username}",
+    )
+
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
+
+        # Test GitHub connection
+        if not github_client.test_connection():
+            print_error_panel(
+                "GitHub Connection Failed",
+                "Unable to connect to GitHub API. Please check your credentials.",
+            )
+            return
+
+        # Create contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        tracker = create_contribution_tracker(config, github_client)
+
+        # Sync contributions
+        tracker.sync_contributions_from_github(username)
+
+        print_success_panel(
+            "Sync Completed",
+            f"✅ Successfully synced contributions for {username}",
+        )
+
+    except Exception as e:
+        print_error_panel(
+            "Sync Failed",
+            f"An error occurred during sync: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
+
+
+@contributions.command()
+@click.option("--days", "-d", type=int, help="Show stats for last N days")
+@click.option("--export", "-e", help="Export stats to file")
+@click.pass_context
+def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> None:
+    """Show contribution statistics."""
+    print_info_panel(
+        "Calculating Contribution Statistics",
+        "Analyzing your contribution history...",
+    )
+
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
+
+        # Create contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        tracker = create_contribution_tracker(config, github_client)
+
+        # Get statistics
+        stats = tracker.get_contribution_stats(days)
+
+        # Display statistics
+        print_success_panel(
+            "Contribution Statistics",
+            f"📊 Total Contributions: {stats.total_contributions}\n"
+            f"📈 Open: {stats.open_contributions} | Closed: {stats.closed_contributions} | Merged: {stats.merged_contributions}\n"
+            f"🏢 Repositories: {stats.repositories_contributed_to}\n"
+            f"💡 Skills Developed: {len(stats.skills_developed)}\n"
+            f"⭐ Average Impact Score: {stats.average_impact_score:.2f}",
+        )
+
+        # Show skills
+        if stats.skills_developed:
+            skills_list = ", ".join(sorted(stats.skills_developed))
+            print_info_panel(
+                "Skills Developed",
+                f"🎯 {skills_list}",
+            )
+
+        # Show recent activity
+        if stats.recent_activity:
+            print_info_panel(
+                "Recent Activity",
+                f"🕒 Last {len(stats.recent_activity)} contributions:",
+            )
+            for i, contribution in enumerate(stats.recent_activity[:5], 1):
+                print_info_panel(
+                    f"{i}. {contribution.issue_title}",
+                    f"Repository: {contribution.repository}\n"
+                    f"Type: {contribution.contribution_type}\n"
+                    f"Status: {contribution.status}\n"
+                    f"Impact: {contribution.impact_score:.2f}\n"
+                    f"Skills: {', '.join(contribution.skills_used)}",
+                )
+
+        # Export if requested
+        if export:
+            try:
+                import json
+                from datetime import datetime
+
+                export_data = {
+                    "exported_at": datetime.now().isoformat(),
+                    "period_days": days,
+                    "statistics": {
+                        "total_contributions": stats.total_contributions,
+                        "open_contributions": stats.open_contributions,
+                        "closed_contributions": stats.closed_contributions,
+                        "merged_contributions": stats.merged_contributions,
+                        "repositories_contributed_to": stats.repositories_contributed_to,
+                        "skills_developed": list(stats.skills_developed),
+                        "total_impact_score": stats.total_impact_score,
+                        "average_impact_score": stats.average_impact_score,
+                        "contribution_timeline": stats.contribution_timeline,
+                    },
+                    "recent_activity": [
+                        {
+                            "repository": c.repository,
+                            "issue_number": c.issue_number,
+                            "issue_title": c.issue_title,
+                            "contribution_type": c.contribution_type,
+                            "status": c.status,
+                            "impact_score": c.impact_score,
+                            "skills_used": c.skills_used,
+                            "created_at": c.created_at,
+                            "updated_at": c.updated_at,
+                        }
+                        for c in stats.recent_activity
+                    ],
+                }
+
+                with open(export, "w", encoding="utf-8") as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+                print_success_panel(
+                    "Export Successful",
+                    f"✅ Statistics exported to {export}",
+                )
+
+            except Exception as e:
+                print_error_panel("Export Failed", f"Failed to export statistics: {e}")
+
+    except Exception as e:
+        print_error_panel(
+            "Statistics Failed",
+            f"An error occurred while calculating statistics: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
+
+
+@contributions.command()
+@click.option("--skill", "-s", help="Filter by skill")
+@click.option("--repository", "-r", help="Filter by repository")
+@click.option("--limit", "-n", type=int, default=10, help="Number of recommendations")
+@click.pass_context
+def recommendations(
+    ctx: click.Context, skill: Optional[str], repository: Optional[str], limit: int
+) -> None:
+    """Get personalized contribution recommendations."""
+    print_info_panel(
+        "Generating Recommendations",
+        "Analyzing your contribution history for personalized recommendations...",
+    )
+
+    try:
+        # Load configuration
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+
+        # Create GitHub client
+        github_credentials = config_manager.get_github_credentials()
+        github_client = create_github_client(
+            token=github_credentials.get("token"),  # type: ignore
+            username=github_credentials.get("username"),  # type: ignore
+            password=github_credentials.get("password"),  # type: ignore
+            base_url=config.settings.github_api_url,
+        )
+
+        # Create contribution tracker
+        from .contribution_tracker import create_contribution_tracker
+
+        tracker = create_contribution_tracker(config, github_client)
+
+        # Get user skills from configuration
+        user_skills = []
+        for repo in config.repositories:
+            user_skills.extend(repo.skills)
+        user_skills = list(set(user_skills))  # Remove duplicates
+
+        if skill:
+            user_skills = [skill]
+
+        # Get recommendations
+        recommendations = tracker.get_contribution_recommendations(user_skills)
+
+        if not recommendations:
+            print_warning_panel(
+                "No Recommendations",
+                "No personalized recommendations found. Try syncing your contribution history first.",
+            )
+            return
+
+        # Apply filters
+        if repository:
+            recommendations = [r for r in recommendations if repository in r.repository]
+
+        # Apply limit
+        recommendations = recommendations[:limit]
+
+        print_success_panel(
+            "Personalized Recommendations",
+            f"🎯 Found {len(recommendations)} recommendations based on your history",
+        )
+
+        for i, recommendation in enumerate(recommendations, 1):
+            print_info_panel(
+                f"{i}. {recommendation.issue_title}",
+                f"Repository: {recommendation.repository}\n"
+                f"Type: {recommendation.contribution_type}\n"
+                f"Status: {recommendation.status}\n"
+                f"Impact Score: {recommendation.impact_score:.2f}\n"
+                f"Skills: {', '.join(recommendation.skills_used)}\n"
+                f"URL: {recommendation.issue_url}",
+            )
+
+    except Exception as e:
+        print_error_panel(
+            "Recommendations Failed",
+            f"An error occurred while generating recommendations: {str(e)}",
+        )
+        if ctx.obj.get("verbose"):
+            raise
 
 
 if __name__ == "__main__":
