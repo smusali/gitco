@@ -1,25 +1,24 @@
 repositories:
-  - analysis_enabled: true
-    fork: username/django
-    local_path: ~/code/django
-    name: django
-    skills:
-      - python
-      - web
-      - orm
-    upstream: django/django
-  - analysis_enabled: true
-    fork: username/fastapi
-    local_path: ~/code/fastapi
-    name: fastapi
-    skills:
-      - python
-      - api
-      - async
-    upstream: tiangolo/fastapi
+- analysis_enabled: true
+  fork: username/django
+  local_path: ~/code/django
+  name: django
+  skills:
+  - python
+  - web
+  - orm
+  upstream: django/django
+- analysis_enabled: true
+  fork: username/fastapi
+  local_path: ~/code/fastapi
+  name: fastapi
+  skills:
+  - python
+  - api
+  - async
+  upstream: tiangolo/fastapi
 settings:
   analysis_enabled: true
-  api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   git_timeout: 300
   github_api_url: https://api.github.com
@@ -31,6 +30,4 @@ settings:
   llm_provider: openai
   log_level: INFO
   max_repos_per_batch: 10
-  ollama_host: http://localhost:11434
-  ollama_model: llama2
   rate_limit_delay: 1.0

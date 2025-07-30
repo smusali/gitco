@@ -43,25 +43,6 @@ def mock_anthropic_response() -> Mock:
     return mock_response
 
 
-def mock_ollama_response() -> Mock:
-    """Create a mock Ollama API response."""
-    mock_response = Mock()
-    mock_response.json.return_value = {
-        "response": """{
-            "summary": "Test summary",
-            "breaking_changes": ["Change 1", "Change 2"],
-            "new_features": ["Feature 1"],
-            "bug_fixes": ["Fix 1"],
-            "security_updates": ["Security 1"],
-            "deprecations": ["Deprecation 1"],
-            "recommendations": ["Recommendation 1"],
-            "confidence": 0.85
-        }"""
-    }
-    mock_response.status_code = 200
-    return mock_response
-
-
 def mock_analysis_request(
     repository_name: str = "test-repo",
     repository_fork: str = "user/fork",

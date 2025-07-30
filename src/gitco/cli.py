@@ -152,9 +152,7 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
     border_style = (
         "green"
         if recommendation.overall_score > 0.7
-        else "yellow"
-        if recommendation.overall_score > 0.4
-        else "blue"
+        else "yellow" if recommendation.overall_score > 0.4 else "blue"
     )
 
     panel = Panel(
@@ -679,7 +677,7 @@ def sync(
 @main.command()
 @click.option("--repo", "-r", required=True, help="Repository to analyze")
 @click.option("--prompt", "-p", help="Custom analysis prompt")
-@click.option("--provider", help="LLM provider to use (openai, anthropic, ollama)")
+@click.option("--provider", help="LLM provider to use (openai, anthropic)")
 @click.option("--repos", help="Analyze multiple repositories (comma-separated)")
 @click.option("--export", "-e", help="Export analysis to file")
 @click.pass_context
@@ -731,7 +729,7 @@ def analyze(
         selected_provider = provider or config.settings.llm_provider
 
         # Validate provider
-        valid_providers = ["openai", "anthropic", "ollama"]
+        valid_providers = ["openai", "anthropic"]
         if selected_provider not in valid_providers:
             print_error_panel(
                 "Invalid LLM Provider",
@@ -1619,7 +1617,9 @@ def add(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote addition", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1667,7 +1667,9 @@ def remove(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote removal", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1716,7 +1718,9 @@ def update(ctx: click.Context, repo: str, url: str) -> None:
             log_operation_failure(
                 "upstream remote update", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1765,7 +1769,9 @@ def validate_upstream(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream remote validation", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1825,7 +1831,9 @@ def fetch(ctx: click.Context, repo: str) -> None:
             log_operation_failure(
                 "upstream fetch", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -1901,7 +1909,9 @@ def merge(
             log_operation_failure(
                 "upstream merge", ValidationError("Invalid repository path")
             )
-            print_error_panel("Invalid Repository Path", "❌ Invalid repository path:\n")
+            print_error_panel(
+                "Invalid Repository Path", "❌ Invalid repository path:\n"
+            )
             for error in errors:
                 print_error_panel("Error", f"  - {error}")
             sys.exit(1)
@@ -2795,7 +2805,9 @@ def stats(ctx: click.Context, days: Optional[int], export: Optional[str]) -> Non
         if stats.collaboration_score > 0 or stats.recognition_score > 0:
             advanced_summary = ""
             if stats.collaboration_score > 0:
-                advanced_summary += f"🤝 Collaboration: {stats.collaboration_score:.2f} "
+                advanced_summary += (
+                    f"🤝 Collaboration: {stats.collaboration_score:.2f} "
+                )
             if stats.recognition_score > 0:
                 advanced_summary += f"🏆 Recognition: {stats.recognition_score:.2f} "
             if stats.influence_score > 0:
@@ -3125,7 +3137,9 @@ def trending(ctx: click.Context, days: Optional[int], export: Optional[str]) -> 
             if stats.influence_score > 0:
                 metrics_summary += f"💪 Influence: {stats.influence_score:.2f} "
             if stats.sustainability_score > 0:
-                metrics_summary += f"🌱 Sustainability: {stats.sustainability_score:.2f}"
+                metrics_summary += (
+                    f"🌱 Sustainability: {stats.sustainability_score:.2f}"
+                )
             print_info_panel("Advanced Metrics", metrics_summary)
 
         # Skill impact analysis

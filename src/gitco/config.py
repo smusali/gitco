@@ -37,15 +37,12 @@ class Settings:
     """Global settings configuration."""
 
     llm_provider: str = "openai"
-    api_key_env: str = "AETHERIUM_API_KEY"
     default_path: str = "~/code"
     analysis_enabled: bool = True
     max_repos_per_batch: int = 10
     git_timeout: int = 300
     rate_limit_delay: float = 1.0
     log_level: str = "INFO"
-    ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "llama2"
     # GitHub API settings
     github_token_env: str = "GITHUB_TOKEN"
     github_username_env: str = "GITHUB_USERNAME"
@@ -243,13 +240,8 @@ class ConfigManager:
         if config.settings.llm_provider not in [
             "openai",
             "anthropic",
-            "ollama",
-            "local",
-            "custom",
         ]:
-            errors.append(
-                "Invalid LLM provider. Must be one of: openai, anthropic, ollama, local, custom"
-            )
+            errors.append("Invalid LLM provider. Must be one of: openai, anthropic")
             log_validation_result(
                 "settings llm_provider",
                 False,
@@ -383,15 +375,12 @@ class ConfigManager:
             settings_data = data["settings"]
             config.settings = Settings(
                 llm_provider=settings_data.get("llm_provider", "openai"),
-                api_key_env=settings_data.get("api_key_env", "AETHERIUM_API_KEY"),
                 default_path=settings_data.get("default_path", "~/code"),
                 analysis_enabled=settings_data.get("analysis_enabled", True),
                 max_repos_per_batch=settings_data.get("max_repos_per_batch", 10),
                 git_timeout=settings_data.get("git_timeout", 300),
                 rate_limit_delay=settings_data.get("rate_limit_delay", 1.0),
                 log_level=settings_data.get("log_level", "INFO"),
-                ollama_host=settings_data.get("ollama_host", "http://localhost:11434"),
-                ollama_model=settings_data.get("ollama_model", "llama2"),
                 # GitHub settings
                 github_token_env=settings_data.get("github_token_env", "GITHUB_TOKEN"),
                 github_username_env=settings_data.get(
@@ -422,15 +411,12 @@ class ConfigManager:
             "repositories": [],
             "settings": {
                 "llm_provider": config.settings.llm_provider,
-                "api_key_env": config.settings.api_key_env,
                 "default_path": config.settings.default_path,
                 "analysis_enabled": config.settings.analysis_enabled,
                 "max_repos_per_batch": config.settings.max_repos_per_batch,
                 "git_timeout": config.settings.git_timeout,
                 "rate_limit_delay": config.settings.rate_limit_delay,
                 "log_level": config.settings.log_level,
-                "ollama_host": config.settings.ollama_host,
-                "ollama_model": config.settings.ollama_model,
                 # GitHub settings
                 "github_token_env": config.settings.github_token_env,
                 "github_username_env": config.settings.github_username_env,
@@ -494,14 +480,11 @@ def create_sample_config() -> dict[str, Any]:
         ],
         "settings": {
             "llm_provider": "openai",
-            "api_key_env": "AETHERIUM_API_KEY",
             "default_path": "~/code",
             "analysis_enabled": True,
             "max_repos_per_batch": 10,
             "git_timeout": 300,
             "rate_limit_delay": 1.0,
             "log_level": "INFO",
-            "ollama_host": "http://localhost:11434",
-            "ollama_model": "llama2",
         },
     }

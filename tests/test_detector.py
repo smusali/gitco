@@ -1,4 +1,6 @@
-"""Tests for the BaseDetector class and its implementations."""
+"""Tests for the detector module."""
+
+import pytest
 
 from gitco.detector import (
     BaseDetector,
@@ -11,19 +13,16 @@ from gitco.detector import (
 
 
 class MockDetector(BaseDetector):
-    """Mock detector for testing BaseDetector functionality."""
+    """Mock detector for testing."""
 
     def get_detector_name(self) -> str:
-        """Get the name of the detector."""
-        return "MockDetector"
+        return "mock_detector"
 
     def get_supported_types(self) -> list[str]:
-        """Get the list of supported detection types."""
         return ["mock_type"]
 
     def detect_mock_type(self, text: str) -> list[dict[str, str]]:
-        """Mock detection method."""
-        return [{"type": "mock_type", "description": "Mock detection"}]
+        return [{"type": "mock", "text": text}]
 
 
 class TestBaseDetector:
@@ -32,7 +31,7 @@ class TestBaseDetector:
     def test_base_detector_initialization(self) -> None:
         """Test that BaseDetector can be initialized."""
         detector = MockDetector()
-        assert detector.get_detector_name() == "MockDetector"
+        assert detector.get_detector_name() == "mock_detector"
         assert detector.get_supported_types() == ["mock_type"]
 
     def test_base_detector_abstract_methods(self) -> None:
@@ -743,3 +742,475 @@ class MockBaseDetector(BaseDetector):
     def get_supported_types(self) -> list[str]:
         """Mock supported types."""
         return ["mock_type"]
+
+
+# Additional test cases for SecurityUpdate dataclass
+def test_security_update_with_cve_id() -> None:
+    """Test SecurityUpdate with CVE ID."""
+    security_update = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed SQL injection vulnerability",
+        severity="critical",
+        affected_components=["database.py", "queries.py"],
+        cve_id="CVE-2023-1234",
+        remediation_guidance="Update to latest version and sanitize inputs",
+    )
+
+    assert security_update.type == "vulnerability_fix"
+    assert security_update.description == "Fixed SQL injection vulnerability"
+    assert security_update.severity == "critical"
+    assert security_update.affected_components == ["database.py", "queries.py"]
+    assert security_update.cve_id == "CVE-2023-1234"
+    assert (
+        security_update.remediation_guidance
+        == "Update to latest version and sanitize inputs"
+    )
+
+
+def test_security_update_without_cve_id() -> None:
+    """Test SecurityUpdate without CVE ID."""
+    security_update = SecurityUpdate(
+        type="authentication_fix",
+        description="Fixed session hijacking vulnerability",
+        severity="high",
+        affected_components=["session.py"],
+    )
+
+    assert security_update.type == "authentication_fix"
+    assert security_update.description == "Fixed session hijacking vulnerability"
+    assert security_update.severity == "high"
+    assert security_update.affected_components == ["session.py"]
+    assert security_update.cve_id is None
+    assert security_update.remediation_guidance is None
+
+
+def test_security_update_equality() -> None:
+    """Test SecurityUpdate instances equality."""
+    update1 = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed vulnerability",
+        severity="critical",
+        affected_components=["file.py"],
+        cve_id="CVE-2023-1234",
+    )
+
+    update2 = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed vulnerability",
+        severity="critical",
+        affected_components=["file.py"],
+        cve_id="CVE-2023-1234",
+    )
+
+    assert update1 == update2
+
+
+def test_security_update_inequality() -> None:
+    """Test SecurityUpdate instances inequality."""
+    update1 = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed vulnerability 1",
+        severity="critical",
+        affected_components=["file1.py"],
+    )
+
+    update2 = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed vulnerability 2",
+        severity="critical",
+        affected_components=["file2.py"],
+    )
+
+    assert update1 != update2
+
+
+def test_security_update_repr() -> None:
+    """Test SecurityUpdate string representation."""
+    security_update = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed SQL injection",
+        severity="critical",
+        affected_components=["database.py"],
+        cve_id="CVE-2023-1234",
+    )
+
+    repr_str = repr(security_update)
+    assert "SecurityUpdate" in repr_str
+    assert "vulnerability_fix" in repr_str
+    assert "CVE-2023-1234" in repr_str
+
+
+# Additional test cases for Deprecation dataclass
+def test_deprecation_with_replacement_guidance() -> None:
+    """Test Deprecation with replacement guidance."""
+    deprecation = Deprecation(
+        type="feature_deprecation",
+        description="Deprecated old authentication method",
+        severity="medium",
+        affected_components=["auth.py", "legacy.py"],
+        replacement_suggestion="Use OAuth 2.0 instead",
+        removal_date="2024-12-31",
+    )
+
+    assert deprecation.type == "feature_deprecation"
+    assert deprecation.description == "Deprecated old authentication method"
+    assert deprecation.severity == "medium"
+    assert deprecation.affected_components == ["auth.py", "legacy.py"]
+    assert deprecation.replacement_suggestion == "Use OAuth 2.0 instead"
+    assert deprecation.removal_date == "2024-12-31"
+
+
+def test_deprecation_without_replacement_guidance() -> None:
+    """Test Deprecation without replacement guidance."""
+    deprecation = Deprecation(
+        type="api_deprecation",
+        description="Deprecated old API endpoint",
+        severity="high",
+        affected_components=["api.py"],
+    )
+
+    assert deprecation.type == "api_deprecation"
+    assert deprecation.description == "Deprecated old API endpoint"
+    assert deprecation.severity == "high"
+    assert deprecation.affected_components == ["api.py"]
+    assert deprecation.replacement_suggestion is None
+    assert deprecation.removal_date is None
+
+
+def test_deprecation_equality() -> None:
+    """Test Deprecation instances equality."""
+    deprecation1 = Deprecation(
+        type="feature_deprecation",
+        description="Deprecated feature",
+        severity="medium",
+        affected_components=["file.py"],
+    )
+
+    deprecation2 = Deprecation(
+        type="feature_deprecation",
+        description="Deprecated feature",
+        severity="medium",
+        affected_components=["file.py"],
+    )
+
+    assert deprecation1 == deprecation2
+
+
+def test_deprecation_inequality() -> None:
+    """Test Deprecation instances inequality."""
+    deprecation1 = Deprecation(
+        type="feature_deprecation",
+        description="Deprecated feature 1",
+        severity="medium",
+        affected_components=["file1.py"],
+    )
+
+    deprecation2 = Deprecation(
+        type="api_deprecation",
+        description="Deprecated feature 2",
+        severity="high",
+        affected_components=["file2.py"],
+    )
+
+    assert deprecation1 != deprecation2
+
+
+def test_deprecation_repr() -> None:
+    """Test Deprecation string representation."""
+    deprecation = Deprecation(
+        type="feature_deprecation",
+        description="Deprecated old feature",
+        severity="medium",
+        affected_components=["legacy.py"],
+        replacement_suggestion="Use new feature",
+    )
+
+    repr_str = repr(deprecation)
+    assert "Deprecation" in repr_str
+    assert "feature_deprecation" in repr_str
+    assert "Deprecated old feature" in repr_str
+
+
+# Additional test cases for BreakingChange dataclass
+def test_breaking_change_with_migration_guidance() -> None:
+    """Test BreakingChange with migration guidance."""
+    breaking_change = BreakingChange(
+        type="api_signature_change",
+        description="Changed function signature",
+        severity="high",
+        affected_components=["api.py", "client.py"],
+        migration_guidance="Update function calls with new parameters",
+    )
+
+    assert breaking_change.type == "api_signature_change"
+    assert breaking_change.description == "Changed function signature"
+    assert breaking_change.severity == "high"
+    assert breaking_change.affected_components == ["api.py", "client.py"]
+    assert (
+        breaking_change.migration_guidance
+        == "Update function calls with new parameters"
+    )
+
+
+def test_breaking_change_without_migration_guidance() -> None:
+    """Test BreakingChange without migration guidance."""
+    breaking_change = BreakingChange(
+        type="database_schema_change",
+        description="Modified database schema",
+        severity="critical",
+        affected_components=["models.py", "migrations/"],
+    )
+
+    assert breaking_change.type == "database_schema_change"
+    assert breaking_change.description == "Modified database schema"
+    assert breaking_change.severity == "critical"
+    assert breaking_change.affected_components == ["models.py", "migrations/"]
+    assert breaking_change.migration_guidance is None
+
+
+def test_breaking_change_equality() -> None:
+    """Test BreakingChange instances equality."""
+    change1 = BreakingChange(
+        type="api_signature_change",
+        description="Changed API signature",
+        severity="high",
+        affected_components=["api.py"],
+        migration_guidance="Update calls",
+    )
+
+    change2 = BreakingChange(
+        type="api_signature_change",
+        description="Changed API signature",
+        severity="high",
+        affected_components=["api.py"],
+        migration_guidance="Update calls",
+    )
+
+    assert change1 == change2
+
+
+def test_breaking_change_inequality() -> None:
+    """Test BreakingChange instances inequality."""
+    change1 = BreakingChange(
+        type="api_signature_change",
+        description="Changed API signature 1",
+        severity="high",
+        affected_components=["api1.py"],
+    )
+
+    change2 = BreakingChange(
+        type="database_schema_change",
+        description="Changed API signature 2",
+        severity="critical",
+        affected_components=["api2.py"],
+    )
+
+    assert change1 != change2
+
+
+def test_breaking_change_repr() -> None:
+    """Test BreakingChange string representation."""
+    breaking_change = BreakingChange(
+        type="api_signature_change",
+        description="Changed function signature",
+        severity="high",
+        affected_components=["api.py"],
+        migration_guidance="Update function calls",
+    )
+
+    repr_str = repr(breaking_change)
+    assert "BreakingChange" in repr_str
+    assert "api_signature_change" in repr_str
+    assert "Changed function signature" in repr_str
+
+
+# Additional test cases for BaseDetector class
+def test_base_detector_with_custom_logger() -> None:
+    """Test BaseDetector with custom logger."""
+    detector = MockBaseDetector()
+
+    assert detector.logger is not None
+    assert hasattr(detector.logger, "info")
+    assert hasattr(detector.logger, "error")
+    assert hasattr(detector.logger, "debug")
+
+
+def test_base_detector_abstract_methods_raise_error() -> None:
+    """Test that BaseDetector abstract methods raise NotImplementedError."""
+
+    # Create a class that doesn't implement abstract methods
+    class IncompleteDetector(BaseDetector):
+        pass
+
+    with pytest.raises(TypeError, match="Can't instantiate abstract class"):
+        IncompleteDetector()  # type: ignore
+
+
+def test_base_detector_pattern_matching() -> None:
+    """Test BaseDetector pattern matching functionality."""
+    detector = MockBaseDetector()
+    text = "This contains a vulnerability CVE-2023-1234"
+    patterns = {"vulnerability": [r"CVE-\d{4}-\d{4}"]}
+
+    matches = detector._match_patterns(text, patterns)
+
+    assert len(matches) == 1
+    assert "cve-2023-1234" in matches[0][1].lower()  # Case insensitive match
+
+
+def test_base_detector_severity_determination() -> None:
+    """Test BaseDetector severity determination."""
+    detector = MockBaseDetector()
+
+    # Test high severity patterns
+    high_severity_text = "CRITICAL: security vulnerability"
+    high_patterns = ["critical", "security"]
+    medium_patterns = ["deprecated"]
+    severity = detector._determine_severity(
+        high_severity_text, high_patterns, medium_patterns
+    )
+    assert severity == "high"
+
+    # Test medium severity patterns
+    medium_severity_text = "deprecated feature"
+    severity = detector._determine_severity(
+        medium_severity_text, high_patterns, medium_patterns
+    )
+    assert severity == "medium"
+
+    # Test low severity patterns
+    low_severity_text = "minor change"
+    severity = detector._determine_severity(
+        low_severity_text, high_patterns, medium_patterns
+    )
+    assert severity == "low"
+
+
+def test_base_detector_component_extraction() -> None:
+    """Test BaseDetector component extraction."""
+    detector = MockBaseDetector()
+    text = "Changed files: api.py, client.py, models.py"
+
+    components = detector._extract_affected_components(text)
+
+    assert "api.py" in components
+    assert "client.py" in components
+    assert "models.py" in components
+
+
+# Additional test cases for SecurityDeprecationDetector class
+def test_security_deprecation_detector_with_custom_patterns() -> None:
+    """Test SecurityDeprecationDetector with custom patterns."""
+    detector = SecurityDeprecationDetector()
+
+    # Test security update detection
+    security_text = "Fixed CVE-2023-1234 vulnerability"
+    updates = detector.detect_security_updates(security_text, ["security fix"])
+
+    assert isinstance(updates, list)
+
+    # Test deprecation detection
+    deprecation_text = "Deprecated old authentication method"
+    deprecations = detector.detect_deprecations(
+        deprecation_text, ["deprecated: old auth"]
+    )
+
+    assert isinstance(deprecations, list)
+
+
+def test_security_deprecation_detector_with_complex_text() -> None:
+    """Test SecurityDeprecationDetector with complex text."""
+    detector = SecurityDeprecationDetector()
+
+    complex_text = """
+    Fixed multiple security vulnerabilities:
+    - CVE-2023-1234: SQL injection in database.py
+    - CVE-2023-5678: XSS vulnerability in web.py
+    Also deprecated old authentication system in auth.py
+    """
+
+    updates = detector.detect_security_updates(complex_text, ["security fixes"])
+    deprecations = detector.detect_deprecations(complex_text, ["deprecated auth"])
+
+    assert isinstance(updates, list)
+    assert isinstance(deprecations, list)
+
+
+def test_security_deprecation_detector_with_empty_input() -> None:
+    """Test SecurityDeprecationDetector with empty input."""
+    detector = SecurityDeprecationDetector()
+
+    updates = detector.detect_security_updates("", [])
+    deprecations = detector.detect_deprecations("", [])
+
+    assert isinstance(updates, list)
+    assert isinstance(deprecations, list)
+
+
+def test_security_deprecation_detector_inheritance() -> None:
+    """Test SecurityDeprecationDetector inheritance from BaseDetector."""
+    detector = SecurityDeprecationDetector()
+
+    assert isinstance(detector, BaseDetector)
+    assert hasattr(detector, "logger")
+    assert hasattr(detector, "_match_patterns")
+    assert hasattr(detector, "_determine_severity")
+
+
+def test_security_deprecation_detector_supported_types() -> None:
+    """Test SecurityDeprecationDetector supported types."""
+    detector = SecurityDeprecationDetector()
+    supported_types = detector.get_supported_types()
+
+    assert "security_update" in supported_types
+    assert "deprecation" in supported_types
+    assert len(supported_types) == 2
+
+
+# Additional test cases for BreakingChangeDetector class
+def test_breaking_change_detector_with_api_changes() -> None:
+    """Test BreakingChangeDetector with API changes."""
+    detector = BreakingChangeDetector()
+
+    api_change_text = "BREAKING CHANGE: API signature changed in api.py"
+    changes = detector.detect_breaking_changes(
+        api_change_text, ["feat: breaking API change"]
+    )
+
+    assert isinstance(changes, list)
+
+
+def test_breaking_change_detector_with_database_changes() -> None:
+    """Test BreakingChangeDetector with database changes."""
+    detector = BreakingChangeDetector()
+
+    db_change_text = "Modified database schema in models.py"
+    changes = detector.detect_breaking_changes(
+        db_change_text, ["feat: database schema change"]
+    )
+
+    assert isinstance(changes, list)
+
+
+def test_breaking_change_detector_with_dependency_changes() -> None:
+    """Test BreakingChangeDetector with dependency changes."""
+    detector = BreakingChangeDetector()
+
+    dep_change_text = "Updated dependencies in requirements.txt"
+    changes = detector.detect_breaking_changes(
+        dep_change_text, ["feat: update dependencies"]
+    )
+
+    assert isinstance(changes, list)
+
+
+def test_breaking_change_detector_with_configuration_changes() -> None:
+    """Test BreakingChangeDetector with configuration changes."""
+    detector = BreakingChangeDetector()
+
+    config_change_text = "Changed configuration in config.py"
+    changes = detector.detect_breaking_changes(
+        config_change_text, ["feat: configuration change"]
+    )
+
+    assert isinstance(changes, list)

@@ -11,9 +11,11 @@ from gitco.github_client import (
     GitHubAuthenticationError,
     GitHubClient,
     GitHubIssue,
+    GitHubRateLimitExceeded,
     GitHubRepository,
     create_github_client,
 )
+from gitco.utils import APIError
 
 
 class TestGitHubIssue:
@@ -628,3 +630,483 @@ class TestCreateGitHubClient:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# Additional test cases for GitHubIssue dataclass
+def test_github_issue_with_all_fields() -> None:
+    """Test GitHubIssue with all fields populated."""
+    issue = GitHubIssue(
+        number=123,
+        title="Fix bug in authentication",
+        state="open",
+        labels=["bug", "help wanted"],
+        assignees=["user1", "user2"],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/123",
+        body="There's a bug in the authentication system",
+        user="testuser",
+        milestone="v2.0",
+        comments_count=5,
+        reactions_count=3,
+    )
+
+    assert issue.number == 123
+    assert issue.title == "Fix bug in authentication"
+    assert issue.body == "There's a bug in the authentication system"
+    assert issue.state == "open"
+    assert issue.labels == ["bug", "help wanted"]
+    assert issue.assignees == ["user1", "user2"]
+    assert issue.milestone == "v2.0"
+    assert issue.created_at == "2023-01-01T00:00:00Z"
+    assert issue.updated_at == "2023-01-02T00:00:00Z"
+    assert issue.comments_count == 5
+    assert issue.reactions_count == 3
+
+
+def test_github_issue_with_minimal_fields() -> None:
+    """Test GitHubIssue with minimal required fields."""
+    issue = GitHubIssue(
+        number=456,
+        title="Documentation update",
+        state="open",
+        labels=[],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/456",
+        body="Update the README file",
+    )
+
+    assert issue.number == 456
+    assert issue.title == "Documentation update"
+    assert issue.body == "Update the README file"
+    assert issue.state == "open"
+    assert issue.labels == []
+    assert issue.assignees == []
+    assert issue.milestone is None
+    assert issue.created_at == "2023-01-01T00:00:00Z"
+    assert issue.updated_at == "2023-01-02T00:00:00Z"
+    assert issue.comments_count == 0
+    assert issue.reactions_count == 0
+
+
+def test_github_issue_equality() -> None:
+    """Test GitHubIssue instances equality."""
+    issue1 = GitHubIssue(
+        number=123,
+        title="Test issue",
+        state="open",
+        labels=["bug"],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/123",
+        body="Test body",
+    )
+
+    issue2 = GitHubIssue(
+        number=123,
+        title="Test issue",
+        state="open",
+        labels=["bug"],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/123",
+        body="Test body",
+    )
+
+    assert issue1 == issue2
+
+
+def test_github_issue_inequality() -> None:
+    """Test GitHubIssue instances inequality."""
+    issue1 = GitHubIssue(
+        number=123,
+        title="Test issue 1",
+        state="open",
+        labels=[],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/123",
+        body="Test body 1",
+    )
+
+    issue2 = GitHubIssue(
+        number=124,
+        title="Test issue 2",
+        state="closed",
+        labels=[],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/124",
+        body="Test body 2",
+    )
+
+    assert issue1 != issue2
+
+
+def test_github_issue_repr() -> None:
+    """Test GitHubIssue string representation."""
+    issue = GitHubIssue(
+        number=123,
+        title="Fix authentication bug",
+        state="open",
+        labels=["bug", "security"],
+        assignees=[],
+        created_at="2023-01-01T00:00:00Z",
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/repo/issues/123",
+        body="There's a bug in auth",
+    )
+
+    repr_str = repr(issue)
+    assert "GitHubIssue" in repr_str
+    assert "123" in repr_str
+    assert "Fix authentication bug" in repr_str
+
+
+# Additional test cases for GitHubRepository dataclass
+def test_github_repository_with_all_fields() -> None:
+    """Test GitHubRepository with all fields populated."""
+    repo = GitHubRepository(
+        name="test-repo",
+        full_name="owner/test-repo",
+        description="A test repository",
+        language="Python",
+        stargazers_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/test-repo",
+        clone_url="https://github.com/owner/test-repo.git",
+        default_branch="main",
+        topics=["python", "testing", "automation"],
+        archived=False,
+        disabled=False,
+    )
+
+    assert repo.name == "test-repo"
+    assert repo.full_name == "owner/test-repo"
+    assert repo.description == "A test repository"
+    assert repo.language == "Python"
+    assert repo.topics == ["python", "testing", "automation"]
+    assert repo.stargazers_count == 100
+    assert repo.forks_count == 25
+    assert repo.open_issues_count == 10
+    assert repo.default_branch == "main"
+    assert repo.updated_at == "2023-01-02T00:00:00Z"
+    assert repo.clone_url == "https://github.com/owner/test-repo.git"
+    assert repo.archived is False
+    assert repo.disabled is False
+
+
+def test_github_repository_with_minimal_fields() -> None:
+    """Test GitHubRepository with minimal required fields."""
+    repo = GitHubRepository(
+        name="minimal-repo",
+        full_name="owner/minimal-repo",
+        description="A minimal repository",
+        language="JavaScript",
+        stargazers_count=0,
+        forks_count=0,
+        open_issues_count=0,
+        updated_at="2023-01-01T00:00:00Z",
+        html_url="https://github.com/owner/minimal-repo",
+        clone_url="https://github.com/owner/minimal-repo.git",
+        default_branch="main",
+    )
+
+    assert repo.name == "minimal-repo"
+    assert repo.full_name == "owner/minimal-repo"
+    assert repo.description == "A minimal repository"
+    assert repo.language == "JavaScript"
+    assert repo.topics is None
+    assert repo.stargazers_count == 0
+    assert repo.forks_count == 0
+    assert repo.open_issues_count == 0
+    assert repo.default_branch == "main"
+    assert repo.updated_at == "2023-01-01T00:00:00Z"
+    assert repo.clone_url == "https://github.com/owner/minimal-repo.git"
+    assert repo.archived is False
+    assert repo.disabled is False
+
+
+def test_github_repository_equality() -> None:
+    """Test GitHubRepository instances equality."""
+    repo1 = GitHubRepository(
+        name="test-repo",
+        full_name="owner/test-repo",
+        description="Test repository",
+        language="Python",
+        stargazers_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        updated_at="2023-01-01T00:00:00Z",
+        html_url="https://github.com/owner/test-repo",
+        clone_url="https://github.com/owner/test-repo.git",
+        default_branch="main",
+    )
+
+    repo2 = GitHubRepository(
+        name="test-repo",
+        full_name="owner/test-repo",
+        description="Test repository",
+        language="Python",
+        stargazers_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        updated_at="2023-01-01T00:00:00Z",
+        html_url="https://github.com/owner/test-repo",
+        clone_url="https://github.com/owner/test-repo.git",
+        default_branch="main",
+    )
+
+    assert repo1 == repo2
+
+
+def test_github_repository_inequality() -> None:
+    """Test GitHubRepository instances inequality."""
+    repo1 = GitHubRepository(
+        name="test-repo-1",
+        full_name="owner/test-repo-1",
+        description="Test repository 1",
+        language="Python",
+        stargazers_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        updated_at="2023-01-01T00:00:00Z",
+        html_url="https://github.com/owner/test-repo-1",
+        clone_url="https://github.com/owner/test-repo-1.git",
+        default_branch="main",
+    )
+
+    repo2 = GitHubRepository(
+        name="test-repo-2",
+        full_name="owner/test-repo-2",
+        description="Test repository 2",
+        language="JavaScript",
+        stargazers_count=200,
+        forks_count=50,
+        open_issues_count=20,
+        updated_at="2023-01-02T00:00:00Z",
+        html_url="https://github.com/owner/test-repo-2",
+        clone_url="https://github.com/owner/test-repo-2.git",
+        default_branch="main",
+    )
+
+    assert repo1 != repo2
+
+
+def test_github_repository_repr() -> None:
+    """Test GitHubRepository string representation."""
+    repo = GitHubRepository(
+        name="test-repo",
+        full_name="owner/test-repo",
+        description="A test repository",
+        language="Python",
+        stargazers_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        updated_at="2023-01-01T00:00:00Z",
+        html_url="https://github.com/owner/test-repo",
+        clone_url="https://github.com/owner/test-repo.git",
+        default_branch="main",
+    )
+
+    repr_str = repr(repo)
+    assert "GitHubRepository" in repr_str
+    assert "test-repo" in repr_str
+    assert "Python" in repr_str
+
+
+# Additional test cases for GitHubRateLimitExceeded exception class
+def test_github_rate_limit_exceeded_creation() -> None:
+    """Test GitHubRateLimitExceeded creation."""
+    error = GitHubRateLimitExceeded("Rate limit exceeded")
+
+    assert str(error) == "Rate limit exceeded"
+    assert isinstance(error, GitHubRateLimitExceeded)
+    assert isinstance(error, Exception)
+
+
+def test_github_rate_limit_exceeded_with_cause() -> None:
+    """Test GitHubRateLimitExceeded with a cause."""
+    original_error = ValueError("Original error")
+    error = GitHubRateLimitExceeded("Rate limit exceeded")
+    error.__cause__ = original_error
+
+    assert str(error) == "Rate limit exceeded"
+    assert error.__cause__ == original_error
+
+
+def test_github_rate_limit_exceeded_inheritance() -> None:
+    """Test GitHubRateLimitExceeded inheritance hierarchy."""
+    error = GitHubRateLimitExceeded("Rate limit exceeded")
+
+    assert isinstance(error, GitHubRateLimitExceeded)
+    assert isinstance(error, Exception)
+    # Should inherit from APIError (which inherits from GitCoError)
+    from gitco.utils import GitCoError
+
+    assert isinstance(error, APIError)
+    assert isinstance(error, GitCoError)
+
+
+def test_github_rate_limit_exceeded_repr() -> None:
+    """Test GitHubRateLimitExceeded string representation."""
+    error = GitHubRateLimitExceeded("Rate limit exceeded")
+
+    repr_str = repr(error)
+    assert "GitHubRateLimitExceeded" in repr_str
+    assert "Rate limit exceeded" in repr_str
+
+
+def test_github_rate_limit_exceeded_attributes() -> None:
+    """Test GitHubRateLimitExceeded attributes."""
+    error = GitHubRateLimitExceeded("Rate limit exceeded")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+# Additional test cases for GitHubAuthenticationError exception class
+def test_github_authentication_error_creation() -> None:
+    """Test GitHubAuthenticationError creation."""
+    error = GitHubAuthenticationError("Authentication failed")
+
+    assert str(error) == "Authentication failed"
+    assert isinstance(error, GitHubAuthenticationError)
+    assert isinstance(error, Exception)
+
+
+def test_github_authentication_error_with_cause() -> None:
+    """Test GitHubAuthenticationError with a cause."""
+    original_error = ValueError("Original error")
+    error = GitHubAuthenticationError("Authentication failed")
+    error.__cause__ = original_error
+
+    assert str(error) == "Authentication failed"
+    assert error.__cause__ == original_error
+
+
+def test_github_authentication_error_inheritance() -> None:
+    """Test GitHubAuthenticationError inheritance hierarchy."""
+    error = GitHubAuthenticationError("Authentication failed")
+
+    assert isinstance(error, GitHubAuthenticationError)
+    assert isinstance(error, Exception)
+    # Should inherit from APIError (which inherits from GitCoError)
+    from gitco.utils import GitCoError
+
+    assert isinstance(error, APIError)
+    assert isinstance(error, GitCoError)
+
+
+def test_github_authentication_error_repr() -> None:
+    """Test GitHubAuthenticationError string representation."""
+    error = GitHubAuthenticationError("Authentication failed")
+
+    repr_str = repr(error)
+    assert "GitHubAuthenticationError" in repr_str
+    assert "Authentication failed" in repr_str
+
+
+def test_github_authentication_error_attributes() -> None:
+    """Test GitHubAuthenticationError attributes."""
+    error = GitHubAuthenticationError("Authentication failed")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+# Additional test cases for GitHubClient class
+def test_github_client_with_custom_base_url() -> None:
+    """Test GitHubClient with custom base URL."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(
+            token="test_token",
+            base_url="https://api.github.com",
+        )
+
+        assert client.base_url == "https://api.github.com"
+        mock_github.assert_called_once()
+
+
+def test_github_client_with_custom_timeout() -> None:
+    """Test GitHubClient with custom timeout."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(
+            token="test_token",
+            timeout=60,
+        )
+
+        assert client.timeout == 60
+
+
+def test_github_client_get_user_info() -> None:
+    """Test GitHubClient get_user_info method."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_user.name = "Test User"
+        mock_user.email = "test@example.com"
+        mock_github_instance.get_user.return_value = mock_user
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(token="test_token")
+        user_info = client.get_user_info()
+
+        assert user_info["login"] == "testuser"
+        assert user_info["name"] == "Test User"
+        assert user_info["email"] == "test@example.com"
+
+
+def test_github_client_get_user_info_error() -> None:
+    """Test GitHubClient get_user_info method with error."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github_instance.get_user.side_effect = Exception("API Error")
+        mock_github.return_value = mock_github_instance
+
+        with pytest.raises(
+            GitHubAuthenticationError, match="GitHub authentication failed"
+        ):
+            GitHubClient(token="test_token")
+
+
+def test_github_client_get_rate_limit_info() -> None:
+    """Test GitHubClient get_rate_limit_info method."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_rate_limit = Mock()
+        mock_rate_limit.core.limit = 5000
+        mock_rate_limit.core.remaining = 4500
+        mock_rate_limit.core.reset = 1640995200
+        mock_rate_limit.search.limit = 30
+        mock_rate_limit.search.remaining = 25
+        mock_rate_limit.search.reset = 1640995200
+        mock_github_instance.get_rate_limit.return_value = mock_rate_limit
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(token="test_token")
+        rate_limit_info = client.get_rate_limit_info()
+
+        assert rate_limit_info["core"]["limit"] == 5000
+        assert rate_limit_info["core"]["remaining"] == 4500
+        assert rate_limit_info["core"]["reset"] == 1640995200
+        assert rate_limit_info["search"]["limit"] == 30
+        assert rate_limit_info["search"]["remaining"] == 25
+        assert rate_limit_info["search"]["reset"] == 1640995200

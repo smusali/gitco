@@ -272,7 +272,10 @@ class BatchProcessor:
         table.add_row("Successful", f"[green]{successful}[/green]")
         table.add_row("Failed", f"[red]{failed}[/red]")
         table.add_row("Total duration", f"{total_duration:.2f}s")
-        table.add_row("Average per repo", f"{total_duration / len(results):.2f}s")
+        if len(results) > 0:
+            table.add_row("Average per repo", f"{total_duration / len(results):.2f}s")
+        else:
+            table.add_row("Average per repo", "N/A")
 
         console.print("\n")
         console.print(table)
@@ -1469,6 +1472,68 @@ class GitRepository:
             self.logger.warning(f"Failed to get recent commit messages: {e}")
             return []
 
+    def get_recent_commits(self, num_commits: int = 10) -> str:
+        """Get recent commits information.
+
+        Args:
+            num_commits: Number of recent commits to get
+
+        Returns:
+            String representation of recent commits
+        """
+        try:
+            result = self._run_git_command(
+                ["log", f"-{num_commits}", "--oneline"], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()  # type: ignore
+            return ""
+        except Exception as e:
+            self.logger.debug(f"Error getting recent commits: {e}")
+            return ""
+
+    def get_commit_diff(self, commit_hash: str) -> str:
+        """Get diff for a specific commit.
+
+        Args:
+            commit_hash: Commit hash
+
+        Returns:
+            Diff content
+        """
+        try:
+            result = self._run_git_command(
+                ["show", commit_hash], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()  # type: ignore
+            return ""
+        except Exception as e:
+            self.logger.debug(f"Error getting commit diff: {e}")
+            return ""
+
+    def get_commit_info(self, commit_hash: str) -> dict[str, Any]:
+        """Get information about a specific commit.
+
+        Args:
+            commit_hash: Commit hash
+
+        Returns:
+            Dictionary with commit information
+        """
+        try:
+            result = self._run_git_command(
+                ["show", "--format=fuller", "--no-patch", commit_hash],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return {"hash": commit_hash, "info": result.stdout.strip()}
+            return {"hash": commit_hash, "info": ""}
+        except Exception as e:
+            self.logger.debug(f"Error getting commit info: {e}")
+            return {"hash": commit_hash, "info": ""}
+
     def _run_git_command(
         self,
         args: list[str],
@@ -2464,3 +2529,63 @@ class GitRepositoryManager:
                 "conflicts": [],
                 "merge_commit": None,
             }
+
+    def sync_repository(self, path: str) -> dict[str, Any]:
+        """Sync a single repository.
+
+        Args:
+            path: Repository path
+
+        Returns:
+            Dictionary with sync results
+        """
+        try:
+            repo = GitRepository(path)
+            return repo.merge_upstream_branch()
+        except Exception as e:
+            self.logger.error(f"Failed to sync repository {path}: {e}")
+            return {"success": False, "error": str(e)}
+
+    def fetch_repository(self, path: str) -> dict[str, Any]:
+        """Fetch updates for a single repository.
+
+        Args:
+            path: Repository path
+
+        Returns:
+            Dictionary with fetch results
+        """
+        try:
+            repo = GitRepository(path)
+            success = repo.fetch_upstream()
+            return {"success": success, "error": None if success else "Fetch failed"}
+        except Exception as e:
+            self.logger.error(f"Failed to fetch repository {path}: {e}")
+            return {"success": False, "error": str(e)}
+
+    def validate_repository(self, path: str) -> dict[str, Any]:
+        """Validate a single repository.
+
+        Args:
+            path: Repository path
+
+        Returns:
+            Dictionary with validation results
+        """
+        try:
+            repo = GitRepository(path)
+            return repo.validate_upstream_remote()
+        except Exception as e:
+            self.logger.error(f"Failed to validate repository {path}: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_repository(self, path: str) -> GitRepository:
+        """Get a GitRepository instance for a path.
+
+        Args:
+            path: Repository path
+
+        Returns:
+            GitRepository instance
+        """
+        return GitRepository(path)

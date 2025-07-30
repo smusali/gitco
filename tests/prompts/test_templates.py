@@ -280,3 +280,180 @@ class TestPromptManager:
         assert "Changed function signature" in prompt
         assert "Fixed XSS vulnerability" in prompt
         assert "Deprecated old feature" in prompt
+
+
+# Additional test cases for PromptManager class
+def test_prompt_manager_with_custom_templates() -> None:
+    """Test PromptManager with custom template initialization."""
+    manager = PromptManager()
+
+    # Test that templates are properly initialized
+    system_prompt = manager.get_system_prompt()
+    assert isinstance(system_prompt, str)
+    assert len(system_prompt) > 0
+
+    analysis_prompt = manager.get_analysis_prompt(
+        repository_name="test-repo",
+        repository_fork="https://github.com/user/test",
+        repository_upstream="https://github.com/original/test",
+        repository_skills=["python"],
+        commit_messages=["test commit"],
+        diff_content="test diff",
+        diff_analysis="test analysis",
+        breaking_changes=[],
+        security_updates=[],
+        deprecations=[],
+    )
+    assert isinstance(analysis_prompt, str)
+    assert len(analysis_prompt) > 0
+
+
+def test_prompt_manager_system_prompt_content() -> None:
+    """Test PromptManager system prompt content."""
+    manager = PromptManager()
+    system_prompt = manager.get_system_prompt()
+
+    # Check for key elements in system prompt
+    assert "You are an expert software developer" in system_prompt
+    assert "breaking change detection" in system_prompt
+    assert "security analysis" in system_prompt
+
+
+def test_prompt_manager_analysis_prompt_with_complex_breaking_changes() -> None:
+    """Test PromptManager analysis prompt with complex breaking changes."""
+    manager = PromptManager()
+
+    complex_breaking_changes = [
+        BreakingChange(
+            type="database_schema_change",
+            description="Modified database schema structure",
+            severity="critical",
+            affected_components=["models.py", "migrations/"],
+            migration_guidance="Run database migrations and update ORM models",
+        ),
+        BreakingChange(
+            type="authentication_change",
+            description="Changed authentication mechanism",
+            severity="high",
+            affected_components=["auth.py", "middleware.py"],
+            migration_guidance="Update authentication calls and middleware",
+        ),
+    ]
+
+    prompt = manager.get_analysis_prompt(
+        repository_name="complex-repo",
+        repository_fork="https://github.com/user/complex",
+        repository_upstream="https://github.com/original/complex",
+        repository_skills=["python", "django", "database"],
+        commit_messages=[
+            "feat: database schema changes",
+            "feat: authentication system update",
+        ],
+        diff_content="diff --git a/models.py b/models.py\ndiff --git a/auth.py b/auth.py",
+        diff_analysis="Complex breaking changes in database and auth",
+        breaking_changes=complex_breaking_changes,
+        security_updates=[],
+        deprecations=[],
+    )
+
+    assert "complex-repo" in prompt
+    assert "Modified database schema structure" in prompt
+    assert "Changed authentication mechanism" in prompt
+    assert "Run database migrations" in prompt
+    assert "Update authentication calls" in prompt
+
+
+def test_prompt_manager_analysis_prompt_with_multiple_security_updates() -> None:
+    """Test PromptManager analysis prompt with multiple security updates."""
+    manager = PromptManager()
+
+    security_updates = [
+        SecurityUpdate(
+            type="dependency_vulnerability",
+            description="Fixed SQL injection vulnerability in ORM",
+            severity="critical",
+            affected_components=["orm.py", "queries.py"],
+            cve_id="CVE-2023-1234",
+            remediation_guidance="Update to latest ORM version and sanitize inputs",
+        ),
+        SecurityUpdate(
+            type="authentication_vulnerability",
+            description="Fixed session hijacking vulnerability",
+            severity="high",
+            affected_components=["session.py", "cookies.py"],
+            cve_id="CVE-2023-5678",
+            remediation_guidance="Implement secure session management",
+        ),
+    ]
+
+    prompt = manager.get_analysis_prompt(
+        repository_name="security-repo",
+        repository_fork="https://github.com/user/security",
+        repository_upstream="https://github.com/original/security",
+        repository_skills=["python", "security", "authentication"],
+        commit_messages=[
+            "fix: SQL injection vulnerability",
+            "fix: session hijacking vulnerability",
+        ],
+        diff_content="diff --git a/orm.py b/orm.py\ndiff --git a/session.py b/session.py",
+        diff_analysis="Multiple security fixes",
+        breaking_changes=[],
+        security_updates=security_updates,
+        deprecations=[],
+    )
+
+    assert "security-repo" in prompt
+    assert "Fixed SQL injection vulnerability" in prompt
+    assert "Fixed session hijacking vulnerability" in prompt
+    assert "CVE-2023-1234" in prompt
+    assert "CVE-2023-5678" in prompt
+    assert "Update to latest ORM version" in prompt
+    assert "Implement secure session management" in prompt
+
+
+def test_prompt_manager_analysis_prompt_with_comprehensive_deprecations() -> None:
+    """Test PromptManager analysis prompt with comprehensive deprecations."""
+    manager = PromptManager()
+
+    deprecations = [
+        Deprecation(
+            type="api_deprecation",
+            description="Deprecated old API endpoints",
+            severity="medium",
+            affected_components=["api/v1/", "controllers/"],
+            replacement_suggestion="Use new API v2 endpoints",
+            removal_date="v3.0",
+        ),
+        Deprecation(
+            type="feature_deprecation",
+            description="Deprecated legacy authentication system",
+            severity="high",
+            affected_components=["auth/legacy.py", "middleware/legacy.py"],
+            replacement_suggestion="Migrate to OAuth 2.0 system",
+            removal_date="v2.5",
+        ),
+    ]
+
+    prompt = manager.get_analysis_prompt(
+        repository_name="deprecation-repo",
+        repository_fork="https://github.com/user/deprecation",
+        repository_upstream="https://github.com/original/deprecation",
+        repository_skills=["python", "api", "authentication"],
+        commit_messages=[
+            "deprecated: old API endpoints",
+            "deprecated: legacy auth system",
+        ],
+        diff_content="diff --git a/api/v1/ b/api/v1/\ndiff --git a/auth/legacy.py b/auth/legacy.py",
+        diff_analysis="Comprehensive deprecation changes",
+        breaking_changes=[],
+        security_updates=[],
+        deprecations=deprecations,
+    )
+
+    assert "deprecation-repo" in prompt
+    assert "Deprecated old API endpoints" in prompt
+    assert "Deprecated legacy authentication system" in prompt
+    assert "Use new API v2 endpoints" in prompt
+    assert "Migrate to OAuth 2.0 system" in prompt
+    assert "v3.0" in prompt
+    assert "v2.5" in prompt

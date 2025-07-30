@@ -80,14 +80,12 @@ def test_settings_dataclass() -> None:
     """Test Settings dataclass."""
     settings = Settings(
         llm_provider="anthropic",
-        api_key_env="CUSTOM_API_KEY",
         default_path="/custom/path",
         analysis_enabled=False,
         max_repos_per_batch=5,
     )
 
     assert settings.llm_provider == "anthropic"
-    assert settings.api_key_env == "CUSTOM_API_KEY"
     assert settings.default_path == "/custom/path"
     assert settings.analysis_enabled is False
     assert settings.max_repos_per_batch == 5
@@ -451,27 +449,21 @@ def test_settings_with_all_fields() -> None:
     """Test Settings with all fields specified."""
     settings = Settings(
         llm_provider="anthropic",
-        api_key_env="ANTHROPIC_API_KEY",
         default_path="~/projects",
         analysis_enabled=False,
         max_repos_per_batch=20,
         git_timeout=600,
         rate_limit_delay=2.0,
         log_level="DEBUG",
-        ollama_host="http://localhost:8080",
-        ollama_model="llama2:13b",
     )
 
     assert settings.llm_provider == "anthropic"
-    assert settings.api_key_env == "ANTHROPIC_API_KEY"
     assert settings.default_path == "~/projects"
     assert settings.analysis_enabled is False
     assert settings.max_repos_per_batch == 20
     assert settings.git_timeout == 600
     assert settings.rate_limit_delay == 2.0
     assert settings.log_level == "DEBUG"
-    assert settings.ollama_host == "http://localhost:8080"
-    assert settings.ollama_model == "llama2:13b"
 
 
 def test_settings_with_defaults() -> None:
@@ -479,22 +471,14 @@ def test_settings_with_defaults() -> None:
     settings = Settings()
 
     assert settings.llm_provider == "openai"
-    assert settings.api_key_env == "AETHERIUM_API_KEY"
+    # api_key_env is no longer used - we use provider-specific environment variables
+    assert settings.llm_provider == "openai"
     assert settings.default_path == "~/code"
     assert settings.analysis_enabled is True
     assert settings.max_repos_per_batch == 10
     assert settings.git_timeout == 300
     assert settings.rate_limit_delay == 1.0
     assert settings.log_level == "INFO"
-    assert settings.ollama_host == "http://localhost:11434"
-    assert settings.ollama_model == "llama2"
-
-
-def test_settings_custom_llm_provider() -> None:
-    """Test Settings with custom LLM provider."""
-    settings = Settings(llm_provider="ollama")
-
-    assert settings.llm_provider == "ollama"
 
 
 def test_settings_custom_timeout() -> None:
@@ -621,3 +605,374 @@ def test_config_manager_initial_config() -> None:
     assert config_manager.config is not None
     assert isinstance(config_manager.config, Config)
     assert config_manager.config.repositories == []
+
+
+# Additional test cases for Repository dataclass
+def test_repository_with_custom_analysis_settings() -> None:
+    """Test Repository with custom analysis settings."""
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/repo",
+        analysis_enabled=True,
+        sync_frequency="3600",
+        skills=["python", "testing"],
+    )
+
+    assert repository.analysis_enabled is True
+    assert repository.sync_frequency == "3600"
+    assert repository.skills == ["python", "testing"]
+
+
+def test_repository_with_minimal_fields() -> None:
+    """Test Repository with minimal required fields."""
+    repository = Repository(
+        name="minimal-repo",
+        fork="https://github.com/user/minimal",
+        upstream="https://github.com/original/minimal",
+        local_path="/path/to/minimal",
+    )
+
+    assert repository.name == "minimal-repo"
+    assert repository.fork == "https://github.com/user/minimal"
+    assert repository.upstream == "https://github.com/original/minimal"
+    assert repository.local_path == "/path/to/minimal"
+    assert repository.analysis_enabled is True
+    assert repository.sync_frequency is None
+    assert repository.skills == []
+
+
+def test_repository_equality() -> None:
+    """Test Repository instances equality."""
+    repo1 = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/repo",
+        analysis_enabled=True,
+        sync_frequency="3600",
+        skills=["python", "testing"],
+    )
+
+    repo2 = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/repo",
+        analysis_enabled=True,
+        sync_frequency="3600",
+        skills=["python", "testing"],
+    )
+
+    assert repo1 == repo2
+
+
+def test_repository_inequality() -> None:
+    """Test Repository instances inequality."""
+    repo1 = Repository(
+        name="test-repo-1",
+        fork="https://github.com/user/test-repo-1",
+        upstream="https://github.com/original/test-repo-1",
+        local_path="/path/to/repo1",
+    )
+
+    repo2 = Repository(
+        name="test-repo-2",
+        fork="https://github.com/user/test-repo-2",
+        upstream="https://github.com/original/test-repo-2",
+        local_path="/path/to/repo2",
+    )
+
+    assert repo1 != repo2
+
+
+def test_repository_repr() -> None:
+    """Test Repository string representation."""
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/repo",
+        analysis_enabled=True,
+        sync_frequency="3600",
+        skills=["python", "testing"],
+    )
+
+    repr_str = repr(repository)
+    assert "Repository" in repr_str
+    assert "test-repo" in repr_str
+    assert "python" in repr_str
+
+
+# Additional test cases for Settings dataclass
+def test_settings_with_custom_api_keys() -> None:
+    """Test Settings with custom API keys."""
+    settings = Settings(
+        llm_provider="openai",
+        analysis_enabled=True,
+        git_timeout=120,
+        max_repos_per_batch=50,
+    )
+
+    assert settings.llm_provider == "openai"
+    assert settings.analysis_enabled is True
+    assert settings.git_timeout == 120
+    assert settings.max_repos_per_batch == 50
+
+
+def test_settings_with_environment_variables() -> None:
+    """Test Settings with environment variable defaults."""
+    settings = Settings()
+
+    assert settings.llm_provider == "openai"
+    assert settings.analysis_enabled is True
+    assert settings.git_timeout == 300
+    assert settings.max_repos_per_batch == 10
+
+
+def test_settings_equality() -> None:
+    """Test Settings instances equality."""
+    settings1 = Settings(
+        llm_provider="openai",
+        analysis_enabled=True,
+        git_timeout=60,
+        max_repos_per_batch=10,
+    )
+
+    settings2 = Settings(
+        llm_provider="openai",
+        analysis_enabled=True,
+        git_timeout=60,
+        max_repos_per_batch=10,
+    )
+
+    assert settings1 == settings2
+
+
+def test_settings_inequality() -> None:
+    """Test Settings instances inequality."""
+    settings1 = Settings(
+        llm_provider="openai",
+        analysis_enabled=True,
+        git_timeout=60,
+        max_repos_per_batch=10,
+    )
+
+    settings2 = Settings(
+        llm_provider="anthropic",
+        analysis_enabled=True,
+        git_timeout=60,
+        max_repos_per_batch=10,
+    )
+
+    assert settings1 != settings2
+
+
+def test_settings_repr() -> None:
+    """Test Settings string representation."""
+    settings = Settings(
+        llm_provider="openai",
+        analysis_enabled=True,
+        git_timeout=60,
+        max_repos_per_batch=10,
+    )
+
+    repr_str = repr(settings)
+    assert "Settings" in repr_str
+    assert "openai" in repr_str
+
+
+# Additional test cases for Config dataclass
+def test_config_with_custom_settings_and_repositories() -> None:
+    """Test Config with custom settings and repositories."""
+    settings = Settings(
+        llm_provider="anthropic",
+        analysis_enabled=True,
+        git_timeout=120,
+        max_repos_per_batch=50,
+    )
+
+    repositories = [
+        Repository(
+            name="repo1",
+            fork="https://github.com/user/repo1",
+            upstream="https://github.com/original/repo1",
+            local_path="/path/to/repo1",
+            skills=["python"],
+        ),
+        Repository(
+            name="repo2",
+            fork="https://github.com/user/repo2",
+            upstream="https://github.com/original/repo2",
+            local_path="/path/to/repo2",
+            skills=["javascript"],
+        ),
+    ]
+
+    config = Config(settings=settings, repositories=repositories)
+
+    assert config.settings == settings
+    assert config.repositories == repositories
+    assert len(config.repositories) == 2
+
+
+def test_config_with_empty_repositories() -> None:
+    """Test Config with empty repositories list."""
+    config = Config(repositories=[])
+
+    assert config.repositories == []
+    assert config.settings is not None
+    assert isinstance(config.settings, Settings)
+
+
+def test_config_equality() -> None:
+    """Test Config instances equality."""
+    settings = Settings(llm_provider="openai", analysis_enabled=True)
+    repositories = [
+        Repository(
+            name="repo1",
+            fork="https://github.com/user/repo1",
+            upstream="https://github.com/original/repo1",
+            local_path="/path/to/repo1",
+        )
+    ]
+
+    config1 = Config(settings=settings, repositories=repositories)
+    config2 = Config(settings=settings, repositories=repositories)
+
+    assert config1 == config2
+
+
+def test_config_inequality() -> None:
+    """Test Config instances inequality."""
+    settings1 = Settings(llm_provider="openai", analysis_enabled=True)
+    settings2 = Settings(llm_provider="anthropic", analysis_enabled=True)
+    repositories = [
+        Repository(
+            name="repo1",
+            fork="https://github.com/user/repo1",
+            upstream="https://github.com/original/repo1",
+            local_path="/path/to/repo1",
+        )
+    ]
+
+    config1 = Config(settings=settings1, repositories=repositories)
+    config2 = Config(settings=settings2, repositories=repositories)
+
+    assert config1 != config2
+
+
+def test_config_repr() -> None:
+    """Test Config string representation."""
+    settings = Settings(llm_provider="openai", analysis_enabled=True)
+    repositories = [
+        Repository(
+            name="repo1",
+            fork="https://github.com/user/repo1",
+            upstream="https://github.com/original/repo1",
+            local_path="/path/to/repo1",
+        )
+    ]
+
+    config = Config(settings=settings, repositories=repositories)
+
+    repr_str = repr(config)
+    assert "Config" in repr_str
+
+
+# Additional test cases for ConfigManager class
+def test_config_manager_with_custom_config() -> None:
+    """Test ConfigManager with custom config."""
+    custom_config = Config()
+    custom_config.repositories = [
+        Repository(
+            name="custom-repo",
+            fork="https://github.com/user/custom",
+            upstream="https://github.com/original/custom",
+            local_path="/path/to/custom",
+        )
+    ]
+
+    config_manager = ConfigManager()
+    config_manager.config = custom_config
+
+    assert config_manager.config == custom_config
+    assert len(config_manager.config.repositories) == 1
+    assert config_manager.config.repositories[0].name == "custom-repo"
+
+
+def test_config_manager_validate_config_with_valid_data() -> None:
+    """Test ConfigManager validate_config with valid data."""
+    config_manager = ConfigManager()
+    config_manager.config.repositories = [
+        Repository(
+            name="valid-repo",
+            fork="https://github.com/user/valid",
+            upstream="https://github.com/original/valid",
+            local_path="/path/to/valid",
+        )
+    ]
+
+    # Should not raise any exception
+    config_manager.validate_config(config_manager.config)
+
+
+def test_config_manager_validate_config_with_invalid_repository() -> None:
+    """Test ConfigManager validate_config with invalid repository."""
+    config_manager = ConfigManager()
+    config_manager.config.repositories = [
+        Repository(
+            name="",  # Invalid empty name
+            fork="https://github.com/user/invalid",
+            upstream="https://github.com/original/invalid",
+            local_path="/path/to/invalid",
+        )
+    ]
+
+    errors = config_manager.validate_config(config_manager.config)
+    assert len(errors) > 0
+    # Check that we have validation errors (the exact message may vary)
+    assert any("name" in error.lower() for error in errors)
+
+
+def test_config_manager_get_repository_by_name() -> None:
+    """Test ConfigManager get_repository by name."""
+    config_manager = ConfigManager()
+    config_manager.config.repositories = [
+        Repository(
+            name="test-repo",
+            fork="https://github.com/user/test",
+            upstream="https://github.com/original/test",
+            local_path="/path/to/test",
+        )
+    ]
+
+    repository = config_manager.get_repository("test-repo")
+    assert repository is not None
+    assert repository.name == "test-repo"
+    assert repository.fork == "https://github.com/user/test"
+
+
+def test_config_manager_remove_repository_by_name() -> None:
+    """Test ConfigManager remove_repository by name."""
+    config_manager = ConfigManager()
+    config_manager.config.repositories = [
+        Repository(
+            name="repo-to-remove",
+            fork="https://github.com/user/remove",
+            upstream="https://github.com/original/remove",
+            local_path="/path/to/remove",
+        ),
+        Repository(
+            name="repo-to-keep",
+            fork="https://github.com/user/keep",
+            upstream="https://github.com/original/keep",
+            local_path="/path/to/keep",
+        ),
+    ]
+
+    config_manager.remove_repository("repo-to-remove")
+
+    assert len(config_manager.config.repositories) == 1
+    assert config_manager.config.repositories[0].name == "repo-to-keep"

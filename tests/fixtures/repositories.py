@@ -74,8 +74,6 @@ def mock_config(
     enabled: bool = True,
     max_diff_size: int = 10000,
     max_commit_messages: int = 10,
-    ollama_host: str = "http://localhost:11434",
-    ollama_model: str = "llama2",
 ) -> Mock:
     """Create a mock Config object."""
     mock_config = Mock()
@@ -83,8 +81,6 @@ def mock_config(
     mock_config.settings.enabled = enabled
     mock_config.settings.max_diff_size = max_diff_size
     mock_config.settings.max_commit_messages = max_commit_messages
-    mock_config.settings.ollama_host = ollama_host
-    mock_config.settings.ollama_model = ollama_model
 
     return mock_config
 

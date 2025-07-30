@@ -4,7 +4,6 @@ from .analyzers import (
     mock_analysis_request,
     mock_anthropic_response,
     mock_change_analysis,
-    mock_ollama_response,
     mock_openai_response,
 )
 from .detectors import (
@@ -24,7 +23,6 @@ __all__ = [
     # Analyzer fixtures
     "mock_openai_response",
     "mock_anthropic_response",
-    "mock_ollama_response",
     "mock_analysis_request",
     "mock_change_analysis",
     # Detector fixtures

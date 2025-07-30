@@ -82,14 +82,22 @@ This guide helps you resolve common issues with GitCo.
 **Problem:** AI features fail due to missing API key
 
 **Solutions:**
-1. Set environment variable:
+1. Set environment variable for your chosen provider:
    ```bash
-   export AETHERIUM_API_KEY="your-api-key"
+   # For OpenAI
+   export OPENAI_API_KEY="your-openai-api-key"
+
+   # For Anthropic
+   export ANTHROPIC_API_KEY="your-anthropic-api-key"
    ```
 
 2. Verify key is set:
    ```bash
-   echo $AETHERIUM_API_KEY
+   # For OpenAI
+   echo $OPENAI_API_KEY
+
+   # For Anthropic
+   echo $ANTHROPIC_API_KEY
    ```
 
 3. Check API key permissions and validity

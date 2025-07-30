@@ -107,25 +107,23 @@ gitco init
 
 This creates a `gitco-config.yml` file in your current directory.
 
-### 2. Set Up LLM API Key
+## LLM Provider Setup
 
-For AI-powered features, you'll need to set up an API key:
+GitCo supports multiple LLM providers for AI-powered analysis. Choose one of the following:
 
+### OpenAI (Recommended)
 ```bash
-# For OpenAI
-export AETHERIUM_API_KEY="your-openai-api-key"
-export AETHERIUM_LLM_PROVIDER="openai"
-
-# For Anthropic Claude
-export AETHERIUM_API_KEY="your-anthropic-api-key"
-export AETHERIUM_LLM_PROVIDER="anthropic"
-
-# Alternative: Use provider-specific environment variables
 export OPENAI_API_KEY="your-openai-api-key"
+```
+
+### Anthropic
+```bash
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
-**Note:** GitCo supports both unified API key configuration (using `AETHERIUM_API_KEY`) and provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). The provider-specific keys take precedence if both are set.
+
+
+**Note:** GitCo uses provider-specific environment variables. Set the appropriate API key for your chosen provider.
 
 ### 3. Configure Repositories
 
@@ -141,7 +139,6 @@ repositories:
 
 settings:
   llm_provider: openai
-  api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10

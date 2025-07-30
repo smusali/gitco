@@ -389,3 +389,360 @@ class TestHealthMetricsIntegration:
                 assert "test-repo" in json_str
                 assert "100" in json_str
                 assert "10" in json_str
+
+
+# Additional test cases for RepositoryHealthMetrics dataclass
+def test_repository_health_metrics_with_all_fields() -> None:
+    """Test RepositoryHealthMetrics with all fields populated."""
+    metrics = RepositoryHealthMetrics(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        upstream_url="https://github.com/owner/test-repo",
+        last_commit_days_ago=2,
+        total_commits=1000,
+        recent_commits_30d=50,
+        recent_commits_7d=10,
+        total_contributors=20,
+        active_contributors_30d=8,
+        active_contributors_7d=3,
+        stars_count=100,
+        forks_count=25,
+        open_issues_count=10,
+        open_prs_count=5,
+        days_since_last_sync=1,
+        sync_status="up_to_date",
+        uncommitted_changes=False,
+        issue_response_time_avg=24.5,
+        pr_merge_time_avg=48.0,
+        contributor_engagement_score=0.75,
+        stars_growth_30d=10,
+        forks_growth_30d=5,
+        issues_growth_30d=2,
+        overall_health_score=0.85,
+        health_status="good",
+        language="Python",
+        topics=["python", "testing"],
+        archived=False,
+        disabled=False,
+    )
+
+    assert metrics.repository_name == "test-repo"
+    assert metrics.repository_path == "/path/to/repo"
+    assert metrics.upstream_url == "https://github.com/owner/test-repo"
+    assert metrics.total_commits == 1000
+    assert metrics.recent_commits_30d == 50
+    assert metrics.recent_commits_7d == 10
+    assert metrics.total_contributors == 20
+    assert metrics.active_contributors_30d == 8
+    assert metrics.active_contributors_7d == 3
+    assert metrics.last_commit_days_ago == 2
+    assert metrics.sync_status == "up_to_date"
+    assert metrics.overall_health_score == 0.85
+    assert metrics.health_status == "good"
+    assert metrics.contributor_engagement_score == 0.75
+
+
+def test_repository_health_metrics_with_minimal_fields() -> None:
+    """Test RepositoryHealthMetrics with minimal required fields."""
+    metrics = RepositoryHealthMetrics(
+        repository_name="minimal-repo",
+        repository_path="/path/to/minimal",
+        upstream_url="https://github.com/owner/minimal",
+    )
+
+    assert metrics.repository_name == "minimal-repo"
+    assert metrics.repository_path == "/path/to/minimal"
+    assert metrics.upstream_url == "https://github.com/owner/minimal"
+    assert metrics.total_commits == 0
+    assert metrics.recent_commits_30d == 0
+    assert metrics.recent_commits_7d == 0
+    assert metrics.total_contributors == 0
+    assert metrics.active_contributors_30d == 0
+    assert metrics.active_contributors_7d == 0
+    assert metrics.last_commit_days_ago is None
+    assert metrics.sync_status == "unknown"
+    assert metrics.overall_health_score == 0.0
+    assert metrics.health_status == "unknown"
+    assert metrics.contributor_engagement_score == 0.0
+
+
+def test_repository_health_metrics_equality() -> None:
+    """Test RepositoryHealthMetrics instances equality."""
+    metrics1 = RepositoryHealthMetrics(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        upstream_url="https://github.com/owner/test-repo",
+        total_commits=100,
+        recent_commits_30d=10,
+        overall_health_score=0.8,
+        health_status="good",
+    )
+
+    metrics2 = RepositoryHealthMetrics(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        upstream_url="https://github.com/owner/test-repo",
+        total_commits=100,
+        recent_commits_30d=10,
+        overall_health_score=0.8,
+        health_status="good",
+    )
+
+    assert metrics1 == metrics2
+
+
+def test_repository_health_metrics_inequality() -> None:
+    """Test RepositoryHealthMetrics instances inequality."""
+    metrics1 = RepositoryHealthMetrics(
+        repository_name="test-repo-1",
+        repository_path="/path/to/repo1",
+        upstream_url="https://github.com/owner/test-repo1",
+        total_commits=100,
+    )
+
+    metrics2 = RepositoryHealthMetrics(
+        repository_name="test-repo-2",
+        repository_path="/path/to/repo2",
+        upstream_url="https://github.com/owner/test-repo2",
+        total_commits=200,
+    )
+
+    assert metrics1 != metrics2
+
+
+def test_repository_health_metrics_repr() -> None:
+    """Test RepositoryHealthMetrics string representation."""
+    metrics = RepositoryHealthMetrics(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        upstream_url="https://github.com/owner/test-repo",
+        total_commits=100,
+        overall_health_score=0.8,
+        health_status="good",
+    )
+
+    repr_str = repr(metrics)
+    assert "RepositoryHealthMetrics" in repr_str
+    assert "test-repo" in repr_str
+    assert "0.8" in repr_str
+
+
+# Additional test cases for HealthSummary dataclass
+def test_health_summary_with_all_fields() -> None:
+    """Test HealthSummary with all fields populated."""
+    summary = HealthSummary(
+        total_repositories=10,
+        healthy_repositories=7,
+        needs_attention_repositories=2,
+        critical_repositories=1,
+        active_repositories_7d=8,
+        active_repositories_30d=9,
+        average_activity_score=0.75,
+        trending_repositories=["repo1", "repo2"],
+        declining_repositories=["repo3"],
+        up_to_date_repositories=8,
+        behind_repositories=1,
+        diverged_repositories=1,
+        high_engagement_repositories=6,
+        low_engagement_repositories=4,
+        total_stars=1000,
+        total_forks=500,
+    )
+
+    assert summary.total_repositories == 10
+    assert summary.healthy_repositories == 7
+    assert summary.needs_attention_repositories == 2
+    assert summary.critical_repositories == 1
+    assert summary.average_activity_score == 0.75
+    assert summary.trending_repositories == ["repo1", "repo2"]
+    assert summary.declining_repositories == ["repo3"]
+
+
+def test_health_summary_with_defaults() -> None:
+    """Test HealthSummary with default values."""
+    summary = HealthSummary()
+
+    assert summary.total_repositories == 0
+    assert summary.healthy_repositories == 0
+    assert summary.needs_attention_repositories == 0
+    assert summary.critical_repositories == 0
+    assert summary.average_activity_score == 0.0
+    assert summary.trending_repositories == []
+    assert summary.declining_repositories == []
+
+
+def test_health_summary_equality() -> None:
+    """Test HealthSummary instances equality."""
+    summary1 = HealthSummary(
+        total_repositories=5,
+        healthy_repositories=3,
+        needs_attention_repositories=1,
+        critical_repositories=1,
+        average_activity_score=0.7,
+    )
+
+    summary2 = HealthSummary(
+        total_repositories=5,
+        healthy_repositories=3,
+        needs_attention_repositories=1,
+        critical_repositories=1,
+        average_activity_score=0.7,
+    )
+
+    assert summary1 == summary2
+
+
+def test_health_summary_inequality() -> None:
+    """Test HealthSummary instances inequality."""
+    summary1 = HealthSummary(
+        total_repositories=5,
+        healthy_repositories=3,
+        needs_attention_repositories=1,
+        critical_repositories=1,
+        average_activity_score=0.7,
+    )
+
+    summary2 = HealthSummary(
+        total_repositories=6,
+        healthy_repositories=4,
+        needs_attention_repositories=1,
+        critical_repositories=1,
+        average_activity_score=0.8,
+    )
+
+    assert summary1 != summary2
+
+
+def test_health_summary_repr() -> None:
+    """Test HealthSummary string representation."""
+    summary = HealthSummary(
+        total_repositories=10,
+        healthy_repositories=7,
+        needs_attention_repositories=2,
+        critical_repositories=1,
+        average_activity_score=0.75,
+    )
+
+    repr_str = repr(summary)
+    assert "HealthSummary" in repr_str
+    assert "10" in repr_str
+    assert "0.75" in repr_str
+
+
+# Additional test cases for HealthMetricsError exception class
+def test_health_metrics_error_creation() -> None:
+    """Test HealthMetricsError creation."""
+    error = HealthMetricsError("Test health metrics error message")
+
+    assert str(error) == "Test health metrics error message"
+    assert isinstance(error, HealthMetricsError)
+    assert isinstance(error, Exception)
+
+
+def test_health_metrics_error_with_cause() -> None:
+    """Test HealthMetricsError with a cause."""
+    original_error = ValueError("Original error")
+    error = HealthMetricsError("Test health metrics error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "Test health metrics error message"
+    assert error.__cause__ == original_error
+
+
+def test_health_metrics_error_inheritance() -> None:
+    """Test HealthMetricsError inheritance hierarchy."""
+    error = HealthMetricsError("Test health metrics error")
+
+    assert isinstance(error, HealthMetricsError)
+    assert isinstance(error, Exception)
+    # Should inherit from APIError (which inherits from GitCoError)
+    from gitco.utils import APIError, GitCoError
+
+    assert isinstance(error, APIError)
+    assert isinstance(error, GitCoError)
+
+
+def test_health_metrics_error_repr() -> None:
+    """Test HealthMetricsError string representation."""
+    error = HealthMetricsError("Test health metrics error message")
+
+    repr_str = repr(error)
+    assert "HealthMetricsError" in repr_str
+    assert "Test health metrics error message" in repr_str
+
+
+def test_health_metrics_error_attributes() -> None:
+    """Test HealthMetricsError attributes."""
+    error = HealthMetricsError("Test health metrics error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+# Additional test cases for RepositoryHealthCalculator class
+def test_repository_health_calculator_with_custom_config() -> None:
+    """Test RepositoryHealthCalculator with custom config."""
+    mock_config = Mock()
+    mock_github_client = Mock()
+
+    calculator = RepositoryHealthCalculator(mock_config, mock_github_client)
+
+    assert calculator.config == mock_config
+    assert calculator.github_client == mock_github_client
+    assert calculator.logger is not None
+
+
+def test_repository_health_calculator_calculate_health_with_error() -> None:
+    """Test RepositoryHealthCalculator calculate_repository_health with error."""
+    calculator = RepositoryHealthCalculator(Mock(), Mock())
+
+    repo_config = {
+        "name": "error-repo",
+        "local_path": "/path/to/error-repo",
+        "upstream": "https://github.com/owner/error-repo",
+    }
+
+    with patch("gitco.health_metrics.Path") as mock_path:
+        mock_path.return_value.exists.return_value = False
+
+        metrics = calculator.calculate_repository_health(repo_config)
+
+        assert metrics.repository_name == "error-repo"
+        assert metrics.overall_health_score == 0.0
+        assert metrics.health_status == "unknown"
+
+
+def test_repository_health_calculator_calculate_summary_with_empty_list() -> None:
+    """Test RepositoryHealthCalculator calculate_health_summary with empty list."""
+    calculator = RepositoryHealthCalculator(Mock(), Mock())
+
+    summary = calculator.calculate_health_summary([])
+
+    assert summary.total_repositories == 0
+    assert summary.healthy_repositories == 0
+    assert summary.needs_attention_repositories == 0
+    assert summary.critical_repositories == 0
+    assert summary.average_activity_score == 0.0
+    assert summary.trending_repositories == []
+    assert summary.declining_repositories == []
+
+
+def test_repository_health_calculator_extract_repo_name_from_complex_url() -> None:
+    """Test RepositoryHealthCalculator extract_repo_name_from_url with complex URL."""
+    calculator = RepositoryHealthCalculator(Mock(), Mock())
+
+    complex_url = "https://github.com/owner/org/test-repo.git"
+    repo_name = calculator._extract_repo_name_from_url(complex_url)
+
+    assert repo_name == "owner/org"
+
+
+def test_repository_health_calculator_extract_repo_name_from_simple_url() -> None:
+    """Test RepositoryHealthCalculator extract_repo_name_from_url with simple URL."""
+    calculator = RepositoryHealthCalculator(Mock(), Mock())
+
+    simple_url = "https://github.com/owner/test-repo"
+    repo_name = calculator._extract_repo_name_from_url(simple_url)
+
+    assert repo_name == "owner/test-repo"

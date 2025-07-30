@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, patch
 
 from gitco.git_ops import (
@@ -1182,3 +1183,291 @@ def test_git_repository_manager_detect_repositories() -> None:
     # This would normally detect repositories in a directory
     # For testing, we just verify the method exists
     assert hasattr(manager, "detect_repositories")
+
+
+# Additional test cases for BatchResult dataclass
+def test_batch_result_with_success_status() -> None:
+    """Test BatchResult with success status."""
+    result = BatchResult(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        success=True,
+        operation="sync",
+        message="Successfully synced with upstream",
+        details={"commits_ahead": 0, "commits_behind": 0},
+        duration=2.5,
+        error=None,
+    )
+
+    assert result.repository_name == "test-repo"
+    assert result.repository_path == "/path/to/repo"
+    assert result.success is True
+    assert result.operation == "sync"
+    assert result.message == "Successfully synced with upstream"
+    assert result.duration == 2.5
+    assert result.error is None
+
+
+def test_batch_result_with_failure_status() -> None:
+    """Test BatchResult with failure status."""
+    result = BatchResult(
+        repository_name="failed-repo",
+        repository_path="/path/to/failed-repo",
+        success=False,
+        operation="merge",
+        message="Merge conflicts detected",
+        details={"conflicts": ["file.py"]},
+        duration=1.0,
+        error=Exception("Merge conflict in file.py"),
+    )
+
+    assert result.repository_name == "failed-repo"
+    assert result.repository_path == "/path/to/failed-repo"
+    assert result.success is False
+    assert result.operation == "merge"
+    assert result.message == "Merge conflicts detected"
+    assert result.duration == 1.0
+    assert result.error is not None
+
+
+def test_batch_result_with_skipped_status() -> None:
+    """Test BatchResult with skipped status."""
+    result = BatchResult(
+        repository_name="skipped-repo",
+        repository_path="/path/to/skipped-repo",
+        success=False,
+        operation="fetch",
+        message="Repository not found",
+        details={"reason": "not_found"},
+        duration=0.0,
+        error=None,
+    )
+
+    assert result.repository_name == "skipped-repo"
+    assert result.repository_path == "/path/to/skipped-repo"
+    assert result.success is False
+    assert result.operation == "fetch"
+    assert result.message == "Repository not found"
+    assert result.duration == 0.0
+    assert result.error is None
+
+
+def test_batch_result_equality() -> None:
+    """Test BatchResult instances equality."""
+    result1 = BatchResult(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        success=True,
+        operation="sync",
+        message="Success",
+        details={"status": "success"},
+        duration=2.5,
+        error=None,
+    )
+
+    result2 = BatchResult(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        success=True,
+        operation="sync",
+        message="Success",
+        details={"status": "success"},
+        duration=2.5,
+        error=None,
+    )
+
+    assert result1 == result2
+
+
+def test_batch_result_inequality() -> None:
+    """Test BatchResult instances inequality."""
+    result1 = BatchResult(
+        repository_name="test-repo-1",
+        repository_path="/path/to/repo1",
+        success=True,
+        operation="sync",
+        message="Success",
+        details={"status": "success"},
+        duration=2.5,
+        error=None,
+    )
+
+    result2 = BatchResult(
+        repository_name="test-repo-2",
+        repository_path="/path/to/repo2",
+        success=False,
+        operation="merge",
+        message="Failure",
+        details={"status": "failed"},
+        duration=1.0,
+        error=Exception("Error occurred"),
+    )
+
+    assert result1 != result2
+
+
+# Additional test cases for BatchProcessor class
+def test_batch_processor_with_custom_workers() -> None:
+    """Test BatchProcessor with custom number of workers."""
+    processor = BatchProcessor(max_workers=10)
+
+    assert processor.max_workers == 10
+    assert processor.rate_limit_delay == 1.0
+
+
+def test_batch_processor_with_custom_delay() -> None:
+    """Test BatchProcessor with custom rate limit delay."""
+    processor = BatchProcessor(rate_limit_delay=10.0)
+
+    assert processor.max_workers == 4
+    assert processor.rate_limit_delay == 10.0
+
+
+def test_batch_processor_process_empty_list() -> None:
+    """Test BatchProcessor process_repositories with empty list."""
+    processor = BatchProcessor()
+    repositories: list[dict[str, str]] = []
+
+    def operation(repo_path: str, repo_config: dict[str, Any]) -> dict[str, Any]:
+        return {"success": True, "message": "Success"}
+
+    results = processor.process_repositories(repositories, operation)
+
+    assert isinstance(results, list)
+    assert len(results) == 0
+
+
+def test_batch_processor_process_single_repository() -> None:
+    """Test BatchProcessor process_repositories with single repository."""
+    processor = BatchProcessor()
+    repositories = [{"name": "test-repo", "local_path": "/path/to/repo"}]
+
+    def mock_operation(repo_path: str, repo_config: dict) -> dict:
+        return (
+            {"success": True, "message": "Success"}
+            if repo_path == "/path/to/repo"
+            else {"success": False, "message": "Failed"}
+        )
+
+    results = processor.process_repositories(repositories, mock_operation)
+
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert results[0].repository_name == "test-repo"
+    assert results[0].success is True
+
+
+def test_batch_processor_process_multiple_repositories() -> None:
+    """Test BatchProcessor process_repositories with multiple repositories."""
+    processor = BatchProcessor()
+    repositories = [
+        {"name": "repo1", "local_path": "/path/to/repo1"},
+        {"name": "repo2", "local_path": "/path/to/repo2"},
+        {"name": "repo3", "local_path": "/path/to/repo3"},
+    ]
+
+    def mock_operation(repo_path: str, repo_config: dict) -> dict:
+        return (
+            {"success": True, "message": "Success"}
+            if repo_path in ["/path/to/repo1", "/path/to/repo2", "/path/to/repo3"]
+            else {"success": False, "message": "Failed"}
+        )
+
+    results = processor.process_repositories(repositories, mock_operation)
+
+    assert isinstance(results, list)
+    assert len(results) == 3
+    assert all(result.success is True for result in results)
+
+
+# Additional test cases for GitRepository class
+def test_git_repository_with_custom_path() -> None:
+    """Test GitRepository with custom path."""
+    custom_path = "/custom/path/to/repo"
+    repo = GitRepository(custom_path)
+
+    assert str(repo.path) == custom_path
+    assert repo.logger is not None
+
+
+def test_git_repository_get_repository_status() -> None:
+    """Test GitRepository get_repository_status method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally return actual repository status
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "get_repository_status")
+
+
+def test_git_repository_get_recent_commits() -> None:
+    """Test GitRepository get_recent_commits method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally return recent commits
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "get_recent_commits")
+
+
+def test_git_repository_get_commit_diff() -> None:
+    """Test GitRepository get_commit_diff method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally return commit diff
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "get_commit_diff")
+
+
+def test_git_repository_get_commit_info() -> None:
+    """Test GitRepository get_commit_info method."""
+    repo = GitRepository("/path/to/repo")
+
+    # This would normally return commit info
+    # For testing, we just verify the method exists
+    assert hasattr(repo, "get_commit_info")
+
+
+# Additional test cases for GitRepositoryManager class
+def test_git_repository_manager_with_custom_logger() -> None:
+    """Test GitRepositoryManager with custom logger."""
+    manager = GitRepositoryManager()
+
+    assert manager.logger is not None
+    assert hasattr(manager.logger, "info")
+    assert hasattr(manager.logger, "error")
+    assert hasattr(manager.logger, "debug")
+
+
+def test_git_repository_manager_sync_repository() -> None:
+    """Test GitRepositoryManager sync_repository method."""
+    manager = GitRepositoryManager()
+
+    # This would normally sync a repository
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "sync_repository")
+
+
+def test_git_repository_manager_fetch_repository() -> None:
+    """Test GitRepositoryManager fetch_repository method."""
+    manager = GitRepositoryManager()
+
+    # This would normally fetch from a repository
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "fetch_repository")
+
+
+def test_git_repository_manager_validate_repository() -> None:
+    """Test GitRepositoryManager validate_repository method."""
+    manager = GitRepositoryManager()
+
+    # This would normally validate a repository
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "validate_repository")
+
+
+def test_git_repository_manager_get_repository() -> None:
+    """Test GitRepositoryManager get_repository method."""
+    manager = GitRepositoryManager()
+
+    # This would normally get a repository instance
+    # For testing, we just verify the method exists
+    assert hasattr(manager, "get_repository")

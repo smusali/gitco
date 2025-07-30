@@ -41,26 +41,24 @@ repositories:
 
 ```yaml
 settings:
-  llm_provider: openai  # or anthropic, ollama, local
-  api_key_env: AETHERIUM_API_KEY
+  llm_provider: openai  # or anthropic
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
-  ollama_host: http://localhost:11434  # for ollama provider
-  ollama_model: llama2  # for ollama provider
 ```
 
 ### Settings Fields
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, ollama, local) |
-| `api_key_env` | string | `AETHERIUM_API_KEY` | Environment variable for API key |
-| `default_path` | string | `~/code` | Default path for repositories |
-| `analysis_enabled` | boolean | `true` | Enable AI analysis features |
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `llm_provider` | string | `openai` | LLM provider (openai, anthropic) |
+| `default_path` | string | `~/code` | Default path for repository clones |
+| `analysis_enabled` | boolean | `true` | Enable AI-powered change analysis |
 | `max_repos_per_batch` | integer | `10` | Maximum repositories to process in batch |
-| `ollama_host` | string | `http://localhost:11434` | Ollama server host URL |
-| `ollama_model` | string | `llama2` | Ollama model name |
+| `git_timeout` | integer | `300` | Git operation timeout in seconds |
+| `rate_limit_delay` | float | `1.0` | Delay between API calls in seconds |
+| `log_level` | string | `INFO` | Logging level |
+
 | `github_token_env` | string | `GITHUB_TOKEN` | Environment variable for GitHub token |
 | `github_username_env` | string | `GITHUB_USERNAME` | Environment variable for GitHub username |
 | `github_password_env` | string | `GITHUB_PASSWORD` | Environment variable for GitHub password |
@@ -69,17 +67,6 @@ settings:
 | `github_max_retries` | integer | `3` | Maximum retries for GitHub API requests |
 
 ## Advanced Configuration
-
-### Custom LLM Endpoints
-
-For custom LLM deployments:
-
-```yaml
-settings:
-  llm_provider: custom
-  custom_endpoint: "https://your-llm-endpoint.com/v1"
-  api_key_env: CUSTOM_API_KEY
-```
 
 ### Repository-Specific Settings
 
@@ -144,22 +131,11 @@ GitCo automatically detects GitHub credentials from environment variables:
 GitCo supports environment variables for sensitive configuration:
 
 ```bash
-# Required for AI features - Unified configuration
-export AETHERIUM_API_KEY="your-api-key"
-
-# Optional: Override provider
-export AETHERIUM_LLM_PROVIDER="anthropic"  # or ollama
-
-# Optional: Provider-specific API keys (takes precedence)
+# LLM API Keys (choose one based on your provider)
 export OPENAI_API_KEY="your-openai-api-key"
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
 
-# Optional: Ollama configuration
-export OLLAMA_HOST="http://localhost:11434"
-export OLLAMA_MODEL="llama2"
 
-# Optional: Custom endpoint
-export AETHERIUM_CUSTOM_ENDPOINT="https://your-endpoint.com"
 
 # GitHub API credentials (optional)
 export GITHUB_TOKEN="your-github-token"
@@ -167,12 +143,7 @@ export GITHUB_USERNAME="your-github-username"
 export GITHUB_PASSWORD="your-github-password"
 ```
 
-**API Key Priority:**
-1. Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
-2. Unified key (`AETHERIUM_API_KEY`)
-3. Configuration file `api_key_env` setting
 
-**Note:** For Ollama provider, no API key is required. The Ollama server should be running locally or accessible via the configured host.
 
 ## Configuration Examples
 
@@ -187,7 +158,6 @@ repositories:
 
 settings:
   llm_provider: openai
-  api_key_env: AETHERIUM_API_KEY
 ```
 
 ### Full Configuration
@@ -214,7 +184,6 @@ repositories:
 
 settings:
   llm_provider: anthropic
-  api_key_env: AETHERIUM_API_KEY
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 5
@@ -222,37 +191,7 @@ settings:
   log_level: INFO
 ```
 
-### Ollama Configuration
 
-For local LLM analysis using Ollama:
-
-```yaml
-repositories:
-  - name: django
-    fork: username/django
-    upstream: django/django
-    local_path: ~/code/django
-    skills: [python, web, orm]
-
-  - name: fastapi
-    fork: username/fastapi
-    upstream: tiangolo/fastapi
-    local_path: ~/code/fastapi
-    skills: [python, api, async]
-
-settings:
-  llm_provider: ollama
-  ollama_host: http://localhost:11434
-  ollama_model: llama2
-  default_path: ~/code
-  analysis_enabled: true
-  max_repos_per_batch: 10
-```
-
-**Prerequisites:**
-1. Install Ollama: https://ollama.ai/
-2. Pull the desired model: `ollama pull llama2`
-3. Start Ollama server: `ollama serve`
 
 ## Configuration Validation
 

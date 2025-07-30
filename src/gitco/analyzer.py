@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import anthropic
-import ollama
 import openai
-import requests
 from rich.panel import Panel
 
 from .config import Config, Repository
@@ -96,7 +94,7 @@ class BaseAnalyzer(ABC):
         """Get the name of the API provider.
 
         Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic", "Ollama").
+            The name of the API provider (e.g., "OpenAI", "Anthropic").
         """
         pass
 
@@ -368,7 +366,7 @@ class OpenAIAnalyzer(BaseAnalyzer):
         """Get the name of the API provider.
 
         Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic", "Ollama").
+            The name of the API provider (e.g., "OpenAI", "Anthropic").
         """
         return "OpenAI"
 
@@ -427,72 +425,9 @@ class AnthropicAnalyzer(BaseAnalyzer):
         """Get the name of the API provider.
 
         Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic", "Ollama").
+            The name of the API provider (e.g., "OpenAI", "Anthropic").
         """
         return "Anthropic"
-
-
-class OllamaAnalyzer(BaseAnalyzer):
-    """Ollama local LLM integration for change analysis."""
-
-    def __init__(
-        self,
-        model: str = "llama2",
-        host: str = "http://localhost:11434",
-        timeout: int = 120,
-    ):
-        """Initialize Ollama analyzer.
-
-        Args:
-            model: Ollama model to use for analysis.
-            host: Ollama server host.
-            timeout: Request timeout in seconds.
-        """
-        super().__init__(model)
-        self.host = host
-        self.timeout = timeout
-        self.client = ollama.Client(host=host)
-
-    def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
-        """Call the LLM API with the given prompt.
-
-        Args:
-            prompt: The user prompt to send to the LLM.
-            system_prompt: The system prompt to send to the LLM.
-
-        Returns:
-            The raw response from the LLM.
-
-        Raises:
-            Exception: If the API call fails.
-        """
-        try:
-            response = requests.post(
-                f"{self.host}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": f"{system_prompt}\n\n{prompt}",
-                    "stream": False,
-                },
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            response_data = response.json()
-            if isinstance(response_data, dict) and "response" in response_data:
-                return str(response_data["response"])
-            else:
-                raise Exception("Unexpected response format from Ollama API")
-        except Exception as e:
-            self.logger.error(f"Ollama API call failed: {e}")
-            raise
-
-    def _get_api_name(self) -> str:
-        """Get the name of the API provider.
-
-        Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic", "Ollama").
-        """
-        return "Ollama"
 
 
 class ChangeAnalyzer:
@@ -524,20 +459,13 @@ class ChangeAnalyzer:
         """
         if provider not in self.analyzers:
             if provider == "openai":
-                api_key = os.getenv(self.config.settings.api_key_env)
+                # Use provider-specific environment variable
+                api_key = os.getenv("OPENAI_API_KEY")
                 self.analyzers[provider] = OpenAIAnalyzer(api_key=api_key)
             elif provider == "anthropic":
-                api_key = os.getenv(self.config.settings.api_key_env)
+                # Use provider-specific environment variable
+                api_key = os.getenv("ANTHROPIC_API_KEY")
                 self.analyzers[provider] = AnthropicAnalyzer(api_key=api_key)
-            elif provider == "ollama":
-                # Get Ollama configuration from settings
-                ollama_host = getattr(
-                    self.config.settings, "ollama_host", "http://localhost:11434"
-                )
-                ollama_model = getattr(self.config.settings, "ollama_model", "llama2")
-                self.analyzers[provider] = OllamaAnalyzer(
-                    model=ollama_model, host=ollama_host
-                )
             else:
                 raise ValueError(f"Unsupported LLM provider: {provider}")
 

@@ -680,6 +680,57 @@ class GitHubClient:
             self.logger.error(f"GitHub API connection test failed: {e}")
             return False
 
+    def get_user_info(self) -> dict[str, Any]:
+        """Get current user information.
+
+        Returns:
+            Dictionary with user information
+        """
+        try:
+            user = self.github.get_user()
+            return {
+                "login": user.login,
+                "name": user.name,
+                "email": user.email,
+                "id": user.id,
+                "type": user.type,
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to get user info: {e}")
+            raise APIError(f"Failed to get user info: {e}") from e
+
+    def get_rate_limit_info(self) -> dict[str, Any]:
+        """Get rate limit information.
+
+        Returns:
+            Dictionary with rate limit information
+        """
+        try:
+            rate_limit = self.github.get_rate_limit()
+            return {
+                "core": {
+                    "limit": rate_limit.core.limit,
+                    "remaining": rate_limit.core.remaining,
+                    "reset": (
+                        int(rate_limit.core.reset.timestamp())
+                        if hasattr(rate_limit.core.reset, "timestamp")
+                        else rate_limit.core.reset
+                    ),
+                },
+                "search": {
+                    "limit": rate_limit.search.limit,
+                    "remaining": rate_limit.search.remaining,
+                    "reset": (
+                        int(rate_limit.search.reset.timestamp())
+                        if hasattr(rate_limit.search.reset, "timestamp")
+                        else rate_limit.search.reset
+                    ),
+                },
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to get rate limit info: {e}")
+            raise APIError(f"Failed to get rate limit info: {e}") from e
+
 
 def create_github_client(
     token: Optional[str] = None,

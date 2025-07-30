@@ -621,3 +621,229 @@ def test_api_error_network() -> None:
 
     assert "Network error" in str(error)
     assert "connection timeout" in str(error)
+
+
+# Additional test cases for GitCoError exception class
+def test_gitco_error_with_cause() -> None:
+    """Test GitCoError with a cause."""
+    original_error = ValueError("Original error")
+    error = GitCoError("Test error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "Test error message"
+    assert error.__cause__ == original_error
+
+
+def test_gitco_error_with_context() -> None:
+    """Test GitCoError with context."""
+    error = GitCoError("Test error message")
+    error.__context__ = Exception("Context error")
+
+    assert str(error) == "Test error message"
+    assert error.__context__ is not None
+
+
+def test_gitco_error_repr() -> None:
+    """Test GitCoError string representation."""
+    error = GitCoError("Test error message")
+
+    repr_str = repr(error)
+    assert "GitCoError" in repr_str
+    assert "Test error message" in repr_str
+
+
+def test_gitco_error_attributes() -> None:
+    """Test GitCoError attributes."""
+    error = GitCoError("Test error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+def test_gitco_error_inheritance_hierarchy() -> None:
+    """Test GitCoError inheritance hierarchy."""
+    error = GitCoError("Test error")
+
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+    assert not isinstance(error, ValueError)  # Should not inherit from ValueError
+
+
+# Additional test cases for ConfigurationError exception class
+def test_configuration_error_with_cause() -> None:
+    """Test ConfigurationError with a cause."""
+    original_error = ValueError("Original error")
+    error = ConfigurationError("Configuration error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "Configuration error message"
+    assert error.__cause__ == original_error
+
+
+def test_configuration_error_repr() -> None:
+    """Test ConfigurationError string representation."""
+    error = ConfigurationError("Configuration error message")
+
+    repr_str = repr(error)
+    assert "ConfigurationError" in repr_str
+    assert "Configuration error message" in repr_str
+
+
+def test_configuration_error_attributes() -> None:
+    """Test ConfigurationError attributes."""
+    error = ConfigurationError("Configuration error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+def test_configuration_error_inheritance_hierarchy() -> None:
+    """Test ConfigurationError inheritance hierarchy."""
+    error = ConfigurationError("Test configuration error")
+
+    assert isinstance(error, ConfigurationError)
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+
+
+# Additional test cases for GitOperationError exception class
+def test_git_operation_error_with_cause() -> None:
+    """Test GitOperationError with a cause."""
+    original_error = ValueError("Original error")
+    error = GitOperationError("Git operation error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "Git operation error message"
+    assert error.__cause__ == original_error
+
+
+def test_git_operation_error_with_operation_type() -> None:
+    """Test GitOperationError with specific operation type."""
+    error = GitOperationError("Failed to merge branch 'feature' into 'main'")
+
+    assert "Failed to merge" in str(error)
+    assert "branch 'feature'" in str(error)
+    assert "into 'main'" in str(error)
+
+
+def test_git_operation_error_repr() -> None:
+    """Test GitOperationError string representation."""
+    error = GitOperationError("Git operation error message")
+
+    repr_str = repr(error)
+    assert "GitOperationError" in repr_str
+    assert "Git operation error message" in repr_str
+
+
+def test_git_operation_error_attributes() -> None:
+    """Test GitOperationError attributes."""
+    error = GitOperationError("Git operation error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+def test_git_operation_error_inheritance_hierarchy() -> None:
+    """Test GitOperationError inheritance hierarchy."""
+    error = GitOperationError("Test git operation error")
+
+    assert isinstance(error, GitOperationError)
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+
+
+# Additional test cases for ValidationError exception class
+def test_validation_error_with_cause() -> None:
+    """Test ValidationError with a cause."""
+    original_error = ValueError("Original error")
+    error = ValidationError("Validation error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "Validation error message"
+    assert error.__cause__ == original_error
+
+
+def test_validation_error_with_field_name() -> None:
+    """Test ValidationError with specific field name."""
+    error = ValidationError("Field 'repository_url' is required but missing")
+
+    assert "Field 'repository_url'" in str(error)
+    assert "is required" in str(error)
+    assert "missing" in str(error)
+
+
+def test_validation_error_repr() -> None:
+    """Test ValidationError string representation."""
+    error = ValidationError("Validation error message")
+
+    repr_str = repr(error)
+    assert "ValidationError" in repr_str
+    assert "Validation error message" in repr_str
+
+
+def test_validation_error_attributes() -> None:
+    """Test ValidationError attributes."""
+    error = ValidationError("Validation error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+def test_validation_error_inheritance_hierarchy() -> None:
+    """Test ValidationError inheritance hierarchy."""
+    error = ValidationError("Test validation error")
+
+    assert isinstance(error, ValidationError)
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)
+
+
+# Additional test cases for APIError exception class
+def test_api_error_with_cause() -> None:
+    """Test APIError with a cause."""
+    original_error = ValueError("Original error")
+    error = APIError("API error message")
+    error.__cause__ = original_error
+
+    assert str(error) == "API error message"
+    assert error.__cause__ == original_error
+
+
+def test_api_error_with_status_code() -> None:
+    """Test APIError with HTTP status code."""
+    error = APIError("API request failed with status code 404: Not Found")
+
+    assert "API request failed" in str(error)
+    assert "status code 404" in str(error)
+    assert "Not Found" in str(error)
+
+
+def test_api_error_repr() -> None:
+    """Test APIError string representation."""
+    error = APIError("API error message")
+
+    repr_str = repr(error)
+    assert "APIError" in repr_str
+    assert "API error message" in repr_str
+
+
+def test_api_error_attributes() -> None:
+    """Test APIError attributes."""
+    error = APIError("API error message")
+
+    assert hasattr(error, "__dict__")
+    assert hasattr(error, "__cause__")
+    assert hasattr(error, "__context__")
+
+
+def test_api_error_inheritance_hierarchy() -> None:
+    """Test APIError inheritance hierarchy."""
+    error = APIError("Test API error")
+
+    assert isinstance(error, APIError)
+    assert isinstance(error, GitCoError)
+    assert isinstance(error, Exception)

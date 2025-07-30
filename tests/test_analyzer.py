@@ -11,7 +11,6 @@ from gitco.analyzer import (
     BaseAnalyzer,
     ChangeAnalysis,
     ChangeAnalyzer,
-    OllamaAnalyzer,
     OpenAIAnalyzer,
 )
 from gitco.config import Config, Repository
@@ -432,9 +431,9 @@ class TestOpenAIAnalyzer:
 
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[
-            0
-        ].message.content = '{"summary": "Test", "confidence": 0.8}'
+        mock_response.choices[0].message.content = (
+            '{"summary": "Test", "confidence": 0.8}'
+        )
         mock_client.chat.completions.create.return_value = mock_response
 
         analyzer = OpenAIAnalyzer(api_key="test-key")
@@ -608,147 +607,6 @@ class TestAnthropicAnalyzer:
             analyzer.analyze_changes(request)
 
 
-class TestOllamaAnalyzer:
-    """Test OllamaAnalyzer class."""
-
-    def test_ollama_analyzer_initialization(self) -> None:
-        """Test OllamaAnalyzer initialization."""
-        analyzer = OllamaAnalyzer()
-        assert analyzer.model == "llama2"
-        assert analyzer.host == "http://localhost:11434"
-        assert analyzer.timeout == 120
-
-    def test_ollama_analyzer_initialization_with_custom_params(self) -> None:
-        """Test OllamaAnalyzer initialization with custom parameters."""
-        analyzer = OllamaAnalyzer(
-            model="codellama", host="http://localhost:8080", timeout=60
-        )
-        assert analyzer.model == "codellama"
-        assert analyzer.host == "http://localhost:8080"
-        assert analyzer.timeout == 60
-
-    def test_build_analysis_prompt(self) -> None:
-        """Test building analysis prompt."""
-        analyzer = OllamaAnalyzer()
-        mock_repo = Mock()
-        mock_repo.name = "test-repo"
-        mock_repo.fork = "user/fork"
-        mock_repo.upstream = "upstream/repo"
-        mock_repo.skills = ["python", "web"]
-
-        request = AnalysisRequest(
-            repository=mock_repo,
-            git_repo=Mock(),
-            diff_content="test diff content",
-            commit_messages=["commit 1", "commit 2"],
-            custom_prompt="test prompt",
-        )
-
-        prompt = analyzer._build_analysis_prompt(request, [], [], [])
-
-        assert "test-repo" in prompt
-        assert "test diff content" in prompt
-        assert "commit 1" in prompt
-        assert "commit 2" in prompt
-        assert "test prompt" in prompt
-
-    def test_get_system_prompt(self) -> None:
-        """Test getting system prompt."""
-        analyzer = OllamaAnalyzer()
-        prompt = analyzer._get_system_prompt()
-        assert "expert software developer" in prompt
-        assert "open source contributor" in prompt
-
-    def test_parse_text_response(self) -> None:
-        """Test parsing text response."""
-        analyzer = OllamaAnalyzer()
-        response = """
-        Summary: Test summary
-
-        Breaking Changes:
-        - Change 1
-        - Change 2
-
-        New Features:
-        - Feature 1
-        """
-
-        result = analyzer._parse_text_response(response)
-        assert result["summary"] == "Test summary"
-        assert "Change 1" in result["breaking_changes"]
-        assert "Change 2" in result["breaking_changes"]
-        assert "Feature 1" in result["new_features"]
-
-    @patch("requests.post")
-    def test_analyze_changes_success(self, mock_post: Mock) -> None:
-        """Test successful change analysis."""
-        # Mock the response
-        mock_response = Mock()
-        mock_response.json.return_value = {"response": "Test analysis"}
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
-
-        analyzer = OllamaAnalyzer()
-        mock_repo = Mock()
-        mock_repo.name = "test-repo"
-        mock_repo.fork = "user/fork"
-        mock_repo.upstream = "upstream/repo"
-        mock_repo.skills = ["python"]
-
-        request = AnalysisRequest(
-            repository=mock_repo,
-            git_repo=Mock(),
-            diff_content="test diff",
-            commit_messages=["test commit"],
-        )
-
-        result = analyzer.analyze_changes(request)
-        assert result is not None
-
-    @patch("requests.post")
-    def test_analyze_changes_failure(self, mock_post: Mock) -> None:
-        """Test failed change analysis."""
-        mock_post.side_effect = Exception("API Error")
-
-        analyzer = OllamaAnalyzer()
-        mock_repo = Mock()
-        mock_repo.name = "test-repo"
-        mock_repo.fork = "user/fork"
-        mock_repo.upstream = "upstream/repo"
-        mock_repo.skills = ["python"]
-
-        request = AnalysisRequest(
-            repository=mock_repo,
-            git_repo=Mock(),
-            diff_content="test diff",
-            commit_messages=["test commit"],
-        )
-
-        with pytest.raises(Exception, match="API Error"):
-            analyzer.analyze_changes(request)
-
-    def test_parse_analysis_response_json_success(self) -> None:
-        """Test parsing JSON response successfully."""
-        analyzer = OllamaAnalyzer()
-        response = (
-            '{"summary": "Test", "breaking_changes": ["Change"], "confidence": 0.9}'
-        )
-
-        result = analyzer._parse_analysis_response(response)
-        assert result.summary == "Test"
-        assert result.breaking_changes == ["Change"]
-        assert result.confidence == 0.9
-
-    def test_parse_analysis_response_json_failure(self) -> None:
-        """Test parsing JSON response with fallback to text parsing."""
-        analyzer = OllamaAnalyzer()
-        response = "Invalid JSON response with summary: Test summary"
-
-        result = analyzer._parse_analysis_response(response)
-        assert result.summary == "Test summary"
-        assert result.confidence == 0.5
-
-
 class TestChangeAnalyzer:
     """Test ChangeAnalyzer class."""
 
@@ -779,32 +637,6 @@ class TestChangeAnalyzer:
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             anthropic_analyzer = analyzer.get_analyzer("anthropic")
             assert isinstance(anthropic_analyzer, AnthropicAnalyzer)
-
-    def test_get_analyzer_ollama(self) -> None:
-        """Test getting Ollama analyzer."""
-        config = mock_config()
-        analyzer = ChangeAnalyzer(config)
-
-        ollama_analyzer = analyzer.get_analyzer("ollama")
-        assert isinstance(ollama_analyzer, OllamaAnalyzer)
-
-    def test_get_analyzer_ollama_defaults(self) -> None:
-        """Test getting Ollama analyzer with default settings."""
-        mock_config = Mock()
-        mock_config.settings.ollama_host = "http://localhost:11434"
-        mock_config.settings.ollama_model = "llama2"
-
-        with patch("gitco.analyzer.OllamaAnalyzer") as mock_ollama_analyzer:
-            mock_analyzer_instance = Mock()
-            mock_ollama_analyzer.return_value = mock_analyzer_instance
-
-            analyzer = ChangeAnalyzer(mock_config)
-            ollama_analyzer = analyzer.get_analyzer("ollama")
-
-            assert isinstance(ollama_analyzer, Mock)
-            mock_ollama_analyzer.assert_called_once_with(
-                model="llama2", host="http://localhost:11434"
-            )
 
     def test_get_analyzer_unsupported_provider(self) -> None:
         """Test getting unsupported analyzer."""
@@ -1489,49 +1321,6 @@ def test_anthropic_analyzer_inheritance() -> None:
     assert hasattr(analyzer, "prompt_manager")
 
 
-# New test cases for OllamaAnalyzer class
-def test_ollama_analyzer_initialization() -> None:
-    """Test OllamaAnalyzer initialization."""
-    analyzer = OllamaAnalyzer(
-        model="llama2:13b", host="http://localhost:8080", timeout=60
-    )
-
-    assert analyzer.model == "llama2:13b"
-    assert analyzer.host == "http://localhost:8080"
-    assert analyzer.timeout == 60
-
-
-def test_ollama_analyzer_default_initialization() -> None:
-    """Test OllamaAnalyzer with default parameters."""
-    analyzer = OllamaAnalyzer()
-
-    assert analyzer.model == "llama2"
-    assert analyzer.host == "http://localhost:11434"
-    assert analyzer.timeout == 120
-
-
-def test_ollama_analyzer_get_api_name() -> None:
-    """Test OllamaAnalyzer API name."""
-    analyzer = OllamaAnalyzer()
-
-    assert analyzer._get_api_name() == "Ollama"
-
-
-def test_ollama_analyzer_custom_host() -> None:
-    """Test OllamaAnalyzer with custom host."""
-    analyzer = OllamaAnalyzer(host="http://custom-host:11434")
-
-    assert analyzer.host == "http://custom-host:11434"
-
-
-def test_ollama_analyzer_inheritance() -> None:
-    """Test OllamaAnalyzer inheritance from BaseAnalyzer."""
-    analyzer = OllamaAnalyzer()
-
-    assert isinstance(analyzer, BaseAnalyzer)
-    assert hasattr(analyzer, "security_deprecation_detector")
-
-
 # New test cases for ChangeAnalyzer class
 def test_change_analyzer_initialization() -> None:
     """Test ChangeAnalyzer initialization."""
@@ -1540,15 +1329,6 @@ def test_change_analyzer_initialization() -> None:
 
     assert analyzer.config == config
     assert analyzer.analyzers is not None
-
-
-def test_change_analyzer_get_analyzer_ollama() -> None:
-    """Test ChangeAnalyzer get_analyzer with Ollama."""
-    config = Config()
-    analyzer = ChangeAnalyzer(config)
-
-    ollama_analyzer = analyzer.get_analyzer("ollama")
-    assert isinstance(ollama_analyzer, OllamaAnalyzer)
 
 
 # Mock class for testing BaseAnalyzer
@@ -1562,3 +1342,516 @@ class MockBaseAnalyzer(BaseAnalyzer):
     def _get_api_name(self) -> str:
         """Mock API name."""
         return "MockAPI"
+
+
+# Additional test cases for ChangeAnalysis dataclass
+def test_change_analysis_with_high_confidence() -> None:
+    """Test ChangeAnalysis with high confidence score."""
+    analysis = ChangeAnalysis(
+        summary="Major feature addition",
+        breaking_changes=["API signature changed"],
+        new_features=["New authentication system"],
+        bug_fixes=["Fixed memory leak"],
+        security_updates=["Updated dependencies"],
+        deprecations=["Deprecated old API"],
+        recommendations=["Migrate to new API"],
+        confidence=0.95,
+    )
+
+    assert analysis.confidence == 0.95
+    assert len(analysis.breaking_changes) == 1
+    assert len(analysis.new_features) == 1
+    assert len(analysis.bug_fixes) == 1
+    assert len(analysis.security_updates) == 1
+    assert len(analysis.deprecations) == 1
+    assert len(analysis.recommendations) == 1
+
+
+def test_change_analysis_with_low_confidence() -> None:
+    """Test ChangeAnalysis with low confidence score."""
+    analysis = ChangeAnalysis(
+        summary="Minor changes",
+        breaking_changes=[],
+        new_features=[],
+        bug_fixes=["Fixed typo"],
+        security_updates=[],
+        deprecations=[],
+        recommendations=[],
+        confidence=0.2,
+    )
+
+    assert analysis.confidence == 0.2
+    assert len(analysis.breaking_changes) == 0
+    assert len(analysis.new_features) == 0
+    assert len(analysis.bug_fixes) == 1
+    assert len(analysis.security_updates) == 0
+    assert len(analysis.deprecations) == 0
+    assert len(analysis.recommendations) == 0
+
+
+def test_change_analysis_with_detailed_components() -> None:
+    """Test ChangeAnalysis with detailed components."""
+    breaking_changes = [
+        BreakingChange(
+            type="api_change",
+            description="Removed deprecated method",
+            severity="high",
+            affected_components=["api.py"],
+            migration_guidance="Use new_method() instead",
+        )
+    ]
+
+    security_updates = [
+        SecurityUpdate(
+            type="vulnerability_fix",
+            description="Fixed SQL injection",
+            severity="critical",
+            cve_id="CVE-2023-1234",
+            affected_components=["database.py"],
+            remediation_guidance="Update immediately",
+        )
+    ]
+
+    deprecations = [
+        Deprecation(
+            type="api_deprecation",
+            description="Deprecated old API",
+            severity="medium",
+            affected_components=["api.py"],
+            replacement_suggestion="Use new API",
+        )
+    ]
+
+    analysis = ChangeAnalysis(
+        summary="Major changes with breaking changes",
+        breaking_changes=["Removed deprecated method"],
+        new_features=["Added new feature"],
+        bug_fixes=["Fixed bug"],
+        security_updates=["Fixed SQL injection"],
+        deprecations=["Deprecated old API"],
+        recommendations=["Update code", "Test thoroughly"],
+        confidence=0.9,
+        detailed_breaking_changes=breaking_changes,
+        detailed_security_updates=security_updates,
+        detailed_deprecations=deprecations,
+    )
+
+    assert analysis.summary == "Major changes with breaking changes"
+    assert len(analysis.breaking_changes) == 1
+    assert len(analysis.new_features) == 1
+    assert len(analysis.bug_fixes) == 1
+    assert len(analysis.security_updates) == 1
+    assert len(analysis.deprecations) == 1
+    assert len(analysis.recommendations) == 2
+    assert analysis.confidence == 0.9
+    assert analysis.detailed_breaking_changes == breaking_changes
+    assert analysis.detailed_security_updates == security_updates
+    assert analysis.detailed_deprecations == deprecations
+
+
+def test_change_analysis_equality() -> None:
+    """Test ChangeAnalysis instances equality."""
+    analysis1 = ChangeAnalysis(
+        summary="Test summary",
+        breaking_changes=["API change"],
+        new_features=["New feature"],
+        bug_fixes=["Bug fix"],
+        security_updates=["Security update"],
+        deprecations=["Deprecation"],
+        recommendations=["Recommendation"],
+        confidence=0.8,
+    )
+
+    analysis2 = ChangeAnalysis(
+        summary="Test summary",
+        breaking_changes=["API change"],
+        new_features=["New feature"],
+        bug_fixes=["Bug fix"],
+        security_updates=["Security update"],
+        deprecations=["Deprecation"],
+        recommendations=["Recommendation"],
+        confidence=0.8,
+    )
+
+    assert analysis1 == analysis2
+
+
+def test_change_analysis_inequality() -> None:
+    """Test ChangeAnalysis instances inequality."""
+    analysis1 = ChangeAnalysis(
+        summary="Test summary 1",
+        breaking_changes=["API change"],
+        new_features=["New feature"],
+        bug_fixes=["Bug fix"],
+        security_updates=["Security update"],
+        deprecations=["Deprecation"],
+        recommendations=["Recommendation"],
+        confidence=0.8,
+    )
+
+    analysis2 = ChangeAnalysis(
+        summary="Test summary 2",
+        breaking_changes=["API change"],
+        new_features=["New feature"],
+        bug_fixes=["Bug fix"],
+        security_updates=["Security update"],
+        deprecations=["Deprecation"],
+        recommendations=["Recommendation"],
+        confidence=0.8,
+    )
+
+    assert analysis1 != analysis2
+
+
+# Additional test cases for AnalysisRequest dataclass
+def test_analysis_request_with_all_fields() -> None:
+    """Test AnalysisRequest with all fields populated."""
+    from gitco.config import Repository
+    from gitco.git_ops import GitRepository
+
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/test-repo",
+        skills=["python", "testing"],
+    )
+    git_repo = Mock(spec=GitRepository)
+    diff_content = "diff --git a/file.py b/file.py\n--- a/file.py\n+++ b/file.py\n@@ -1,1 +1,1 @@\n-old line\n+new line"
+    commit_messages = ["Fix bug in file.py", "Update documentation"]
+    custom_prompt = "Please analyze this change carefully"
+
+    request = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content=diff_content,
+        commit_messages=commit_messages,
+        custom_prompt=custom_prompt,
+    )
+
+    assert request.repository == repository
+    assert request.git_repo == git_repo
+    assert request.diff_content == diff_content
+    assert request.commit_messages == commit_messages
+    assert request.custom_prompt == custom_prompt
+
+
+def test_analysis_request_with_empty_commit_messages() -> None:
+    """Test AnalysisRequest with empty commit messages."""
+    from gitco.config import Repository
+    from gitco.git_ops import GitRepository
+
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/test-repo",
+        skills=["python", "testing"],
+    )
+    git_repo = Mock(spec=GitRepository)
+    diff_content = "diff --git a/file.py b/file.py\n--- a/file.py\n+++ b/file.py\n@@ -1,1 +1,1 @@\n-old line\n+new line"
+
+    request = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content=diff_content,
+        commit_messages=[],
+    )
+
+    assert request.commit_messages == []
+
+
+def test_analysis_request_equality() -> None:
+    """Test AnalysisRequest instances equality."""
+    from gitco.config import Repository
+    from gitco.git_ops import GitRepository
+
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/test-repo",
+        skills=["python", "testing"],
+    )
+    git_repo = Mock(spec=GitRepository)
+    diff_content = "diff content"
+    commit_messages = ["commit message"]
+
+    request1 = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content=diff_content,
+        commit_messages=commit_messages,
+    )
+
+    request2 = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content=diff_content,
+        commit_messages=commit_messages,
+    )
+
+    assert request1 == request2
+
+
+def test_analysis_request_inequality() -> None:
+    """Test AnalysisRequest instances inequality."""
+    from gitco.config import Repository
+    from gitco.git_ops import GitRepository
+
+    repository = Repository(
+        name="test-repo",
+        fork="https://github.com/user/test-repo",
+        upstream="https://github.com/original/test-repo",
+        local_path="/path/to/test-repo",
+        skills=["python", "testing"],
+    )
+    git_repo = Mock(spec=GitRepository)
+    diff_content = "diff content"
+    commit_messages = ["commit message"]
+
+    request1 = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content=diff_content,
+        commit_messages=commit_messages,
+    )
+
+    request2 = AnalysisRequest(
+        repository=repository,
+        git_repo=git_repo,
+        diff_content="different diff content",
+        commit_messages=commit_messages,
+    )
+
+    assert request1 != request2
+
+
+# Additional test cases for BaseAnalyzer class
+def test_base_analyzer_with_custom_model() -> None:
+    """Test BaseAnalyzer with custom model."""
+    analyzer = MockBaseAnalyzer(model="custom-model")
+
+    assert analyzer.model == "custom-model"
+    assert analyzer.breaking_detector is not None
+    assert analyzer.security_deprecation_detector is not None
+    assert analyzer.prompt_manager is not None
+
+
+def test_base_analyzer_detector_initialization() -> None:
+    """Test BaseAnalyzer detector initialization."""
+    analyzer = MockBaseAnalyzer()
+
+    assert hasattr(analyzer.breaking_detector, "detect_breaking_changes")
+    assert hasattr(analyzer.security_deprecation_detector, "detect_security_updates")
+    assert hasattr(analyzer.security_deprecation_detector, "detect_deprecations")
+
+
+def test_base_analyzer_prompt_manager_initialization() -> None:
+    """Test BaseAnalyzer prompt manager initialization."""
+    analyzer = MockBaseAnalyzer()
+
+    assert hasattr(analyzer.prompt_manager, "get_system_prompt")
+    assert hasattr(analyzer.prompt_manager, "get_analysis_prompt")
+
+
+def test_base_analyzer_abstract_methods_raise_error() -> None:
+    """Test that BaseAnalyzer abstract methods raise NotImplementedError."""
+
+    # Create a class that doesn't implement abstract methods
+    class IncompleteAnalyzer(BaseAnalyzer):
+        pass
+
+    with pytest.raises(TypeError, match="Can't instantiate abstract class"):
+        IncompleteAnalyzer()  # type: ignore
+
+
+def test_base_analyzer_logger_initialization() -> None:
+    """Test BaseAnalyzer logger initialization."""
+    analyzer = MockBaseAnalyzer()
+
+    assert analyzer.logger is not None
+    assert hasattr(analyzer.logger, "info")
+    assert hasattr(analyzer.logger, "error")
+    assert hasattr(analyzer.logger, "debug")
+
+
+# Additional test cases for OpenAIAnalyzer class
+def test_openai_analyzer_with_custom_model() -> None:
+    """Test OpenAIAnalyzer with custom model."""
+    analyzer = OpenAIAnalyzer(api_key="test-key", model="gpt-4")
+
+    assert analyzer.model == "gpt-4"
+    assert analyzer.api_key == "test-key"
+
+
+def test_openai_analyzer_without_api_key_raises_error() -> None:
+    """Test OpenAIAnalyzer without API key raises error."""
+    with pytest.raises(ValueError, match="OpenAI API key not provided"):
+        OpenAIAnalyzer(api_key=None)
+
+
+def test_openai_analyzer_api_call_with_error() -> None:
+    """Test OpenAIAnalyzer API call with error."""
+    with patch("openai.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_client.chat.completions.create.side_effect = Exception("API Error")
+        mock_openai.return_value = mock_client
+
+        analyzer = OpenAIAnalyzer(api_key="test-key")
+
+        with pytest.raises(Exception, match="API Error"):
+            analyzer._call_llm_api("prompt", "system_prompt")
+
+
+def test_openai_analyzer_response_parsing() -> None:
+    """Test OpenAIAnalyzer response parsing."""
+    with patch("openai.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Test response"
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_client
+
+        analyzer = OpenAIAnalyzer(api_key="test-key")
+        response = analyzer._call_llm_api("prompt", "system_prompt")
+
+        assert response == "Test response"
+
+
+def test_openai_analyzer_inheritance_from_base() -> None:
+    """Test OpenAIAnalyzer inheritance from BaseAnalyzer."""
+    analyzer = OpenAIAnalyzer(api_key="test-key")
+
+    assert isinstance(analyzer, BaseAnalyzer)
+    assert hasattr(analyzer, "breaking_detector")
+    assert hasattr(analyzer, "security_deprecation_detector")
+    assert hasattr(analyzer, "prompt_manager")
+
+
+# Additional test cases for AnthropicAnalyzer class
+def test_anthropic_analyzer_with_custom_model() -> None:
+    """Test AnthropicAnalyzer with custom model."""
+    analyzer = AnthropicAnalyzer(api_key="test-key", model="claude-3-opus-20240229")
+
+    assert analyzer.model == "claude-3-opus-20240229"
+    assert analyzer.api_key == "test-key"
+
+
+def test_anthropic_analyzer_without_api_key_raises_error() -> None:
+    """Test AnthropicAnalyzer without API key raises error."""
+    with pytest.raises(ValueError, match="Anthropic API key not provided"):
+        AnthropicAnalyzer(api_key=None)
+
+
+def test_anthropic_analyzer_api_call_with_error() -> None:
+    """Test AnthropicAnalyzer API call with error."""
+    with patch("anthropic.Anthropic") as mock_anthropic:
+        mock_client = Mock()
+        mock_client.messages.create.side_effect = Exception("API Error")
+        mock_anthropic.return_value = mock_client
+
+        analyzer = AnthropicAnalyzer(api_key="test-key")
+
+        with pytest.raises(Exception, match="API Error"):
+            analyzer._call_llm_api("prompt", "system_prompt")
+
+
+def test_anthropic_analyzer_response_parsing() -> None:
+    """Test AnthropicAnalyzer response parsing."""
+    with patch("anthropic.Anthropic") as mock_anthropic:
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.content = [Mock()]
+        mock_response.content[0].text = "Test response"
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        analyzer = AnthropicAnalyzer(api_key="test-key")
+        response = analyzer._call_llm_api("prompt", "system_prompt")
+
+        assert response == "Test response"
+
+
+def test_anthropic_analyzer_inheritance_from_base() -> None:
+    """Test AnthropicAnalyzer inheritance from BaseAnalyzer."""
+    analyzer = AnthropicAnalyzer(api_key="test-key")
+
+    assert isinstance(analyzer, BaseAnalyzer)
+    assert hasattr(analyzer, "breaking_detector")
+    assert hasattr(analyzer, "security_deprecation_detector")
+    assert hasattr(analyzer, "prompt_manager")
+
+
+# Additional test cases for ChangeAnalyzer class
+def test_change_analyzer_with_custom_config() -> None:
+    """Test ChangeAnalyzer with custom config."""
+    config = Config()
+    config.settings.analysis_enabled = True
+
+    analyzer = ChangeAnalyzer(config)
+
+    assert analyzer.config == config
+    # The analyzers dict is populated lazily, so we check that the config is set correctly
+    assert analyzer.config == config
+
+
+def test_change_analyzer_get_analyzer_with_unsupported_provider() -> None:
+    """Test ChangeAnalyzer get_analyzer with unsupported provider."""
+    config = Config()
+    analyzer = ChangeAnalyzer(config)
+
+    with pytest.raises(ValueError, match="Unsupported LLM provider"):
+        analyzer.get_analyzer("unsupported_provider")
+
+
+def test_change_analyzer_analyze_repository_changes_with_disabled_analysis() -> None:
+    """Test ChangeAnalyzer analyze_repository_changes with disabled analysis."""
+    config = Config()
+    config.settings.analysis_enabled = False
+    analyzer = ChangeAnalyzer(config)
+
+    repository = Mock(spec=Repository)
+    repository.name = "test-repo"  # Add missing name attribute
+    repository.analysis_enabled = False
+    git_repo = Mock(spec=GitRepository)
+
+    result = analyzer.analyze_repository_changes(repository, git_repo)
+
+    assert result is None
+
+
+def test_change_analyzer_analyze_specific_commit_with_invalid_hash() -> None:
+    """Test ChangeAnalyzer analyze_specific_commit with invalid hash."""
+    config = Config()
+    analyzer = ChangeAnalyzer(config)
+
+    repository = Mock(spec=Repository)
+    repository.name = "test-repo"  # Add missing name attribute
+    repository.analysis_enabled = True
+    git_repo = Mock(spec=GitRepository)
+    git_repo.get_commit_diff_analysis.side_effect = Exception("Invalid commit hash")
+
+    result = analyzer.analyze_specific_commit(repository, git_repo, "invalid_hash")
+
+    assert result is None
+
+
+def test_change_analyzer_get_commit_summary_with_empty_repo() -> None:
+    """Test ChangeAnalyzer get_commit_summary with empty repository."""
+    config = Config()
+    analyzer = ChangeAnalyzer(config)
+
+    repository = Mock(spec=Repository)
+    repository.name = "test-repo"  # Add missing name attribute
+    git_repo = Mock(spec=GitRepository)
+    git_repo.get_recent_commit_messages.return_value = []
+    git_repo.get_recent_changes.return_value = ""
+
+    summary = analyzer.get_commit_summary(repository, git_repo, num_commits=5)
+
+    assert summary["total_commits"] == 0
+    # The commit_types will have default values for all categories
+    assert "commit_types" in summary
+    assert summary["commit_messages"] == []

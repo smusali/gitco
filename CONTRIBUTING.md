@@ -10,7 +10,7 @@ Thank you for your interest in contributing to GitCo! This document provides gui
 - Git
 - pip
 - GitHub account (for API access)
-- LLM API key (OpenAI, Anthropic, or local setup)
+- LLM API key (OpenAI or Anthropic)
 
 ### Development Setup
 
@@ -344,7 +344,7 @@ Thank you for contributing to GitCo! 🚀
 - Ensure backward compatibility with existing configurations
 
 ### LLM Integration
-- Test with multiple LLM providers (OpenAI, Anthropic, local)
+- Test with multiple LLM providers (OpenAI, Anthropic)
 - Consider API rate limits and costs
 - Validate prompt engineering for different use cases
 
