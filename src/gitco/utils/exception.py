@@ -67,6 +67,18 @@ class ActivityDashboardError(APIError):
     pass
 
 
+class BackupError(GitCoError):
+    """Raised when backup operations fail."""
+
+    pass
+
+
+class RecoveryError(GitCoError):
+    """Raised when recovery operations fail."""
+
+    pass
+
+
 __all__ = [
     "GitCoError",
     "ConfigurationError",
@@ -79,4 +91,6 @@ __all__ = [
     "DiscoveryError",
     "HealthMetricsError",
     "ActivityDashboardError",
+    "BackupError",
+    "RecoveryError",
 ]
