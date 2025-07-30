@@ -1,6 +1,7 @@
 """GitCo CLI interface."""
 
 import sys
+import time
 from typing import Any, Optional, Union
 
 import click
@@ -165,6 +166,67 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 
     console.print(panel)
     console.print()  # Add spacing
+
+
+def export_sync_results(
+    sync_data: dict[str, Any], export_path: str, repo_name: Optional[str] = None
+) -> None:
+    """Export sync results to a JSON file.
+
+    Args:
+        sync_data: Dictionary containing sync results and metadata
+        export_path: Path to export the JSON file
+        repo_name: Optional repository name for single repo syncs
+    """
+    import json
+    from datetime import datetime
+    from pathlib import Path
+
+    try:
+        # Prepare export data structure
+        export_data = {
+            "exported_at": datetime.now().isoformat(),
+            "sync_metadata": {
+                "total_repositories": sync_data.get("total_repositories", 0),
+                "successful_syncs": sync_data.get("successful", 0),
+                "failed_syncs": sync_data.get("failed", 0),
+                "batch_mode": sync_data.get("batch_mode", False),
+                "analysis_enabled": sync_data.get("analysis_enabled", False),
+                "max_workers": sync_data.get("max_workers", 1),
+            },
+            "repository_results": sync_data.get("repository_results", []),
+            "summary": {
+                "success_rate": sync_data.get("success_rate", 0.0),
+                "total_duration": sync_data.get("total_duration", 0.0),
+                "errors": sync_data.get("errors", []),
+                "warnings": sync_data.get("warnings", []),
+            },
+        }
+
+        # Add single repository info if provided
+        if repo_name:
+            export_data["single_repository"] = {
+                "name": repo_name,
+                "result": sync_data.get("single_result", {}),
+            }
+
+        # Write to file
+        export_file = Path(export_path)
+        export_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(export_file, "w", encoding="utf-8") as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False, default=str)
+
+        print_success_panel(
+            "Export Successful",
+            f"Sync report exported to: {export_path}",
+        )
+
+    except Exception as e:
+        print_error_panel(
+            "Export Failed",
+            f"Failed to export sync results: {str(e)}",
+        )
 
 
 def export_discovery_results(recommendations: Any, export_path: str) -> None:
@@ -348,6 +410,9 @@ def sync(
     )
 
     try:
+        # Start timing
+        start_time = time.time()
+
         # Load configuration
         config_manager = ConfigManager()
         config = config_manager.load_config()
@@ -486,6 +551,7 @@ def sync(
 
                 successful = 0
                 failed = 0
+                sequential_results = []  # Store individual results for export
 
                 if not quiet:
                     with create_progress_bar(
@@ -508,6 +574,26 @@ def sync(
 
                             result = repo_manager._sync_single_repository(
                                 r.local_path, repo_config
+                            )
+
+                            # Store result for export
+                            sequential_results.append(
+                                {
+                                    "name": r.name,
+                                    "success": result["success"],
+                                    "message": result.get("message", ""),
+                                    "stashed_changes": result.get(
+                                        "stashed_changes", False
+                                    ),
+                                    "recovery_attempted": result.get(
+                                        "recovery_attempted", False
+                                    ),
+                                    "retry_count": result.get("retry_count", 0),
+                                    "stash_restore_failed": result.get(
+                                        "stash_restore_failed", False
+                                    ),
+                                    "details": result.get("details", {}),
+                                }
                             )
 
                             if result["success"]:
@@ -546,6 +632,24 @@ def sync(
 
                         result = repo_manager._sync_single_repository(
                             r.local_path, repo_config
+                        )
+
+                        # Store result for export
+                        sequential_results.append(
+                            {
+                                "name": r.name,
+                                "success": result["success"],
+                                "message": result.get("message", ""),
+                                "stashed_changes": result.get("stashed_changes", False),
+                                "recovery_attempted": result.get(
+                                    "recovery_attempted", False
+                                ),
+                                "retry_count": result.get("retry_count", 0),
+                                "stash_restore_failed": result.get(
+                                    "stash_restore_failed", False
+                                ),
+                                "details": result.get("details", {}),
+                            }
                         )
 
                         if result["success"]:
@@ -653,11 +757,76 @@ def sync(
         # Handle export if requested
         if export:
             logger.info(f"Export requested to: {export}")
-            print_info_panel(
-                "Export Functionality",
-                f"Export functionality will be implemented in Commit 35.\n"
-                f"Reports will be exported to: {export}",
-            )
+
+            # Calculate total duration
+            total_duration = time.time() - start_time
+
+            # Prepare sync data for export
+            sync_data: dict[str, Any] = {
+                "total_repositories": len(config.repositories) if not repo else 1,
+                "successful": (
+                    successful if not repo else (1 if result["success"] else 0)
+                ),
+                "failed": failed if not repo else (0 if result["success"] else 1),
+                "batch_mode": batch,
+                "analysis_enabled": analyze,
+                "max_workers": max_workers,
+                "success_rate": (
+                    (successful / len(config.repositories))
+                    if not repo and len(config.repositories) > 0
+                    else (1.0 if result["success"] else 0.0)
+                ),
+                "total_duration": total_duration,
+                "errors": [],
+                "warnings": [],
+            }
+
+            # Collect repository results
+            if repo:
+                # Single repository sync
+                sync_data["single_result"] = result
+                sync_data["repository_results"] = [
+                    {
+                        "name": repo,
+                        "success": result["success"],
+                        "message": result.get("message", ""),
+                        "stashed_changes": result.get("stashed_changes", False),
+                        "recovery_attempted": result.get("recovery_attempted", False),
+                        "retry_count": result.get("retry_count", 0),
+                        "stash_restore_failed": result.get(
+                            "stash_restore_failed", False
+                        ),
+                        "details": result.get("details", {}),
+                    }
+                ]
+            else:
+                # Multiple repository sync
+                sync_data["repository_results"] = []
+
+                if batch:
+                    # Batch processing results
+                    for batch_result in results:
+                        sync_data["repository_results"].append(
+                            {
+                                "name": batch_result.repository_name,
+                                "success": batch_result.success,
+                                "message": batch_result.message,
+                                "duration": batch_result.duration,
+                                "operation": batch_result.operation,
+                                "details": batch_result.details,
+                                "error": (
+                                    str(batch_result.error)
+                                    if batch_result.error
+                                    else None
+                                ),
+                            }
+                        )
+                else:
+                    # Sequential processing - use collected results
+                    sync_data["repository_results"] = sequential_results
+
+            # Export the sync results
+            export_sync_results(sync_data, export, repo)
 
         # Exit with error code if there were failures
         if not repo and failed > 0:

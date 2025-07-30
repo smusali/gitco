@@ -24,6 +24,10 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - **Enhanced CLI output** with success, error, warning, and info panels
 - **Progress bars** for repository operations with spinners and time tracking
 - **Color-coded status** for different operation types (started, completed, failed, skipped)
+- **JSON export functionality** for comprehensive sync reports
+- **Detailed sync metadata** including success rates, timing, and error tracking
+- **Export support for single repository and batch operations**
+- **Structured JSON output** with repository-specific sync details
 
 ### 🧠 **AI-Powered Change Analysis**
 - **OpenAI API integration** for intelligent change analysis
@@ -609,8 +613,14 @@ gitco sync --analyze
 # Find issues by skill/language
 gitco discover --skill python --label "good first issue"
 
-# Export sync report
+# Export sync report to JSON
 gitco sync --export report.json
+
+# Export sync report with analysis
+gitco sync --analyze --export report.json
+
+# Export batch sync results
+gitco sync --batch --export batch-report.json
 
 # Schedule sync (cron-friendly)
 gitco sync --quiet --log sync.log
