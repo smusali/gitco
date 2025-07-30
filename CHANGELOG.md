@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Repository activity dashboard in CLI**
+- **New `activity` command for detailed repository activity analysis**
+- **ActivityMetrics dataclass for structured activity data**
+- **ActivitySummary dataclass for activity summaries across repositories**
+- **ActivityDashboard class for activity metrics calculation**
+- **Detailed commit activity tracking (24h, 7d, 30d, 90d periods)**
+- **Contributor activity analysis with active contributor tracking**
+- **Issue and PR activity metrics with creation and closure tracking**
+- **Engagement metrics with activity and engagement scoring**
+- **Trending metrics with stars, forks, and views growth tracking**
+- **Activity patterns analysis with most active hours and days**
+- **Activity health indicators with overall activity health assessment**
+- **Enhanced status command with --activity flag for activity dashboard**
+- **Activity dashboard integration with existing status command**
+- **Rich activity dashboard display with comprehensive metrics tables**
+- **Activity level panels showing high, moderate, and low activity repositories**
+- **Engagement level panels showing engagement distribution**
+- **Trending repositories identification and display**
+- **Most active repositories identification and display**
+- **Activity statistics panels with detailed metrics**
+- **Activity health panels with health status and scoring**
+- **Activity patterns display with temporal analysis**
+- **Trending metrics display with growth indicators**
+- **Filtering capabilities for repositories by activity level**
+- **Sorting capabilities for repositories by activity metrics**
+- **Integration of activity dashboard with existing CLI patterns**
+- **Comprehensive error handling for activity dashboard features**
+- **Type-safe implementation with full mypy compliance**
 - **Enhanced detailed logging with file output**
 - **Structured logging with context and performance tracking**
 - **Log rotation with configurable file size and backup count**

@@ -61,6 +61,12 @@ class HealthMetricsError(APIError):
     pass
 
 
+class ActivityDashboardError(APIError):
+    """Raised when activity dashboard operations fail."""
+
+    pass
+
+
 __all__ = [
     "GitCoError",
     "ConfigurationError",
@@ -72,4 +78,5 @@ __all__ = [
     "ContributionTrackerError",
     "DiscoveryError",
     "HealthMetricsError",
+    "ActivityDashboardError",
 ]

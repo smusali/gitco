@@ -421,6 +421,30 @@ gitco status --detailed
 # Export status data
 gitco status --export status.json
 
+# Show repository activity dashboard
+gitco activity
+
+# Show activity for specific repository
+gitco activity --repo django
+
+# Show detailed activity information
+gitco activity --detailed
+
+# Filter repositories by activity level
+gitco activity --filter high
+gitco activity --filter moderate
+gitco activity --filter low
+
+# Sort repositories by activity metrics
+gitco activity --sort activity
+gitco activity --sort engagement
+gitco activity --sort commits
+gitco activity --sort contributors
+
+# Show activity dashboard via status command
+gitco status --activity
+gitco status --activity --detailed
+
 # Get help
 gitco help
 

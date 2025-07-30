@@ -137,6 +137,51 @@ gitco status --repo django
 # Show detailed status
 gitco status --detailed
 
+### Activity Dashboard
+
+View detailed activity metrics for your repositories:
+
+```bash
+# Show activity dashboard for all repositories
+gitco activity
+
+# Show activity for specific repository
+gitco activity --repo django
+
+# Show detailed activity information
+gitco activity --detailed
+
+# Filter repositories by activity level
+gitco activity --filter high
+gitco activity --filter moderate
+gitco activity --filter low
+
+# Sort repositories by activity metrics
+gitco activity --sort activity
+gitco activity --sort engagement
+gitco activity --sort commits
+gitco activity --sort contributors
+
+# Show activity dashboard via status command
+gitco status --activity
+gitco status --activity --detailed
+```
+
+**Activity Dashboard Features:**
+
+- **Commit Activity**: Track commits across different time periods (24h, 7d, 30d, 90d)
+- **Contributor Analysis**: Monitor active contributors and total contributor counts
+- **Issue & PR Tracking**: Track new and closed issues, open PRs, and engagement metrics
+- **Activity Health**: Overall activity health assessment with scoring
+- **Engagement Metrics**: Activity and engagement scoring with trend analysis
+- **Activity Patterns**: Most active hours and days with temporal analysis
+- **Trending Metrics**: Stars, forks, and views growth tracking
+- **Activity Levels**: Classification of repositories by activity level (high, moderate, low)
+- **Engagement Levels**: Distribution of repositories by engagement level
+- **Trending Repositories**: Identification and display of trending repositories
+- **Most Active Repositories**: Display of repositories with highest activity
+- **Rich Visualization**: Comprehensive tables with detailed metrics and health panels
+
 ### Validate Repositories
 
 Validate Git repositories and check their status:

@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 import click
 
 from . import __version__
+from .activity_dashboard import create_activity_dashboard
 from .analyzer import ChangeAnalyzer
 from .config import ConfigManager, create_sample_config, get_config_manager
 from .exporter import (
@@ -1274,6 +1275,9 @@ def discover(
     "--overview", "-o", is_flag=True, help="Show repository overview dashboard"
 )
 @click.option(
+    "--activity", "-a", is_flag=True, help="Show repository activity dashboard"
+)
+@click.option(
     "--filter",
     "-f",
     help="Filter repositories by status (healthy, needs_attention, critical)",
@@ -1289,6 +1293,7 @@ def status(
     detailed: bool,
     export: Optional[str],
     overview: bool,
+    activity: bool,
     filter: Optional[str],
     sort: Optional[str],
     quiet: bool,
@@ -1325,14 +1330,34 @@ def status(
                 )
                 return
 
-            metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
-            _print_repository_health(metrics, detailed)
+            if activity:
+                # Show activity dashboard for specific repository
+                activity_dashboard = create_activity_dashboard(config, github_client)
+                activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+                _print_repository_activity(activity_metrics, detailed)
+            else:
+                metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
+                _print_repository_health(metrics, detailed)
 
         else:
             # Show status for all repositories
             summary = health_calculator.calculate_health_summary(config.repositories)  # type: ignore
 
-            if overview:
+            if activity:
+                # Show activity dashboard for all repositories
+                activity_dashboard = create_activity_dashboard(config, github_client)
+                activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
+                _print_activity_summary(activity_summary, detailed)
+
+                if detailed:
+                    print_info_panel(
+                        "Detailed Repository Activity",
+                        "Calculating detailed activity metrics...",
+                    )
+                    for repo_config in config.repositories:
+                        activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+                        _print_repository_activity(activity_metrics, detailed=True)
+            elif overview:
                 _print_repository_overview(
                     config.repositories, health_calculator, filter, sort
                 )
@@ -1360,6 +1385,100 @@ def status(
         log_operation_failure("repository status check", error=e)
         print_error_panel(
             "Status Check Failed", f"Failed to check repository status: {e}"
+        )
+
+
+@main.command()
+@click.option("--repo", "-r", help="Show activity for specific repository")
+@click.option(
+    "--detailed", "-d", is_flag=True, help="Show detailed activity information"
+)
+@click.option("--export", "-e", help="Export activity data to file")
+@click.option(
+    "--filter",
+    "-f",
+    help="Filter repositories by activity level (high, moderate, low)",
+)
+@click.option(
+    "--sort",
+    "-s",
+    help="Sort repositories by metric (activity, engagement, commits, contributors)",
+)
+@click.option("--quiet", "-q", is_flag=True, help="Suppress output")
+@click.pass_context
+def activity(
+    ctx: click.Context,
+    repo: Optional[str],
+    detailed: bool,
+    export: Optional[str],
+    filter: Optional[str],
+    sort: Optional[str],
+    quiet: bool,
+) -> None:
+    """Show repository activity dashboard.
+
+    Displays detailed activity metrics for repositories including commit activity,
+    contributor engagement, and trending patterns.
+    """
+    get_logger()
+    log_operation_start("repository activity dashboard")
+
+    try:
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+        github_client = create_github_client()
+
+        activity_dashboard = create_activity_dashboard(config, github_client)
+
+        if repo:
+            # Show activity for specific repository
+            repo_config = None
+            for r in config.repositories:
+                if hasattr(r, "get") and r.get("name") == repo:
+                    repo_config = r
+                    break
+
+            if not repo_config:
+                print_error_panel(
+                    "Repository Not Found",
+                    f"Repository '{repo}' not found in configuration.",
+                )
+                return
+
+            activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+            _print_repository_activity(activity_metrics, detailed)
+
+        else:
+            # Show activity for all repositories
+            activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
+            _print_activity_summary(activity_summary, detailed)
+
+            if detailed:
+                print_info_panel(
+                    "Detailed Repository Activity",
+                    "Calculating detailed activity metrics...",
+                )
+                for repo_config in config.repositories:
+                    activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+                    _print_repository_activity(activity_metrics, detailed=True)
+
+        # Export if requested
+        if export:
+            # TODO: Implement activity data export
+            print_info_panel(
+                "Export Feature",
+                "Activity data export will be implemented in a future version.",
+            )
+
+        log_operation_success("repository activity dashboard")
+        print_success_panel(
+            "Activity Dashboard Completed", "✅ Repository activity analysis completed!"
+        )
+
+    except Exception as e:
+        log_operation_failure("repository activity dashboard", error=e)
+        print_error_panel(
+            "Activity Dashboard Failed", f"Failed to generate activity dashboard: {e}"
         )
 
 
@@ -1682,6 +1801,263 @@ def _print_repository_overview(
             console.print(alert_panel)
 
 
+def _print_activity_summary(summary: Any, detailed: bool = False) -> None:
+    """Print activity summary information."""
+    from rich import box
+    from rich.columns import Columns
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Create activity summary table
+    table = Table(
+        title="Repository Activity Summary",
+        show_header=True,
+        header_style="bold magenta",
+        box=box.ROUNDED,
+    )
+
+    table.add_column("Metric", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green", justify="right")
+    table.add_column("Description", style="yellow")
+
+    # Add summary rows
+    table.add_row(
+        "Total Repositories",
+        str(summary.total_repositories),
+        "Total number of configured repositories",
+    )
+    table.add_row(
+        "Active (24h)",
+        str(summary.active_repositories_24h),
+        "Repositories with commits in last 24 hours",
+    )
+    table.add_row(
+        "Active (7d)",
+        str(summary.active_repositories_7d),
+        "Repositories with commits in last 7 days",
+    )
+    table.add_row(
+        "Active (30d)",
+        str(summary.active_repositories_30d),
+        "Repositories with commits in last 30 days",
+    )
+
+    console.print(table)
+
+    # Create activity level panels
+    activity_panels = [
+        Panel(
+            f"[bold green]{summary.high_activity_repositories}[/bold green]\nHigh Activity",
+            title="Activity Levels",
+            border_style="green",
+        ),
+        Panel(
+            f"[bold yellow]{summary.moderate_activity_repositories}[/bold yellow]\nModerate Activity",
+            title="",
+            border_style="yellow",
+        ),
+        Panel(
+            f"[bold red]{summary.low_activity_repositories}[/bold red]\nLow Activity",
+            title="",
+            border_style="red",
+        ),
+    ]
+
+    console.print("\n")
+    console.print(Columns(activity_panels, equal=True, expand=True))
+
+    # Create engagement level panels
+    engagement_panels = [
+        Panel(
+            f"[bold green]{summary.high_engagement_repositories}[/bold green]\nHigh Engagement",
+            title="Engagement Levels",
+            border_style="green",
+        ),
+        Panel(
+            f"[bold yellow]{summary.moderate_engagement_repositories}[/bold yellow]\nModerate Engagement",
+            title="",
+            border_style="yellow",
+        ),
+        Panel(
+            f"[bold red]{summary.low_engagement_repositories}[/bold red]\nLow Engagement",
+            title="",
+            border_style="red",
+        ),
+    ]
+
+    console.print("\n")
+    console.print(Columns(engagement_panels, equal=True, expand=True))
+
+    # Show trending repositories
+    if summary.trending_repositories:
+        trending_panel = Panel(
+            "\n".join(f"📈 {repo}" for repo in summary.trending_repositories),
+            title="🚀 Trending Repositories",
+            border_style="green",
+        )
+        console.print("\n")
+        console.print(trending_panel)
+
+    # Show most active repositories
+    if summary.most_active_repositories:
+        active_panel = Panel(
+            "\n".join(f"🔥 {repo}" for repo in summary.most_active_repositories),
+            title="🔥 Most Active Repositories",
+            border_style="red",
+        )
+        console.print("\n")
+        console.print(active_panel)
+
+    # Show summary statistics
+    if detailed:
+        stats_panel = Panel(
+            f"Total Commits (7d): {summary.total_commits_7d:,}\n"
+            f"Total Issues (7d): {summary.total_issues_7d:,}\n"
+            f"Total PRs (7d): {summary.total_prs_7d:,}\n"
+            f"Avg Activity Score: {summary.average_activity_score:.1%}\n"
+            f"Avg Engagement Score: {summary.average_engagement_score:.1%}",
+            title="📊 Activity Statistics",
+            border_style="blue",
+        )
+        console.print("\n")
+        console.print(stats_panel)
+
+
+def _print_repository_activity(metrics: Any, detailed: bool = False) -> None:
+    """Print detailed repository activity metrics."""
+    from rich import box
+    from rich.columns import Columns
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Create activity metrics table
+    table = Table(
+        title=f"Activity Dashboard - {metrics.repository_name}",
+        show_header=True,
+        header_style="bold magenta",
+        box=box.ROUNDED,
+    )
+
+    table.add_column("Metric", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green", justify="right")
+    table.add_column("Description", style="yellow")
+
+    # Add commit activity rows
+    table.add_row(
+        "Commits (24h)",
+        str(metrics.commits_last_24h),
+        "Commits in last 24 hours",
+    )
+    table.add_row(
+        "Commits (7d)",
+        str(metrics.commits_last_7d),
+        "Commits in last 7 days",
+    )
+    table.add_row(
+        "Commits (30d)",
+        str(metrics.commits_last_30d),
+        "Commits in last 30 days",
+    )
+    table.add_row(
+        "Total Commits",
+        str(metrics.total_commits),
+        "Total commits in repository",
+    )
+
+    # Add contributor activity rows
+    table.add_row(
+        "Active Contributors (24h)",
+        str(metrics.active_contributors_24h),
+        "Unique contributors in last 24 hours",
+    )
+    table.add_row(
+        "Active Contributors (7d)",
+        str(metrics.active_contributors_7d),
+        "Unique contributors in last 7 days",
+    )
+    table.add_row(
+        "Total Contributors",
+        str(metrics.total_contributors),
+        "Total unique contributors",
+    )
+
+    # Add issue and PR activity rows
+    table.add_row(
+        "New Issues (7d)",
+        str(metrics.new_issues_7d),
+        "New issues created in last 7 days",
+    )
+    table.add_row(
+        "Closed Issues (7d)",
+        str(metrics.closed_issues_7d),
+        "Issues closed in last 7 days",
+    )
+    table.add_row(
+        "Open Issues",
+        str(metrics.open_issues),
+        "Currently open issues",
+    )
+    table.add_row(
+        "Open PRs",
+        str(metrics.open_prs),
+        "Currently open pull requests",
+    )
+
+    console.print(table)
+
+    # Create activity health panels
+    activity_health_emoji = {
+        "excellent": "🟢",
+        "good": "🟢",
+        "fair": "🟡",
+        "poor": "🟠",
+        "unknown": "⚪",
+    }.get(metrics.overall_activity_health, "⚪")
+
+    health_panels = [
+        Panel(
+            f"{activity_health_emoji} {metrics.overall_activity_health.title()}\n"
+            f"Activity Score: {metrics.activity_score:.1%}",
+            title="Activity Health",
+            border_style="green"
+            if metrics.overall_activity_health in ["excellent", "good"]
+            else "red",
+        ),
+        Panel(
+            f"Engagement Score: {metrics.engagement_score:.1%}\n"
+            f"Trend: {metrics.activity_trend.title()}",
+            title="Engagement",
+            border_style="blue",
+        ),
+    ]
+
+    console.print("\n")
+    console.print(Columns(health_panels, equal=True, expand=True))
+
+    # Show activity patterns if available
+    if metrics.most_active_hour is not None or metrics.most_active_day:
+        pattern_panel = Panel(
+            f"Most Active Hour: {metrics.most_active_hour or 'Unknown'}:00\n"
+            f"Most Active Day: {metrics.most_active_day or 'Unknown'}",
+            title="📅 Activity Patterns",
+            border_style="cyan",
+        )
+        console.print("\n")
+        console.print(pattern_panel)
+
+    # Show trending metrics if available
+    if any([metrics.stars_growth_7d, metrics.forks_growth_7d, metrics.views_growth_7d]):
+        trending_panel = Panel(
+            f"Stars Growth (7d): {metrics.stars_growth_7d:+}\n"
+            f"Forks Growth (7d): {metrics.forks_growth_7d:+}\n"
+            f"Views Growth (7d): {metrics.views_growth_7d:+}",
+            title="📈 Trending Metrics",
+            border_style="magenta",
+        )
+        console.print("\n")
+        console.print(trending_panel)
+
+
 @main.command()
 @click.option(
     "--export", "-e", help="Export performance summary to file (.json or .csv)"
@@ -1737,6 +2113,7 @@ def help(ctx: click.Context) -> None:
     click.echo("  analyze   Analyze changes with AI")
     click.echo("  discover  Find contribution opportunities")
     click.echo("  status    Show repository status")
+    click.echo("  activity  Show repository activity dashboard")
     click.echo("  help      Show this help message")
     click.echo()
     click.echo("Contribution Tracking:")
@@ -1754,6 +2131,7 @@ def help(ctx: click.Context) -> None:
     click.echo("  gitco analyze --repo fastapi")
     click.echo("  gitco discover --skill python")
     click.echo("  gitco status --detailed")
+    click.echo("  gitco activity --detailed")
     click.echo("  gitco validate-repo --path ~/code/django")
     click.echo("  gitco validate-repo --recursive --detailed")
 
