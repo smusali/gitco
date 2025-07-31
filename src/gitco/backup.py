@@ -469,9 +469,10 @@ class BackupManager:
                     # Create the directory if it doesn't exist
                     os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
                     # Extract the file
-                    with zip_file.open(file_info.filename) as source, open(
-                        target_file_path, "wb"
-                    ) as target:
+                    with (
+                        zip_file.open(file_info.filename) as source,
+                        open(target_file_path, "wb") as target,
+                    ):
                         target.write(source.read())
                     extracted_files.append(file_info.filename)
 
@@ -516,9 +517,10 @@ class BackupManager:
         # Extract configuration
         for config_file in config_files:
             # Extract the file content and write it to the target location
-            with zip_file.open(config_file) as source, open(
-                target_path, "wb"
-            ) as target:
+            with (
+                zip_file.open(config_file) as source,
+                open(target_path, "wb") as target,
+            ):
                 target.write(source.read())
 
         self.logger.info(f"Restored configuration: {target_path}")

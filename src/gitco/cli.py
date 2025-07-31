@@ -2025,9 +2025,11 @@ def _print_repository_activity(metrics: Any, detailed: bool = False) -> None:
             f"{activity_health_emoji} {metrics.overall_activity_health.title()}\n"
             f"Activity Score: {metrics.activity_score:.1%}",
             title="Activity Health",
-            border_style="green"
-            if metrics.overall_activity_health in ["excellent", "good"]
-            else "red",
+            border_style=(
+                "green"
+                if metrics.overall_activity_health in ["excellent", "good"]
+                else "red"
+            ),
         ),
         Panel(
             f"Engagement Score: {metrics.engagement_score:.1%}\n"
