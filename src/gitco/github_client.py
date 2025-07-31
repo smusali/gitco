@@ -9,7 +9,6 @@ import requests
 from github import Github, GithubException
 
 from .utils.common import (
-    get_logger,
     log_api_call,
     log_operation_failure,
     log_operation_start,
@@ -18,8 +17,8 @@ from .utils.common import (
 from .utils.exception import (
     APIError,
     GitHubAuthenticationError,
-    GitHubRateLimitExceeded,
 )
+from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
 
 
 @dataclass
@@ -61,7 +60,7 @@ class GitHubRepository:
     disabled: bool = False
 
 
-class GitHubClient:
+class GitHubClient(RateLimitedAPIClient):
     """GitHub API client with authentication and rate limiting."""
 
     def __init__(
@@ -83,7 +82,10 @@ class GitHubClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
         """
-        self.logger = get_logger()
+        # Initialize rate limiter
+        rate_limiter = get_rate_limiter("github")
+        super().__init__(rate_limiter)
+
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
@@ -94,10 +96,6 @@ class GitHubClient:
 
         # Initialize PyGithub client
         self._init_github_client(token, username, password)
-
-        # Rate limiting
-        self._last_request_time = 0
-        self._min_request_interval = 0.1  # 100ms between requests
 
     def _setup_authentication(
         self,
@@ -203,14 +201,7 @@ class GitHubClient:
 
     def _rate_limit_request(self) -> None:
         """Implement rate limiting between requests."""
-        current_time = time.time()
-        time_since_last = current_time - self._last_request_time
-
-        if time_since_last < self._min_request_interval:
-            sleep_time = self._min_request_interval - time_since_last
-            time.sleep(sleep_time)
-
-        self._last_request_time = int(time.time())
+        self.rate_limiter.wait_if_needed()
 
     def _make_request(
         self,
@@ -253,20 +244,14 @@ class GitHubClient:
                     timeout=self.timeout,
                 )
 
+                # Update rate limiter with response headers
+                self.rate_limiter.update_from_response_headers(dict(response.headers))
+
                 # Check rate limiting
                 remaining = response.headers.get("X-RateLimit-Remaining")
                 if remaining and int(remaining) == 0:
-                    reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
-                    wait_time = max(0, reset_time - int(time.time()))
-
-                    if wait_time > 0:
-                        self.logger.warning(
-                            f"Rate limit exceeded. Waiting {wait_time} seconds"
-                        )
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise GitHubRateLimitExceeded("GitHub API rate limit exceeded")
+                    self.rate_limiter.handle_rate_limit_exceeded(dict(response.headers))
+                    continue
 
                 # Handle response
                 if response.status_code == 200:

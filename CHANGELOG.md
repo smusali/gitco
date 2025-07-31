@@ -98,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced detailed logging with file output**
 - **Structured logging with context and performance tracking**
 - **Log rotation with configurable file size and backup count**
+- **Rate limiting system for API calls** with provider-specific configurations
+- **Rate limiting status command** to monitor API usage
+- **Automatic retry logic** with exponential backoff for rate limit errors
+- **Real-time rate limit monitoring** for GitHub, OpenAI, and Anthropic APIs
 - **Detailed log format with function names and line numbers**
 - **Performance metrics tracking for all operations**
 - **API interaction logging with timing and status codes**

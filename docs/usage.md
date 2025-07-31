@@ -147,6 +147,39 @@ gitco status --export status.json
 - **Summary Panels**: Key metrics displayed in organized panels
 - **Alert System**: Automatic alerts for repositories needing attention
 
+### Rate Limiting
+
+GitCo includes comprehensive rate limiting for all API calls to prevent hitting API limits:
+
+```bash
+# Check rate limiting status for all providers
+gitco github rate-limit-status
+
+# Check status for specific provider
+gitco github rate-limit-status --provider github
+gitco github rate-limit-status --provider openai
+gitco github rate-limit-status --provider anthropic
+
+# Show detailed rate limiting information
+gitco github rate-limit-status --detailed
+```
+
+**Rate Limiting Features:**
+
+- **Automatic Rate Limiting**: Built-in rate limiting for GitHub, OpenAI, and Anthropic APIs
+- **Provider-Specific Limits**: Different rate limits for each API provider
+- **Smart Retry Logic**: Automatic retry with exponential backoff for rate limit errors
+- **Real-time Monitoring**: Track requests per minute and hour
+- **Header Parsing**: Parse rate limit headers from API responses
+- **Graceful Handling**: Wait for rate limit resets when exceeded
+
+**Rate Limits by Provider:**
+
+- **GitHub**: 30 requests/minute, 5000 requests/hour
+- **OpenAI**: 60 requests/minute, 1000 requests/hour
+- **Anthropic**: 60 requests/minute, 1000 requests/hour
+- **Default**: 60 requests/minute, 1000 requests/hour
+
 # Show specific repository
 gitco status --repo django
 

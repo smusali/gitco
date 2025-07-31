@@ -23,6 +23,7 @@ from .utils.common import (
     console,
     get_logger,
 )
+from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
 
 
 @dataclass
@@ -315,7 +316,7 @@ class BaseAnalyzer(ABC):
         return data
 
 
-class OpenAIAnalyzer(BaseAnalyzer):
+class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
     """OpenAI API integration for change analysis."""
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
@@ -326,6 +327,11 @@ class OpenAIAnalyzer(BaseAnalyzer):
             model: OpenAI model to use for analysis.
         """
         super().__init__(model)
+
+        # Initialize rate limiter
+        rate_limiter = get_rate_limiter("openai")
+        RateLimitedAPIClient.__init__(self, rate_limiter)
+
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -348,15 +354,19 @@ class OpenAIAnalyzer(BaseAnalyzer):
             Exception: If the API call fails.
         """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.1,
-                max_tokens=4000,
-            )
+
+            def make_openai_request() -> Any:
+                return self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.1,
+                    max_tokens=4000,
+                )
+
+            response = self.make_rate_limited_request(make_openai_request)
             return response.choices[0].message.content or ""
         except Exception as e:
             self.logger.error(f"OpenAI API call failed: {e}")
@@ -371,7 +381,7 @@ class OpenAIAnalyzer(BaseAnalyzer):
         return "OpenAI"
 
 
-class AnthropicAnalyzer(BaseAnalyzer):
+class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
     """Anthropic Claude API integration for change analysis."""
 
     def __init__(
@@ -384,6 +394,11 @@ class AnthropicAnalyzer(BaseAnalyzer):
             model: Anthropic model to use for analysis.
         """
         super().__init__(model)
+
+        # Initialize rate limiter
+        rate_limiter = get_rate_limiter("anthropic")
+        RateLimitedAPIClient.__init__(self, rate_limiter)
+
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -406,12 +421,16 @@ class AnthropicAnalyzer(BaseAnalyzer):
             Exception: If the API call fails.
         """
         try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                system=system_prompt,
-                messages=[{"role": "user", "content": prompt}],
-            )
+
+            def make_anthropic_request() -> Any:
+                return self.client.messages.create(
+                    model=self.model,
+                    max_tokens=4000,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+
+            response = self.make_rate_limited_request(make_anthropic_request)
             # Check if the first content block is a TextBlock
             if response.content and hasattr(response.content[0], "text"):
                 return str(response.content[0].text)

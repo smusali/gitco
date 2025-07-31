@@ -3308,6 +3308,70 @@ def github(ctx: click.Context) -> None:
 
 
 @github.command()
+@click.option(
+    "--provider",
+    "-p",
+    help="Show status for specific provider (github, openai, anthropic)",
+)
+@click.option(
+    "--detailed", "-d", is_flag=True, help="Show detailed rate limiting information"
+)
+@click.pass_context
+def rate_limit_status(
+    ctx: click.Context, provider: Optional[str], detailed: bool
+) -> None:
+    """Show rate limiting status for API providers.
+
+    Displays current rate limiting status and usage information for all API providers.
+    """
+    log_operation_start("rate limit status check")
+
+    try:
+        from .utils.rate_limiter import get_rate_limiter_status
+
+        # Get rate limiter status
+        status = get_rate_limiter_status(provider)
+
+        if not status:
+            print_warning_panel(
+                "No Rate Limiters Found",
+                "No rate limiters have been initialized yet. "
+                "Rate limiters are created when API calls are made.",
+            )
+            return
+
+        # Display status for each provider
+        for provider_name, provider_status in status.items():
+            print_info_panel(
+                f"Rate Limit Status - {provider_name.upper()}",
+                f"Requests (last minute): {provider_status.get('requests_last_minute', 0)}\n"
+                f"Requests (last hour): {provider_status.get('requests_last_hour', 0)}\n"
+                f"Total tracked requests: {provider_status.get('total_requests_tracked', 0)}\n"
+                f"Time since last request: {provider_status.get('time_since_last_request', 'N/A')}s",
+            )
+
+            if detailed:
+                # Show detailed information
+                remaining = provider_status.get("rate_limit_remaining")
+                reset = provider_status.get("rate_limit_reset")
+                limit = provider_status.get("rate_limit_limit")
+
+                if remaining is not None:
+                    print_info_panel(
+                        f"Detailed Status - {provider_name.upper()}",
+                        f"API Rate Limit Remaining: {remaining}\n"
+                        f"API Rate Limit Total: {limit}\n"
+                        f"API Rate Limit Reset: {reset}",
+                    )
+
+        log_operation_success("rate limit status check")
+
+    except Exception as e:
+        log_operation_failure("rate limit status check", e)
+        print_error_panel("Rate Limit Status Error", str(e))
+
+
+@github.command()
 @click.pass_context
 def test_connection(ctx: click.Context) -> None:
     """Test GitHub API connection and authentication.

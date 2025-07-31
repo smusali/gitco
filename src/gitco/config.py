@@ -70,6 +70,14 @@ class Settings:
     github_api_url: str = "https://api.github.com"
     github_timeout: int = 30
     github_max_retries: int = 3
+    # Rate limiting settings
+    github_rate_limit_per_minute: int = 30
+    github_rate_limit_per_hour: int = 5000
+    github_burst_limit: int = 5
+    llm_rate_limit_per_minute: int = 60
+    llm_rate_limit_per_hour: int = 1000
+    llm_burst_limit: int = 10
+    min_request_interval: float = 0.1
 
 
 @dataclass

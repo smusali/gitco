@@ -8,14 +8,16 @@ import pytest
 from github import GithubException
 
 from gitco.github_client import (
-    GitHubAuthenticationError,
     GitHubClient,
     GitHubIssue,
-    GitHubRateLimitExceeded,
     GitHubRepository,
     create_github_client,
 )
-from gitco.utils.exception import APIError
+from gitco.utils.exception import (
+    APIError,
+    GitHubAuthenticationError,
+    GitHubRateLimitExceeded,
+)
 
 
 class TestGitHubIssue:
@@ -136,7 +138,7 @@ class TestGitHubRepository:
 class TestGitHubClient:
     """Test GitHubClient class."""
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_init_with_token(self, mock_github: Mock, mock_get_logger: Mock) -> None:
         """Test GitHubClient initialization with token."""
@@ -152,7 +154,7 @@ class TestGitHubClient:
             "test_token", base_url="https://api.github.com"
         )
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_init_with_username_password(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -170,7 +172,7 @@ class TestGitHubClient:
             "testuser", "testpass", base_url="https://api.github.com"
         )
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     @patch.dict(os.environ, {"GITHUB_TOKEN": "env_token"})
     def test_init_with_env_token(
@@ -186,7 +188,7 @@ class TestGitHubClient:
             "env_token", base_url="https://api.github.com"
         )
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_init_anonymous(self, mock_github: Mock, mock_get_logger: Mock) -> None:
         """Test GitHubClient initialization with anonymous access."""
@@ -199,7 +201,7 @@ class TestGitHubClient:
 
         mock_github.assert_called_once_with(base_url="https://api.github.com")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
     def test_authentication_test_success(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -220,7 +222,7 @@ class TestGitHubClient:
         mock_github_instance.get_user.assert_called_once()
         mock_logger.info.assert_called_with("Authenticated as: testuser")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
     def test_authentication_test_failure_401(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -238,7 +240,7 @@ class TestGitHubClient:
         ):
             GitHubClient(token="invalid_token")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
     def test_authentication_test_failure_403(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -254,7 +256,7 @@ class TestGitHubClient:
         with pytest.raises(GitHubAuthenticationError, match="GitHub API access denied"):
             GitHubClient(token="invalid_token")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_repository_success(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -302,7 +304,7 @@ class TestGitHubClient:
         assert result.archived is False
         assert result.disabled is False
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_repository_not_found(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -323,7 +325,7 @@ class TestGitHubClient:
             "Repository not found: owner/nonexistent"
         )
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_repository_error(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -345,7 +347,7 @@ class TestGitHubClient:
         ):
             client.get_repository("owner/test-repo")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_issues_success(self, mock_github: Mock, mock_get_logger: Mock) -> None:
         """Test successful issues fetch."""
@@ -396,7 +398,7 @@ class TestGitHubClient:
         assert issue.comments_count == 5
         assert issue.reactions_count == 2
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_issues_with_filters(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -426,7 +428,7 @@ class TestGitHubClient:
         # Additional filtering is done after fetching
         mock_repo.get_issues.assert_called_once_with(state="closed")
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_search_issues_success(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -477,7 +479,7 @@ class TestGitHubClient:
         assert issue.comments_count == 3
         assert issue.reactions_count == 1
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_get_rate_limit_status(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -520,7 +522,7 @@ class TestGitHubClient:
 
         assert result == expected
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_test_connection_success(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -538,7 +540,7 @@ class TestGitHubClient:
 
         assert result is True
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
     def test_test_connection_failure(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -563,7 +565,7 @@ class TestGitHubClient:
 class TestCreateGitHubClient:
     """Test create_github_client function."""
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_create_github_client_with_token(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -583,7 +585,7 @@ class TestCreateGitHubClient:
         assert isinstance(result, GitHubClient)
         mock_github.assert_called_once()
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_create_github_client_with_username_password(
         self, mock_github: Mock, mock_get_logger: Mock
@@ -607,7 +609,7 @@ class TestCreateGitHubClient:
         assert isinstance(result, GitHubClient)
         mock_github.assert_called_once()
 
-    @patch("gitco.github_client.get_logger")
+    @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
     def test_create_github_client_defaults(
         self, mock_github: Mock, mock_get_logger: Mock
