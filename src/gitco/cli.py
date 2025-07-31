@@ -2216,47 +2216,274 @@ def logs(ctx: click.Context, export: Optional[str], format: str) -> None:
 @main.command()
 @click.pass_context
 def help(ctx: click.Context) -> None:
-    """Show detailed help information.
+    """Show detailed help information with contextual examples.
 
-    Provides comprehensive help and usage examples for GitCo commands.
+    Provides comprehensive help and usage examples for GitCo commands,
+    organized by workflow and use case.
     """
-    print_info_panel(
-        "GitCo Help",
-        "This provides comprehensive help and usage examples for GitCo commands.",
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+    from rich.table import Table
+
+    console = Console()
+
+    # Header
+    console.print(
+        Panel.fit(
+            "[bold blue]GitCo[/bold blue] - Intelligent OSS Fork Management",
+            subtitle="[dim]CLI tool for intelligent OSS fork management and contribution discovery[/dim]",
+        )
     )
-    click.echo()
-    click.echo(
-        "GitCo is a CLI tool for intelligent OSS fork management and contribution discovery."
+    console.print()
+
+    # Quick Start Section
+    console.print(
+        Panel(
+            "[bold]🚀 Quick Start[/bold]\n\n"
+            "1. [bold]Initialize[/bold]: `gitco init`\n"
+            "2. [bold]Configure[/bold]: Edit `gitco-config.yml`\n"
+            "3. [bold]Sync[/bold]: `gitco sync`\n"
+            "4. [bold]Discover[/bold]: `gitco discover`\n"
+            "5. [bold]Analyze[/bold]: `gitco analyze --repo <repo>`",
+            title="Getting Started",
+            border_style="green",
+        )
     )
-    click.echo()
-    click.echo("Basic Commands:")
-    click.echo("  init      Initialize configuration")
-    click.echo("  config    Validate configuration")
-    click.echo("  sync      Synchronize repositories")
-    click.echo("  analyze   Analyze changes with AI")
-    click.echo("  discover  Find contribution opportunities")
-    click.echo("  status    Show repository status")
-    click.echo("  activity  Show repository activity dashboard")
-    click.echo("  help      Show this help message")
-    click.echo()
-    click.echo("Contribution Tracking:")
-    click.echo("  contributions sync-history  Sync contribution history from GitHub")
-    click.echo("  contributions stats         Show contribution statistics")
-    click.echo("  contributions recommendations  Get personalized recommendations")
-    click.echo()
-    click.echo("For detailed help on any command, use:")
-    click.echo("  gitco <command> --help")
-    click.echo()
-    click.echo("Examples:")
-    click.echo("  gitco init")
-    click.echo("  gitco config validate")
-    click.echo("  gitco sync --repo django")
-    click.echo("  gitco analyze --repo fastapi")
-    click.echo("  gitco discover --skill python")
-    click.echo("  gitco status --detailed")
-    click.echo("  gitco activity --detailed")
-    click.echo("  gitco validate-repo --path ~/code/django")
-    click.echo("  gitco validate-repo --recursive --detailed")
+    console.print()
+
+    # Command Categories
+    categories: dict[str, dict[str, str]] = {
+        "Setup & Configuration": {
+            "init": "Initialize configuration file",
+            "config validate": "Validate configuration",
+            "config status": "Show configuration status",
+        },
+        "Repository Management": {
+            "sync": "Synchronize repositories with upstream",
+            "status": "Show repository health status",
+            "activity": "Show repository activity dashboard",
+            "validate-repo": "Validate repository structure",
+        },
+        "AI-Powered Analysis": {
+            "analyze": "Analyze changes with AI",
+            "discover": "Find contribution opportunities",
+        },
+        "Contribution Tracking": {
+            "contributions sync-history": "Sync contribution history",
+            "contributions stats": "Show contribution statistics",
+            "contributions recommendations": "Get personalized recommendations",
+            "contributions export": "Export contribution data",
+            "contributions trending": "Show trending analysis",
+        },
+        "GitHub Integration": {
+            "github test-connection": "Test GitHub API connection",
+            "github get-repo": "Get repository information",
+            "github get-issues": "Get repository issues",
+            "github get-issues-multi": "Get issues from multiple repositories",
+        },
+        "Upstream Management": {
+            "upstream add": "Add upstream remote",
+            "upstream remove": "Remove upstream remote",
+            "upstream update": "Update upstream URL",
+            "upstream validate": "Validate upstream configuration",
+            "upstream fetch": "Fetch from upstream",
+            "upstream merge": "Merge upstream changes",
+        },
+        "Backup & Recovery": {
+            "backup create": "Create backup of repositories",
+            "backup list": "List available backups",
+            "backup restore": "Restore from backup",
+            "backup validate": "Validate backup integrity",
+            "backup delete": "Delete backup",
+            "backup cleanup": "Clean up old backups",
+        },
+        "Utilities": {
+            "logs": "Show performance logs",
+            "help": "Show this help message",
+        },
+    }
+
+    # Create command table
+    table = Table(
+        title="[bold]Available Commands[/bold]",
+        show_header=True,
+        header_style="bold magenta",
+    )
+    table.add_column("Category", style="cyan", no_wrap=True)
+    table.add_column("Command", style="green", no_wrap=True)
+    table.add_column("Description", style="white")
+
+    for category, category_commands in categories.items():
+        for command, description in category_commands.items():
+            table.add_row(category, f"gitco {command}", description)
+
+    console.print(table)
+    console.print()
+
+    # Contextual Examples
+    console.print(
+        Panel(
+            "[bold]💡 Contextual Examples[/bold]\n\n"
+            "[bold]For New Users:[/bold]\n"
+            "• [green]gitco init --interactive[/green] - Guided setup\n"
+            "• [green]gitco config validate[/green] - Check configuration\n"
+            "• [green]gitco sync --repo django[/green] - Sync specific repo\n\n"
+            "[bold]For Regular Maintenance:[/bold]\n"
+            "• [green]gitco sync --analyze[/green] - Sync with AI analysis\n"
+            "• [green]gitco status --detailed[/green] - Check repository health\n"
+            "• [green]gitco activity --detailed[/green] - Monitor activity\n\n"
+            "[bold]For Contribution Discovery:[/bold]\n"
+            "• [green]gitco discover --skill python[/green] - Find Python opportunities\n"
+            "• [green]gitco discover --label 'good first issue'[/green] - Find beginner-friendly issues\n"
+            "• [green]gitco discover --personalized[/green] - Get personalized recommendations\n\n"
+            "[bold]For Advanced Users:[/bold]\n"
+            "• [green]gitco sync --batch --max-workers 8[/green] - Parallel sync\n"
+            "• [green]gitco analyze --repo fastapi --provider anthropic[/green] - Use specific LLM\n"
+            "• [green]gitco contributions trending --days 30[/green] - Analyze trends\n\n"
+            "[bold]For Automation:[/bold]\n"
+            "• [green]gitco sync --quiet --log sync.log[/green] - Silent sync with logging\n"
+            "• [green]gitco status --export status.json[/green] - Export status data\n"
+            "• [green]gitco backup create --type full[/green] - Create full backup",
+            title="Usage Examples",
+            border_style="blue",
+        )
+    )
+    console.print()
+
+    # Configuration Examples
+    config_example = """# gitco-config.yml
+repositories:
+  - name: django
+    fork: username/django
+    upstream: django/django
+    local_path: ~/code/django
+    skills: [python, web, orm]
+
+  - name: fastapi
+    fork: username/fastapi
+    upstream: tiangolo/fastapi
+    local_path: ~/code/fastapi
+    skills: [python, api, async]
+
+settings:
+  llm_provider: openai
+  api_key_env: OPENAI_API_KEY
+  default_path: ~/code
+  analysis_enabled: true
+  max_repos_per_batch: 10"""
+
+    console.print(
+        Panel(
+            Syntax(config_example, "yaml", theme="monokai"),
+            title="[bold]Configuration Example[/bold]",
+            border_style="yellow",
+        )
+    )
+    console.print()
+
+    # Environment Setup
+    env_example = """# Set up environment variables
+export OPENAI_API_KEY="your-api-key-here"
+export ANTHROPIC_API_KEY="your-anthropic-key-here"  # if using anthropic
+export GITHUB_TOKEN="your-github-token"
+export GITHUB_USERNAME="your-github-username"
+
+# Or use .env file
+echo "OPENAI_API_KEY=your-api-key-here" >> .env
+echo "GITHUB_TOKEN=your-github-token" >> .env"""
+
+    console.print(
+        Panel(
+            Syntax(env_example, "bash", theme="monokai"),
+            title="[bold]Environment Setup[/bold]",
+            border_style="yellow",
+        )
+    )
+    console.print()
+
+    # Workflow Examples
+    workflows: dict[str, list[str]] = {
+        "Daily Maintenance": [
+            "gitco sync --analyze",
+            "gitco status --overview",
+            "gitco discover --limit 5",
+        ],
+        "Weekly Review": [
+            "gitco activity --detailed",
+            "gitco contributions stats --days 7",
+            "gitco backup create --type incremental",
+        ],
+        "Monthly Analysis": [
+            "gitco contributions trending --days 30",
+            "gitco contributions export --days 30 --output monthly.csv",
+            "gitco backup cleanup --keep 3",
+        ],
+    }
+
+    workflow_table = Table(
+        title="[bold]Common Workflows[/bold]",
+        show_header=True,
+        header_style="bold magenta",
+    )
+    workflow_table.add_column("Workflow", style="cyan", no_wrap=True)
+    workflow_table.add_column("Commands", style="green")
+
+    for workflow, commands in workflows.items():
+        workflow_table.add_row(workflow, "\n".join([f"• {cmd}" for cmd in commands]))
+
+    console.print(workflow_table)
+    console.print()
+
+    # Tips and Best Practices
+    console.print(
+        Panel(
+            "[bold]💡 Tips & Best Practices[/bold]\n\n"
+            "• [bold]Start small[/bold]: Begin with 2-3 repositories\n"
+            "• [bold]Use skills[/bold]: Tag repositories with relevant skills for better discovery\n"
+            "• [bold]Regular syncs[/bold]: Set up automated syncs with cron\n"
+            "• [bold]Backup regularly[/bold]: Create backups before major operations\n"
+            "• [bold]Monitor health[/bold]: Use status command to track repository health\n"
+            "• [bold]Export data[/bold]: Export results for external analysis\n"
+            "• [bold]Use quiet mode[/bold]: Use --quiet for automation scripts\n"
+            "• [bold]Check logs[/bold]: Use --log for debugging and monitoring",
+            title="Best Practices",
+            border_style="green",
+        )
+    )
+    console.print()
+
+    # Troubleshooting
+    console.print(
+        Panel(
+            "[bold]🔧 Troubleshooting[/bold]\n\n"
+            "[bold]Common Issues:[/bold]\n"
+            "• [red]Configuration errors[/red]: Run `gitco config validate`\n"
+            "• [red]Git conflicts[/red]: Use `gitco upstream merge --resolve`\n"
+            "• [red]API rate limits[/red]: Check GitHub token and wait between requests\n"
+            "• [red]LLM errors[/red]: Verify API keys and provider settings\n\n"
+            "[bold]Getting Help:[/bold]\n"
+            "• [green]gitco <command> --help[/green] - Command-specific help\n"
+            "• [green]gitco config status[/green] - Check configuration status\n"
+            "• [green]gitco github test-connection[/green] - Test GitHub connectivity\n"
+            "• [green]gitco validate-repo --detailed[/green] - Validate repository structure",
+            title="Troubleshooting",
+            border_style="red",
+        )
+    )
+    console.print()
+
+    # Footer
+    console.print(
+        Panel(
+            "[bold]For detailed help on any command:[/bold]\n"
+            "[green]gitco <command> --help[/green]\n\n"
+            "[bold]Documentation:[/bold] https://github.com/41technologies/gitco\n"
+            "[bold]Issues:[/bold] https://github.com/41technologies/gitco/issues",
+            title="More Information",
+            border_style="blue",
+        )
+    )
 
 
 @main.group()
@@ -3854,14 +4081,35 @@ def export(
         config_manager = get_config_manager()
         config = config_manager.load_config()
 
-        # Create GitHub client
+        # Create GitHub client only if credentials are available
         github_credentials = config_manager.get_github_credentials()
-        github_client = create_github_client(
-            token=github_credentials.get("token"),  # type: ignore
-            username=github_credentials.get("username"),  # type: ignore
-            password=github_credentials.get("password"),  # type: ignore
-            base_url=config.settings.github_api_url,
+        github_client = None
+
+        # Check if any GitHub credentials are available
+        has_credentials = github_credentials.get("token") or (
+            github_credentials.get("username") and github_credentials.get("password")
         )
+
+        if has_credentials:
+            try:
+                github_client = create_github_client(
+                    token=github_credentials.get("token"),  # type: ignore
+                    username=github_credentials.get("username"),  # type: ignore
+                    password=github_credentials.get("password"),  # type: ignore
+                    base_url=config.settings.github_api_url,
+                )
+            except Exception as e:
+                # If GitHub client creation fails, we can still export existing data
+                print_warning_panel(
+                    "GitHub Authentication",
+                    f"Could not authenticate with GitHub: {str(e)}\nProceeding with local contribution data only.",
+                )
+        else:
+            # No credentials available, proceed with local data only
+            print_warning_panel(
+                "GitHub Authentication",
+                "No GitHub credentials found. Proceeding with local contribution data only.",
+            )
 
         # Create contribution tracker
         from .contribution_tracker import create_contribution_tracker

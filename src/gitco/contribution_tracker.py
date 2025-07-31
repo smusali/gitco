@@ -90,12 +90,12 @@ class ContributionStats:
 class ContributionTracker:
     """Tracks user contributions across repositories."""
 
-    def __init__(self, config: Config, github_client: GitHubClient):
+    def __init__(self, config: Config, github_client: Optional[GitHubClient]):
         """Initialize contribution tracker.
 
         Args:
             config: GitCo configuration
-            github_client: GitHub API client
+            github_client: GitHub API client (can be None if no credentials)
         """
         self.config = config
         self.github_client = github_client
@@ -355,6 +355,11 @@ class ContributionTracker:
             username: GitHub username to sync contributions for
         """
         log_operation_start("syncing contributions from GitHub", username=username)
+
+        if not self.github_client:
+            raise ContributionTrackerError(
+                "GitHub client not available. Please configure GitHub credentials."
+            )
 
         try:
             # Get user's issues and PRs
@@ -971,13 +976,13 @@ class ContributionTracker:
 
 
 def create_contribution_tracker(
-    config: Config, github_client: GitHubClient
+    config: Config, github_client: Optional[GitHubClient]
 ) -> ContributionTracker:
     """Create a contribution tracker instance.
 
     Args:
         config: GitCo configuration
-        github_client: GitHub API client
+        github_client: GitHub API client (can be None if no credentials)
 
     Returns:
         Contribution tracker instance

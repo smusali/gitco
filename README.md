@@ -461,7 +461,7 @@ gitco activity --sort contributors
 gitco status --activity
 gitco status --activity --detailed
 
-# Get help
+# Get comprehensive help with contextual examples
 gitco help
 
 # View and export logging information

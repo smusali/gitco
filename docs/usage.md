@@ -514,6 +514,64 @@ fi
     fi
 ```
 
+### Getting Help
+
+GitCo provides comprehensive help with contextual examples and organized documentation:
+
+```bash
+# Get comprehensive help with contextual examples
+gitco help
+```
+
+**Help Features:**
+
+**Organized Command Categories:**
+- **Setup & Configuration**: init, config validate, config status
+- **Repository Management**: sync, status, activity, validate-repo
+- **AI-Powered Analysis**: analyze, discover
+- **Contribution Tracking**: contributions sync-history, stats, recommendations, export, trending
+- **GitHub Integration**: github test-connection, get-repo, get-issues, get-issues-multi
+- **Upstream Management**: upstream add, remove, update, validate, fetch, merge
+- **Backup & Recovery**: backup create, list, restore, validate, delete, cleanup
+- **Utilities**: logs, help
+
+**Contextual Examples:**
+- **For New Users**: Guided setup, configuration validation, basic sync
+- **For Regular Maintenance**: Sync with analysis, status checks, activity monitoring
+- **For Contribution Discovery**: Skill-based filtering, label filtering, personalized recommendations
+- **For Advanced Users**: Parallel sync, specific LLM providers, trend analysis
+- **For Automation**: Quiet mode, logging, export functionality
+
+**Configuration Examples:**
+- YAML configuration file examples with syntax highlighting
+- Environment variable setup examples
+- Repository configuration with skills and settings
+
+**Common Workflows:**
+- **Daily Maintenance**: Sync with analysis, status overview, discovery
+- **Weekly Review**: Detailed activity, contribution stats, incremental backup
+- **Monthly Analysis**: Trending analysis, data export, backup cleanup
+
+**Tips and Best Practices:**
+- Start with 2-3 repositories
+- Use skills for better discovery
+- Set up automated syncs
+- Regular backups
+- Monitor repository health
+- Export data for analysis
+- Use quiet mode for automation
+- Check logs for debugging
+
+**Troubleshooting:**
+- Configuration validation
+- Git conflict resolution
+- API rate limit handling
+- LLM error resolution
+- Command-specific help
+- Configuration status checks
+- GitHub connectivity testing
+- Repository validation
+
 ## Command Reference
 
 ### `gitco init`
