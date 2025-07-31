@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from .common import get_logger
+from .retry import DEFAULT_RETRY_CONFIG, with_retry
 
 
 @dataclass
@@ -214,9 +215,11 @@ class RateLimiter:
                 "rate_limit_remaining": self._rate_limit_remaining,
                 "rate_limit_reset": self._rate_limit_reset,
                 "rate_limit_limit": self._rate_limit_limit,
-                "time_since_last_request": current_time - self._last_request_time
-                if self._last_request_time > 0
-                else None,
+                "time_since_last_request": (
+                    current_time - self._last_request_time
+                    if self._last_request_time > 0
+                    else None
+                ),
             }
 
 
@@ -232,6 +235,7 @@ class RateLimitedAPIClient:
         self.rate_limiter = rate_limiter
         self.logger = get_logger()
 
+    @with_retry(config=DEFAULT_RETRY_CONFIG)
     def make_rate_limited_request(
         self, request_func: Callable, *args: Any, **kwargs: Any
     ) -> Any:
@@ -248,53 +252,21 @@ class RateLimitedAPIClient:
         Raises:
             Exception: If the request fails
         """
-        max_retries = 3
-        retry_delay = 1.0
+        # Wait for rate limiter
+        self.rate_limiter.wait_if_needed()
 
-        for attempt in range(max_retries):
+        # Make the request
+        response = request_func(*args, **kwargs)
+
+        # Update rate limiter with response headers
+        if hasattr(response, "headers") and response.headers is not None:
             try:
-                # Wait for rate limiter
-                self.rate_limiter.wait_if_needed()
+                self.rate_limiter.update_from_response_headers(response.headers)
+            except (TypeError, AttributeError):
+                # Handle cases where headers might be a Mock or not iterable
+                pass
 
-                # Make the request
-                response = request_func(*args, **kwargs)
-
-                # Update rate limiter with response headers
-                if hasattr(response, "headers") and response.headers is not None:
-                    try:
-                        self.rate_limiter.update_from_response_headers(response.headers)
-                    except (TypeError, AttributeError):
-                        # Handle cases where headers might be a Mock or not iterable
-                        pass
-
-                return response
-
-            except Exception as e:
-                # Check if it's a rate limit error
-                if self._is_rate_limit_error(e):
-                    self.logger.warning(f"Rate limit exceeded on attempt {attempt + 1}")
-
-                    # Handle rate limit exceeded
-                    if hasattr(e, "response") and hasattr(e.response, "headers"):
-                        self.rate_limiter.handle_rate_limit_exceeded(e.response.headers)
-                    else:
-                        # Fallback: wait and retry
-                        time.sleep(retry_delay * (2**attempt))
-
-                    if attempt == max_retries - 1:
-                        raise
-                    continue
-
-                # For other errors, retry with exponential backoff
-                if attempt < max_retries - 1:
-                    wait_time = retry_delay * (2**attempt)
-                    self.logger.warning(
-                        f"Request failed, retrying in {wait_time}s (attempt {attempt + 1})"
-                    )
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise
+        return response
 
     def _is_rate_limit_error(self, error: Exception) -> bool:
         """Check if an error is a rate limit error.

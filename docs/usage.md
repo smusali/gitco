@@ -52,12 +52,19 @@ gitco sync --export report.json
 
 **Error Recovery Features:**
 
-GitCo includes robust error recovery mechanisms for network operations:
+GitCo includes comprehensive retry mechanisms for network operations:
 
-- **Automatic Retry**: Network operations are automatically retried up to 3 times for recoverable errors
+- **Automatic Retry**: Network operations are automatically retried with configurable strategies
+- **Exponential Backoff**: Smart retry delays that increase exponentially to prevent overwhelming servers
+- **Jitter Support**: Random delay variations to prevent thundering herd problems
 - **Recoverable Errors**: Detects and retries on timeouts, rate limits, connection issues, and server errors
 - **Progress Tracking**: Shows retry attempts in progress bars and final summaries
 - **Enhanced Reporting**: Displays retry information in success/failure messages
+
+**Retry Strategies:**
+- **Default**: 3 attempts with exponential backoff (1s, 2s, 4s)
+- **Aggressive**: 5 attempts with faster backoff (0.5s, 1s, 2s, 4s, 8s)
+- **Conservative**: 2 attempts with linear backoff (2s, 4s)
 
 Example output with retry information:
 ```
@@ -70,6 +77,7 @@ Example output with retry information:
 - Rate limiting and "too many requests" errors
 - Server errors (5xx status codes)
 - Temporary network issues
+- Connection timeouts and DNS failures
 
 ### Analyze Changes
 

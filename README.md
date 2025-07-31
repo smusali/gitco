@@ -12,6 +12,8 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - Automatic detection of default branches (main/master)
 - Batch processing with colored, informative output
 - Built-in error handling and recovery mechanisms
+- **Comprehensive retry mechanisms** for network operations with exponential backoff
+- **Configurable retry strategies** (exponential, linear) with jitter support
 - **Automatic retry for network operations** with configurable max retries
 - **Recoverable error detection** for timeouts, rate limits, and connection issues
 - **Enhanced error reporting** with retry attempt information and recovery status

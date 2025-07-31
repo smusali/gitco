@@ -24,6 +24,7 @@ from .utils.common import (
     get_logger,
 )
 from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
+from .utils.retry import AGGRESSIVE_RETRY_CONFIG, with_retry
 
 
 @dataclass
@@ -340,6 +341,7 @@ class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
 
         self.client = openai.OpenAI(api_key=self.api_key)
 
+    @with_retry(config=AGGRESSIVE_RETRY_CONFIG)
     def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
         """Call the LLM API with the given prompt.
 
@@ -407,6 +409,7 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
 
         self.client = anthropic.Anthropic(api_key=self.api_key)
 
+    @with_retry(config=AGGRESSIVE_RETRY_CONFIG)
     def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
         """Call the LLM API with the given prompt.
 

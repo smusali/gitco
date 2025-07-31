@@ -1,11 +1,9 @@
 """GitHub API client for GitCo."""
 
 import os
-import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
-import requests
 from github import Github, GithubException
 
 from .utils.common import (
@@ -19,6 +17,7 @@ from .utils.exception import (
     GitHubAuthenticationError,
 )
 from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
+from .utils.retry import DEFAULT_RETRY_CONFIG, create_retry_session, with_retry
 
 
 @dataclass
@@ -89,7 +88,13 @@ class GitHubClient(RateLimitedAPIClient):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
-        self.session = requests.Session()
+
+        # Create session with retry capabilities
+        self.session = create_retry_session(
+            max_attempts=max_retries,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504, 429],
+        )
 
         # Set up authentication
         self._setup_authentication(token, username, password)
@@ -203,6 +208,7 @@ class GitHubClient(RateLimitedAPIClient):
         """Implement rate limiting between requests."""
         self.rate_limiter.wait_if_needed()
 
+    @with_retry(config=DEFAULT_RETRY_CONFIG)
     def _make_request(
         self,
         method: str,
@@ -229,76 +235,50 @@ class GitHubClient(RateLimitedAPIClient):
         """
         url = f"{self.base_url}{endpoint}"
 
-        for attempt in range(self.max_retries):
-            try:
-                self._rate_limit_request()
+        self._rate_limit_request()
 
-                log_api_call("github", endpoint, "started")
+        log_api_call("github", endpoint, "started")
 
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    json=data,
-                    headers=headers,
-                    timeout=self.timeout,
-                )
+        response = self.session.request(
+            method=method,
+            url=url,
+            params=params,
+            json=data,
+            headers=headers,
+            timeout=self.timeout,
+        )
 
-                # Update rate limiter with response headers
-                self.rate_limiter.update_from_response_headers(dict(response.headers))
+        # Update rate limiter with response headers
+        self.rate_limiter.update_from_response_headers(dict(response.headers))
 
-                # Check rate limiting
-                remaining = response.headers.get("X-RateLimit-Remaining")
-                if remaining and int(remaining) == 0:
-                    self.rate_limiter.handle_rate_limit_exceeded(dict(response.headers))
-                    continue
+        # Check rate limiting
+        remaining = response.headers.get("X-RateLimit-Remaining")
+        if remaining and int(remaining) == 0:
+            self.rate_limiter.handle_rate_limit_exceeded(dict(response.headers))
+            # Let the retry decorator handle the retry
+            raise APIError("Rate limit exceeded")
 
-                # Handle response
-                if response.status_code == 200:
-                    log_api_call("github", endpoint, "success")
-                    return response.json()
-                elif response.status_code == 404:
-                    log_api_call("github", endpoint, "not_found")
-                    raise APIError(f"GitHub API endpoint not found: {endpoint}")
-                elif response.status_code == 401:
-                    log_api_call("github", endpoint, "unauthorized")
-                    raise GitHubAuthenticationError("GitHub API authentication failed")
-                elif response.status_code == 403:
-                    log_api_call("github", endpoint, "forbidden")
-                    raise APIError("GitHub API access denied")
-                elif response.status_code >= 500:
-                    log_api_call("github", endpoint, "server_error")
-                    if attempt < self.max_retries - 1:
-                        wait_time = min(
-                            1 << attempt, 60
-                        )  # Exponential backoff, max 60s
-                        self.logger.warning(
-                            f"Server error, retrying in {wait_time}s (attempt {attempt + 1})"
-                        )
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise APIError(
-                            f"GitHub API server error: {response.status_code}"
-                        )
-                else:
-                    log_api_call("github", endpoint, "error")
-                    raise APIError(
-                        f"GitHub API error: {response.status_code} - {response.text}"
-                    )
-
-            except requests.exceptions.RequestException as e:
-                if attempt < self.max_retries - 1:
-                    wait_time = min(1 << attempt, 60)
-                    self.logger.warning(
-                        f"Request failed, retrying in {wait_time}s (attempt {attempt + 1})"
-                    )
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise APIError(f"GitHub API request failed: {e}") from e
-
-        raise APIError(f"GitHub API request failed after {self.max_retries} attempts")
+        # Handle response
+        if response.status_code == 200:
+            log_api_call("github", endpoint, "success")
+            return response.json()
+        elif response.status_code == 404:
+            log_api_call("github", endpoint, "not_found")
+            raise APIError(f"GitHub API endpoint not found: {endpoint}")
+        elif response.status_code == 401:
+            log_api_call("github", endpoint, "unauthorized")
+            raise GitHubAuthenticationError("GitHub API authentication failed")
+        elif response.status_code == 403:
+            log_api_call("github", endpoint, "forbidden")
+            raise APIError("GitHub API access denied")
+        elif response.status_code >= 500:
+            log_api_call("github", endpoint, "server_error")
+            raise APIError(f"GitHub API server error: {response.status_code}")
+        else:
+            log_api_call("github", endpoint, "error")
+            raise APIError(
+                f"GitHub API error: {response.status_code} - {response.text}"
+            )
 
     def get_repository(self, repo_name: str) -> Optional[GitHubRepository]:
         """Get repository information.
