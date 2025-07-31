@@ -78,6 +78,14 @@ class Settings:
     llm_rate_limit_per_hour: int = 1000
     llm_burst_limit: int = 10
     min_request_interval: float = 0.1
+    # Cost optimization settings
+    enable_cost_tracking: bool = True
+    enable_token_optimization: bool = True
+    max_tokens_per_request: int = 4000
+    max_cost_per_request_usd: float = 0.10
+    max_daily_cost_usd: float = 5.0
+    max_monthly_cost_usd: float = 50.0
+    cost_log_file: str = "~/.gitco/cost_log.json"
 
 
 @dataclass
@@ -194,6 +202,61 @@ class ConfigValidator:
                     field="settings.log_level",
                     message=f"Invalid log level '{settings.log_level}'",
                     suggestion=f"Must be one of: {', '.join(valid_log_levels)}",
+                )
+            )
+
+        # Validate cost optimization settings
+        if settings.max_tokens_per_request < 100:
+            self.errors.append(
+                ValidationError(
+                    field="settings.max_tokens_per_request",
+                    message=f"Value {settings.max_tokens_per_request} is too low",
+                    suggestion="Must be at least 100 tokens",
+                )
+            )
+        elif settings.max_tokens_per_request > 32000:
+            self.warnings.append(
+                ValidationError(
+                    field="settings.max_tokens_per_request",
+                    message=f"Value {settings.max_tokens_per_request} is very high",
+                    suggestion="Consider using a value between 1000-8000 for cost efficiency",
+                    severity="warning",
+                )
+            )
+
+        if settings.max_cost_per_request_usd < 0:
+            self.errors.append(
+                ValidationError(
+                    field="settings.max_cost_per_request_usd",
+                    message=f"Value {settings.max_cost_per_request_usd} is invalid",
+                    suggestion="Must be a non-negative number",
+                )
+            )
+        elif settings.max_cost_per_request_usd > 10.0:
+            self.warnings.append(
+                ValidationError(
+                    field="settings.max_cost_per_request_usd",
+                    message=f"Value {settings.max_cost_per_request_usd} is very high",
+                    suggestion="Consider using a value between 0.01-1.00 for cost control",
+                    severity="warning",
+                )
+            )
+
+        if settings.max_daily_cost_usd < 0:
+            self.errors.append(
+                ValidationError(
+                    field="settings.max_daily_cost_usd",
+                    message=f"Value {settings.max_daily_cost_usd} is invalid",
+                    suggestion="Must be a non-negative number",
+                )
+            )
+
+        if settings.max_monthly_cost_usd < 0:
+            self.errors.append(
+                ValidationError(
+                    field="settings.max_monthly_cost_usd",
+                    message=f"Value {settings.max_monthly_cost_usd} is invalid",
+                    suggestion="Must be a non-negative number",
                 )
             )
 
@@ -803,6 +866,22 @@ class ConfigManager:
                 ),
                 github_timeout=settings_data.get("github_timeout", 30),
                 github_max_retries=settings_data.get("github_max_retries", 3),
+                # Cost optimization settings
+                enable_cost_tracking=settings_data.get("enable_cost_tracking", True),
+                enable_token_optimization=settings_data.get(
+                    "enable_token_optimization", True
+                ),
+                max_tokens_per_request=settings_data.get(
+                    "max_tokens_per_request", 4000
+                ),
+                max_cost_per_request_usd=settings_data.get(
+                    "max_cost_per_request_usd", 0.10
+                ),
+                max_daily_cost_usd=settings_data.get("max_daily_cost_usd", 5.0),
+                max_monthly_cost_usd=settings_data.get("max_monthly_cost_usd", 50.0),
+                cost_log_file=settings_data.get(
+                    "cost_log_file", "~/.gitco/cost_log.json"
+                ),
             )
 
         return config
@@ -833,6 +912,14 @@ class ConfigManager:
                 "github_api_url": config.settings.github_api_url,
                 "github_timeout": config.settings.github_timeout,
                 "github_max_retries": config.settings.github_max_retries,
+                # Cost optimization settings
+                "enable_cost_tracking": config.settings.enable_cost_tracking,
+                "enable_token_optimization": config.settings.enable_token_optimization,
+                "max_tokens_per_request": config.settings.max_tokens_per_request,
+                "max_cost_per_request_usd": config.settings.max_cost_per_request_usd,
+                "max_daily_cost_usd": config.settings.max_daily_cost_usd,
+                "max_monthly_cost_usd": config.settings.max_monthly_cost_usd,
+                "cost_log_file": config.settings.cost_log_file,
             },
         }
 

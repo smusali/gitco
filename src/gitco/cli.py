@@ -40,6 +40,7 @@ from .utils.common import (
     set_quiet_mode,
     setup_logging,
 )
+from .utils.cost_optimizer import get_cost_optimizer
 from .utils.exception import ValidationError
 
 
@@ -4851,6 +4852,247 @@ def cleanup(ctx: click.Context, keep: int) -> None:
         print_error_panel("Cleanup Failed", f"An error occurred: {str(e)}")
         if ctx.obj.get("verbose"):
             raise
+
+
+@main.group()
+@click.pass_context
+def cost(ctx: click.Context) -> None:
+    """Manage LLM cost tracking and optimization."""
+    pass
+
+
+@cost.command()
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed cost breakdown")
+@click.option("--export", "-e", help="Export cost data to file (.json or .csv)")
+@click.option("--days", type=int, help="Show costs for last N days")
+@click.option("--months", type=int, help="Show costs for last N months")
+@click.pass_context
+def summary(
+    ctx: click.Context,
+    detailed: bool,
+    export: Optional[str],
+    days: Optional[int],
+    months: Optional[int],
+) -> None:
+    """Show LLM cost summary and usage statistics."""
+    try:
+        cost_optimizer = get_cost_optimizer()
+
+        if detailed:
+            cost_optimizer.display_cost_summary()
+        else:
+            summary_data = cost_optimizer.get_cost_summary()
+
+            if summary_data["total_requests"] == 0:
+                print_info_panel("No cost data available.")
+                return
+
+            # Show basic summary
+            total_cost = summary_data["total_cost"]
+            total_requests = summary_data["total_requests"]
+            daily_cost = summary_data["daily_cost"]
+            monthly_cost = summary_data["monthly_cost"]
+
+            print_info_panel(
+                f"Total Cost: ${total_cost:.4f}\n"
+                f"Total Requests: {total_requests}\n"
+                f"Daily Cost: ${daily_cost:.4f}\n"
+                f"Monthly Cost: ${monthly_cost:.4f}"
+            )
+
+        # Export if requested
+        if export:
+            import csv
+            import json
+            from pathlib import Path
+
+            export_path = Path(export)
+            summary_data = cost_optimizer.get_cost_summary()
+
+            if export_path.suffix.lower() == ".json":
+                with open(export_path, "w") as f:
+                    json.dump(summary_data, f, indent=2)
+            elif export_path.suffix.lower() == ".csv":
+                with open(export_path, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Metric", "Value"])
+                    writer.writerow(
+                        ["Total Cost", f"${summary_data['total_cost']:.4f}"]
+                    )
+                    writer.writerow(["Total Requests", summary_data["total_requests"]])
+                    writer.writerow(
+                        ["Daily Cost", f"${summary_data['daily_cost']:.4f}"]
+                    )
+                    writer.writerow(
+                        ["Monthly Cost", f"${summary_data['monthly_cost']:.4f}"]
+                    )
+
+            print_success_panel(f"Cost data exported to {export_path}")
+
+    except Exception as e:
+        print_error_panel(f"Failed to get cost summary: {e}")
+        sys.exit(1)
+
+
+@cost.command()
+@click.option("--daily-limit", type=float, help="Set daily cost limit in USD")
+@click.option("--monthly-limit", type=float, help="Set monthly cost limit in USD")
+@click.option(
+    "--per-request-limit", type=float, help="Set per-request cost limit in USD"
+)
+@click.option("--max-tokens", type=int, help="Set maximum tokens per request")
+@click.option("--enable-tracking", is_flag=True, help="Enable cost tracking")
+@click.option("--disable-tracking", is_flag=True, help="Disable cost tracking")
+@click.option("--enable-optimization", is_flag=True, help="Enable token optimization")
+@click.option("--disable-optimization", is_flag=True, help="Disable token optimization")
+@click.pass_context
+def configure(
+    ctx: click.Context,
+    daily_limit: Optional[float],
+    monthly_limit: Optional[float],
+    per_request_limit: Optional[float],
+    max_tokens: Optional[int],
+    enable_tracking: bool,
+    disable_tracking: bool,
+    enable_optimization: bool,
+    disable_optimization: bool,
+) -> None:
+    """Configure cost optimization settings."""
+    try:
+        cost_optimizer = get_cost_optimizer()
+
+        # Update configuration
+        if daily_limit is not None:
+            cost_optimizer.config.max_daily_cost_usd = daily_limit
+            print_success_panel(f"Daily cost limit set to ${daily_limit:.2f}")
+
+        if monthly_limit is not None:
+            cost_optimizer.config.max_monthly_cost_usd = monthly_limit
+            print_success_panel(f"Monthly cost limit set to ${monthly_limit:.2f}")
+
+        if per_request_limit is not None:
+            cost_optimizer.config.max_cost_per_request_usd = per_request_limit
+            print_success_panel(
+                f"Per-request cost limit set to ${per_request_limit:.4f}"
+            )
+
+        if max_tokens is not None:
+            cost_optimizer.config.max_tokens_per_request = max_tokens
+            print_success_panel(f"Maximum tokens per request set to {max_tokens}")
+
+        if enable_tracking:
+            cost_optimizer.config.enable_cost_tracking = True
+            print_success_panel("Cost tracking enabled")
+
+        if disable_tracking:
+            cost_optimizer.config.enable_cost_tracking = False
+            print_success_panel("Cost tracking disabled")
+
+        if enable_optimization:
+            cost_optimizer.config.enable_token_optimization = True
+            print_success_panel("Token optimization enabled")
+
+        if disable_optimization:
+            cost_optimizer.config.enable_token_optimization = False
+            print_success_panel("Token optimization disabled")
+
+        # Save configuration
+        cost_optimizer._save_cost_history()
+
+        print_info_panel(
+            f"Current settings:\n"
+            f"• Daily limit: ${cost_optimizer.config.max_daily_cost_usd:.2f}\n"
+            f"• Monthly limit: ${cost_optimizer.config.max_monthly_cost_usd:.2f}\n"
+            f"• Per-request limit: ${cost_optimizer.config.max_cost_per_request_usd:.4f}\n"
+            f"• Max tokens: {cost_optimizer.config.max_tokens_per_request}\n"
+            f"• Cost tracking: {'enabled' if cost_optimizer.config.enable_cost_tracking else 'disabled'}\n"
+            f"• Token optimization: {'enabled' if cost_optimizer.config.enable_token_optimization else 'disabled'}"
+        )
+
+    except Exception as e:
+        print_error_panel(f"Failed to configure cost settings: {e}")
+        sys.exit(1)
+
+
+@cost.command()
+@click.option("--force", "-f", is_flag=True, help="Force reset without confirmation")
+@click.pass_context
+def reset(ctx: click.Context, force: bool) -> None:
+    """Reset cost history and statistics."""
+    try:
+        if not force:
+            # Ask for confirmation
+            confirm = click.confirm(
+                "Are you sure you want to reset all cost history? This cannot be undone."
+            )
+            if not confirm:
+                print_info_panel("Cost history reset cancelled.")
+                return
+
+        cost_optimizer = get_cost_optimizer()
+        cost_optimizer.reset_cost_history()
+
+        print_success_panel("Cost history has been reset successfully.")
+
+    except Exception as e:
+        print_error_panel(f"Failed to reset cost history: {e}")
+        sys.exit(1)
+
+
+@cost.command()
+@click.option("--model", "-m", help="Show costs for specific model")
+@click.option("--provider", "-p", help="Show costs for specific provider")
+@click.option("--days", "-d", type=int, default=30, help="Show costs for last N days")
+@click.pass_context
+def breakdown(
+    ctx: click.Context, model: Optional[str], provider: Optional[str], days: int
+) -> None:
+    """Show detailed cost breakdown by model and provider."""
+    try:
+        cost_optimizer = get_cost_optimizer()
+        summary = cost_optimizer.get_cost_summary()
+
+        if summary["total_requests"] == 0:
+            print_info_panel("No cost data available.")
+            return
+
+        # Filter by model if specified
+        if model:
+            if model in summary["models"]:
+                model_data = summary["models"][model]
+                print_info_panel(
+                    f"Model: {model}\n"
+                    f"Total Cost: ${model_data['cost']:.4f}\n"
+                    f"Requests: {model_data['requests']}\n"
+                    f"Tokens: {model_data['tokens']:,}\n"
+                    f"Average Cost per Request: ${model_data['cost'] / model_data['requests']:.4f}"
+                )
+            else:
+                print_warning_panel(f"No data found for model: {model}")
+                return
+
+        # Filter by provider if specified
+        elif provider:
+            if provider in summary["providers"]:
+                provider_data = summary["providers"][provider]
+                print_info_panel(
+                    f"Provider: {provider.title()}\n"
+                    f"Total Cost: ${provider_data['cost']:.4f}\n"
+                    f"Requests: {provider_data['requests']}\n"
+                    f"Tokens: {provider_data['tokens']:,}\n"
+                    f"Average Cost per Request: ${provider_data['cost'] / provider_data['requests']:.4f}"
+                )
+            else:
+                print_warning_panel(f"No data found for provider: {provider}")
+                return
+
+        # Show full breakdown
+        else:
+            cost_optimizer.display_cost_summary()
+
+    except Exception as e:
+        print_error_panel(f"Failed to get cost breakdown: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

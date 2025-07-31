@@ -434,6 +434,12 @@ class TestOpenAIAnalyzer:
         mock_response.choices[
             0
         ].message.content = '{"summary": "Test", "confidence": 0.8}'
+        # Add usage mock for cost tracking
+        mock_usage = Mock()
+        mock_usage.prompt_tokens = 100
+        mock_usage.completion_tokens = 50
+        mock_usage.total_tokens = 150
+        mock_response.usage = mock_usage
         mock_client.chat.completions.create.return_value = mock_response
 
         analyzer = OpenAIAnalyzer(api_key="test-key")
@@ -562,6 +568,11 @@ class TestAnthropicAnalyzer:
         mock_response = Mock()
         mock_response.content = [Mock()]
         mock_response.content[0].text = '{"summary": "Test", "confidence": 0.8}'
+        # Add usage mock for cost tracking
+        mock_usage = Mock()
+        mock_usage.input_tokens = 100
+        mock_usage.output_tokens = 50
+        mock_response.usage = mock_usage
         mock_client.messages.create.return_value = mock_response
 
         analyzer = AnthropicAnalyzer(api_key="test-key")
@@ -1883,6 +1894,12 @@ def test_openai_analyzer_response_parsing() -> None:
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = "Test response"
+        # Mock token usage attributes
+        mock_usage = Mock()
+        mock_usage.prompt_tokens = 10
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 15
+        mock_response.usage = mock_usage
         mock_client.chat.completions.create.return_value = mock_response
         mock_openai.return_value = mock_client
 
@@ -1937,6 +1954,11 @@ def test_anthropic_analyzer_response_parsing() -> None:
         mock_response = Mock()
         mock_response.content = [Mock()]
         mock_response.content[0].text = "Test response"
+        # Mock token usage attributes
+        mock_usage = Mock()
+        mock_usage.input_tokens = 10
+        mock_usage.output_tokens = 5
+        mock_response.usage = mock_usage
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
@@ -2050,6 +2072,12 @@ def test_openai_analyzer_call_llm_api_success() -> None:
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = "Test response"
+        # Mock token usage attributes
+        mock_usage = Mock()
+        mock_usage.prompt_tokens = 10
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 15
+        mock_response.usage = mock_usage
         mock_client.chat.completions.create.return_value = mock_response
         mock_openai_class.return_value = mock_client
 
@@ -2097,6 +2125,11 @@ def test_anthropic_analyzer_call_llm_api_success() -> None:
         mock_response = Mock()
         mock_response.content = [Mock()]
         mock_response.content[0].text = "Test response"
+        # Mock token usage attributes
+        mock_usage = Mock()
+        mock_usage.input_tokens = 10
+        mock_usage.output_tokens = 5
+        mock_response.usage = mock_usage
         mock_client.messages.create.return_value = mock_response
         mock_anthropic_class.return_value = mock_client
 

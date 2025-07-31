@@ -861,6 +861,54 @@ Supports multiple providers:
 - OpenAI (GPT-3.5/GPT-4)
 - Anthropic (Claude)
 
+### Cost Optimization Configuration
+
+GitCo includes comprehensive cost optimization features to help manage LLM API usage costs:
+
+```yaml
+settings:
+  # Cost optimization settings
+  enable_cost_tracking: true
+  enable_token_optimization: true
+  max_tokens_per_request: 4000
+  max_cost_per_request_usd: 0.10
+  max_daily_cost_usd: 5.0
+  max_monthly_cost_usd: 50.0
+  cost_log_file: "~/.gitco/cost_log.json"
+```
+
+**Cost Management Features:**
+- **Real-time cost estimation** before API calls
+- **Token optimization** with intelligent prompt truncation
+- **Cost limits** (per-request, daily, monthly)
+- **Cost tracking** with detailed usage history
+- **Cost reporting** by provider and model
+- **Cost export** in JSON and CSV formats
+
+**Cost Management Commands:**
+```bash
+# View cost summary
+gitco cost summary
+
+# View detailed cost breakdown
+gitco cost summary --detailed
+
+# Configure cost limits
+gitco cost configure --daily-limit 10.0 --monthly-limit 100.0
+
+# View cost breakdown by model
+gitco cost breakdown --model gpt-3.5-turbo
+
+# View cost breakdown by provider
+gitco cost breakdown --provider openai
+
+# Reset cost history
+gitco cost reset
+
+# Export cost data
+gitco cost summary --export costs.json
+```
+
 ## 🔧 CLI Options
 
 ### Global Options

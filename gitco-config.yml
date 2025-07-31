@@ -19,7 +19,10 @@ repositories:
     upstream: tiangolo/fastapi
 settings:
   analysis_enabled: true
+  cost_log_file: ~/.gitco/cost_log.json
   default_path: ~/code
+  enable_cost_tracking: true
+  enable_token_optimization: true
   git_timeout: 300
   github_api_url: https://api.github.com
   github_max_retries: 3
@@ -29,5 +32,9 @@ settings:
   github_username_env: GITHUB_USERNAME
   llm_provider: openai
   log_level: INFO
+  max_cost_per_request_usd: 0.1
+  max_daily_cost_usd: 5.0
+  max_monthly_cost_usd: 50.0
   max_repos_per_batch: 10
+  max_tokens_per_request: 4000
   rate_limit_delay: 1.0

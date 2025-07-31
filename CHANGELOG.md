@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cost optimization for LLM usage with comprehensive cost tracking and management**
+- **CostOptimizer class with token counting and cost estimation capabilities**
+- **TokenUsage dataclass for tracking individual API call costs**
+- **CostConfig class for configurable cost optimization settings**
+- **Real-time cost estimation before API calls with limit checking**
+- **Token optimization with intelligent prompt truncation**
+- **Cost tracking with daily and monthly limits**
+- **Cost summary reporting with provider and model breakdowns**
+- **Cost history persistence with JSON file storage**
+- **Cost management CLI commands (cost summary, configure, reset, breakdown)**
+- **Cost limit enforcement with per-request, daily, and monthly limits**
+- **Token counting with tiktoken integration and fallback estimation**
+- **Cost calculation for OpenAI and Anthropic models with accurate pricing**
+- **Cost optimization integration with existing analyzer classes**
+- **Cost tracking in OpenAI and Anthropic API calls**
+- **Cost configuration validation with comprehensive error checking**
+- **Cost export functionality in JSON and CSV formats**
+- **Cost breakdown by model and provider with detailed statistics**
+- **Cost reset functionality with confirmation prompts**
+- **Cost optimization settings in configuration file**
+- **Cost tracking file management with automatic directory creation**
+- **Cost optimization tests with comprehensive coverage**
+- **Cost management integration with existing CLI patterns**
 - **Comprehensive retry mechanisms for network operations**
 - **RetryStrategy abstract base class with configurable retry strategies**
 - **ExponentialBackoff strategy with jitter support for thundering herd prevention**
