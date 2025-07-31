@@ -176,12 +176,28 @@ pip install -r requirements-dev.txt
 
 ### 1. Initialize Configuration
 ```bash
+# Interactive guided setup (recommended)
+gitco init --interactive
+
+# Non-interactive setup with defaults
 gitco init
+
+# Force overwrite existing configuration
+gitco init --force
+
+# Use custom template
+gitco init --template custom.yml
 ```
 
-This creates a `gitco-config.yml` file in your current directory.
+This creates a `gitco-config.yml` file in your current directory with guided setup options.
 
-**Note:** The CLI framework, configuration management, logging system, and CI pipeline are now implemented. Full functionality will be added in subsequent commits.
+**Interactive Setup Features:**
+- Guided repository configuration with validation
+- LLM provider selection (OpenAI, Anthropic, Ollama)
+- GitHub integration setup with authentication options
+- General settings configuration with default paths
+- Skill-based repository configuration
+- Configuration summary and confirmation
 
 ### 2. Configure Your Repositories
 Edit `gitco-config.yml` to add your repositories:

@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive guided configuration setup for init command**
+- **Enhanced init command with --interactive flag for guided setup**
+- **Interactive prompts for repository configuration with validation**
+- **LLM provider configuration with OpenAI, Anthropic, and Ollama support**
+- **GitHub integration configuration with token and username/password options**
+- **General settings configuration with default paths and batch processing**
+- **Repository information prompts with skill matching and analysis settings**
+- **Configuration summary display with comprehensive settings overview**
+- **Template loading support for custom configuration templates**
+- **Enhanced error handling for configuration initialization**
+- **Type-safe interactive prompts with full mypy compliance**
+- **Rich console interface for guided configuration setup**
+- **Path validation and directory creation for repository paths**
+- **Repository format validation with owner/repo pattern checking**
+- **Skill-based repository configuration with comma-separated skill lists**
+- **Analysis enablement per repository with individual settings**
+- **Environment variable configuration for API keys and credentials**
+- **Default configuration fallback for non-interactive setup**
+- **Configuration file overwrite protection with force flag support**
 - **Repository activity dashboard in CLI**
 - **New `activity` command for detailed repository activity analysis**
 - **ActivityMetrics dataclass for structured activity data**

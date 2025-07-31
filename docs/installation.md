@@ -92,7 +92,7 @@ gitco --help
 gitco --version
 
 # Test basic commands
-gitco init
+gitco init --interactive
 ```
 
 **Note:** The CLI framework, configuration management, logging system, and CI pipeline are implemented. Full functionality will be added in subsequent commits.

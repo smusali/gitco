@@ -4,11 +4,12 @@ Utility modules for gitco.
 This package contains common utilities used throughout the gitco application.
 """
 
-from . import common, exception, logging
+from . import common, exception, logging, prompts
 
 __all__ = [
     # Re-export all public symbols from submodules
     *common.__all__,
     *exception.__all__,
     *logging.__all__,
+    *prompts.__all__,
 ]

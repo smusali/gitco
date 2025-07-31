@@ -1,10 +1,12 @@
 """GitCo CLI interface."""
 
+import os
 import sys
 import time
 from typing import Any, Optional, Union
 
 import click
+import yaml
 
 from . import __version__
 from .activity_dashboard import create_activity_dashboard
@@ -253,23 +255,135 @@ def main(
 @main.command()
 @click.option("--force", "-f", is_flag=True, help="Overwrite existing configuration")
 @click.option("--template", "-t", help="Use custom template for configuration")
+@click.option("--interactive", "-i", is_flag=True, help="Use interactive guided setup")
+@click.option(
+    "--non-interactive",
+    "-n",
+    is_flag=True,
+    help="Use non-interactive setup with defaults",
+)
 @click.pass_context
-def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
+def init(
+    ctx: click.Context,
+    force: bool,
+    template: Optional[str],
+    interactive: bool,
+    non_interactive: bool,
+) -> None:
     """Initialize a new GitCo configuration.
 
-    Creates a gitco-config.yml file in the current directory with default settings.
+    Creates a gitco-config.yml file in the current directory with guided setup.
     """
     logger = get_logger()
-    log_operation_start("configuration initialization", force=force, template=template)
+    log_operation_start(
+        "configuration initialization",
+        force=force,
+        template=template,
+        interactive=interactive,
+    )
 
     try:
         config_manager = ConfigManager()
 
         if template:
             logger.info(f"Using custom template: {template}")
-            # TODO: Implement custom template loading
+            try:
+                # Try to load the template file
+                if os.path.exists(template):
+                    with open(template, encoding="utf-8") as f:
+                        template_data = yaml.safe_load(f)
+                    config = config_manager._parse_config(template_data)
+                    config_manager.save_config(config)
+                else:
+                    # If template doesn't exist, create a basic template
+                    print_warning_panel(
+                        "Template file not found",
+                        f"Template file '{template}' not found. Creating basic template.",
+                    )
+                    config = config_manager.create_default_config(force=force)
+            except FileExistsError:
+                # Handle the case where config file already exists
+                if force:
+                    config = config_manager.create_default_config(force=True)
+                else:
+                    raise
+            except Exception as e:
+                logger.warning(f"Failed to load template {template}: {e}")
+                print_warning_panel(
+                    "Template loading failed",
+                    f"Failed to load template '{template}'. Using default configuration.",
+                )
+                config = config_manager.create_default_config(force=force)
+        elif interactive:
+            # Interactive guided setup
+            from .utils.prompts import (
+                prompt_general_settings,
+                prompt_github_settings,
+                prompt_llm_settings,
+                prompt_repositories,
+                prompt_save_configuration,
+                show_configuration_summary,
+            )
+
+            console.print(
+                "\n[bold blue]🎉 Welcome to GitCo Configuration Setup![/bold blue]"
+            )
+            console.print(
+                "This guided setup will help you configure GitCo for managing your OSS forks.\n"
+            )
+
+            # Get general settings
+            general_settings = prompt_general_settings()
+
+            # Get LLM settings
+            llm_settings = prompt_llm_settings()
+
+            # Get GitHub settings
+            github_settings = prompt_github_settings()
+
+            # Get repositories
+            repositories = prompt_repositories()
+
+            # Show summary
+            show_configuration_summary(
+                repositories, general_settings, llm_settings, github_settings
+            )
+
+            # Confirm save
+            if prompt_save_configuration():
+                # Merge all settings
+                settings = {**general_settings, **llm_settings, **github_settings}
+
+                # Create configuration data
+                config_data = {
+                    "repositories": repositories,
+                    "settings": settings,
+                }
+
+                # Parse and save configuration
+                config = config_manager._parse_config(config_data)
+                config_manager.save_config(config)
+
+                log_operation_success(
+                    "configuration initialization",
+                    config_file=config_manager.config_path,
+                    repo_count=len(repositories),
+                )
+
+                print_success_panel(
+                    "Configuration initialized successfully!",
+                    f"Configuration file created: {config_manager.config_path}\n\n"
+                    "Next steps:\n"
+                    "1. Set up your environment variables for API keys\n"
+                    "2. Run 'gitco sync' to start managing your forks\n"
+                    "3. Run 'gitco discover' to find contribution opportunities",
+                )
+            else:
+                console.print("\n[yellow]Configuration setup cancelled.[/yellow]")
+                sys.exit(0)
+
         else:
-            # Create default configuration
+            # Non-interactive setup with defaults
             config = config_manager.create_default_config(force=force)
 
             # Add sample repositories if force or new file
@@ -278,18 +392,19 @@ def init(ctx: click.Context, force: bool, template: Optional[str]) -> None:
                 config = config_manager._parse_config(sample_data)
                 config_manager.save_config(config)
 
-        log_operation_success(
-            "configuration initialization", config_file=config_manager.config_path
-        )
+            log_operation_success(
+                "configuration initialization", config_file=config_manager.config_path
+            )
 
-        print_success_panel(
-            "Configuration initialized successfully!",
-            f"Configuration file created: {config_manager.config_path}\n\n"
-            "Next steps:\n"
-            "1. Edit gitco-config.yml to add your repositories\n"
-            "2. Set up your LLM API key\n"
-            "3. Run 'gitco sync' to start managing your forks",
-        )
+            print_success_panel(
+                "Configuration initialized successfully!",
+                f"Configuration file created: {config_manager.config_path}\n\n"
+                "Next steps:\n"
+                "1. Edit gitco-config.yml to add your repositories\n"
+                "2. Set up your LLM API key\n"
+                "3. Run 'gitco sync' to start managing your forks\n\n"
+                "Tip: Run 'gitco init --interactive' for guided setup",
+            )
 
     except FileExistsError as e:
         log_operation_failure("configuration initialization", e, force=force)

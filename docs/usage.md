@@ -6,15 +6,31 @@ This guide covers how to use GitCo effectively for managing your OSS forks and d
 
 ### Initialize Configuration
 
-Start by creating a configuration file:
+Start by creating a configuration file with interactive guided setup:
 
 ```bash
+# Interactive guided setup (recommended)
+gitco init --interactive
+
+# Non-interactive setup with defaults
 gitco init
+
+# Force overwrite existing configuration
+gitco init --force
+
+# Use custom template
+gitco init --template custom.yml
 ```
 
-This creates a `gitco-config.yml` file in your current directory.
+This creates a `gitco-config.yml` file in your current directory with guided setup options.
 
-**Note:** The CLI framework, configuration management, logging system, and CI pipeline are implemented. Full functionality will be added in subsequent commits.
+**Interactive Setup Features:**
+- **Repository Configuration**: Add repositories with validation and skill matching
+- **LLM Provider Setup**: Configure OpenAI, Anthropic, or Ollama integration
+- **GitHub Integration**: Set up authentication with tokens or username/password
+- **General Settings**: Configure default paths and batch processing options
+- **Configuration Summary**: Review all settings before saving
+- **Validation**: Automatic validation of repository formats and paths
 
 ### Sync Repositories
 
