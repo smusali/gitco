@@ -1,8 +1,10 @@
 """Configuration management for GitCo."""
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
+from urllib.parse import urlparse
 
 import yaml
 
@@ -16,6 +18,24 @@ from .utils.common import (
     log_validation_result,
 )
 from .utils.exception import ConfigurationError
+
+
+@dataclass
+class ValidationError:
+    """Represents a configuration validation error with context."""
+
+    field: str
+    message: str
+    severity: str = "error"  # error, warning, info
+    context: Optional[dict[str, Any]] = None
+    suggestion: Optional[str] = None
+
+    def __str__(self) -> str:
+        """Return formatted error message."""
+        msg = f"{self.field}: {self.message}"
+        if self.suggestion:
+            msg += f" (suggestion: {self.suggestion})"
+        return msg
 
 
 @dataclass
@@ -60,6 +80,476 @@ class Config:
     settings: Settings = field(default_factory=Settings)
 
 
+class ConfigValidator:
+    """Validates GitCo configuration with detailed error reporting."""
+
+    def __init__(self) -> None:
+        """Initialize the validator."""
+        self.errors: list[ValidationError] = []
+        self.warnings: list[ValidationError] = []
+        self.git_manager = GitRepositoryManager()
+
+    def validate_config(self, config: Config) -> dict[str, list[ValidationError]]:
+        """Validate entire configuration with detailed error reporting.
+
+        Args:
+            config: Configuration to validate.
+
+        Returns:
+            Dictionary with 'errors' and 'warnings' lists.
+        """
+        self.errors = []
+        self.warnings = []
+
+        # Validate settings first
+        self._validate_settings(config.settings)
+
+        # Validate repositories
+        self._validate_repositories(config.repositories)
+
+        # Validate cross-references and dependencies
+        self._validate_cross_references(config)
+
+        return {
+            "errors": self.errors,
+            "warnings": self.warnings,
+        }
+
+    def _validate_settings(self, settings: Settings) -> None:
+        """Validate global settings.
+
+        Args:
+            settings: Settings to validate.
+        """
+        # Validate LLM provider
+        valid_providers = ["openai", "anthropic", "ollama"]
+        if settings.llm_provider not in valid_providers:
+            self.errors.append(
+                ValidationError(
+                    field="settings.llm_provider",
+                    message=f"Invalid LLM provider '{settings.llm_provider}'",
+                    suggestion=f"Must be one of: {', '.join(valid_providers)}",
+                )
+            )
+
+        # Validate numeric settings
+        if settings.max_repos_per_batch < 1:
+            self.errors.append(
+                ValidationError(
+                    field="settings.max_repos_per_batch",
+                    message=f"Value {settings.max_repos_per_batch} is too low",
+                    suggestion="Must be at least 1",
+                )
+            )
+        elif settings.max_repos_per_batch > 100:
+            self.warnings.append(
+                ValidationError(
+                    field="settings.max_repos_per_batch",
+                    message=f"Value {settings.max_repos_per_batch} is very high",
+                    suggestion="Consider using a value between 5-20 for better performance",
+                    severity="warning",
+                )
+            )
+
+        if settings.git_timeout < 30:
+            self.errors.append(
+                ValidationError(
+                    field="settings.git_timeout",
+                    message=f"Value {settings.git_timeout} is too low",
+                    suggestion="Must be at least 30 seconds",
+                )
+            )
+        elif settings.git_timeout > 1800:
+            self.warnings.append(
+                ValidationError(
+                    field="settings.git_timeout",
+                    message=f"Value {settings.git_timeout} is very high",
+                    suggestion="Consider using a value between 300-900 seconds",
+                    severity="warning",
+                )
+            )
+
+        if settings.rate_limit_delay < 0.1:
+            self.errors.append(
+                ValidationError(
+                    field="settings.rate_limit_delay",
+                    message=f"Value {settings.rate_limit_delay} is too low",
+                    suggestion="Must be at least 0.1 seconds",
+                )
+            )
+
+        # Validate log level
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if settings.log_level.upper() not in valid_log_levels:
+            self.errors.append(
+                ValidationError(
+                    field="settings.log_level",
+                    message=f"Invalid log level '{settings.log_level}'",
+                    suggestion=f"Must be one of: {', '.join(valid_log_levels)}",
+                )
+            )
+
+        # Validate GitHub settings
+        self._validate_github_settings(settings)
+
+    def _validate_github_settings(self, settings: Settings) -> None:
+        """Validate GitHub-specific settings.
+
+        Args:
+            settings: Settings to validate.
+        """
+        # Validate GitHub API URL
+        try:
+            parsed_url = urlparse(settings.github_api_url)
+            if not parsed_url.scheme or not parsed_url.netloc:
+                self.errors.append(
+                    ValidationError(
+                        field="settings.github_api_url",
+                        message=f"Invalid URL format: {settings.github_api_url}",
+                        suggestion="Must be a valid HTTP/HTTPS URL",
+                    )
+                )
+        except Exception:
+            self.errors.append(
+                ValidationError(
+                    field="settings.github_api_url",
+                    message=f"Invalid URL: {settings.github_api_url}",
+                    suggestion="Must be a valid URL",
+                )
+            )
+
+        # Validate timeout values
+        if settings.github_timeout < 5:
+            self.errors.append(
+                ValidationError(
+                    field="settings.github_timeout",
+                    message=f"Value {settings.github_timeout} is too low",
+                    suggestion="Must be at least 5 seconds",
+                )
+            )
+
+        if settings.github_max_retries < 1:
+            self.errors.append(
+                ValidationError(
+                    field="settings.github_max_retries",
+                    message=f"Value {settings.github_max_retries} is too low",
+                    suggestion="Must be at least 1",
+                )
+            )
+
+    def _validate_repositories(self, repositories: list[Repository]) -> None:
+        """Validate repository configurations.
+
+        Args:
+            repositories: List of repositories to validate.
+        """
+        if not repositories:
+            self.warnings.append(
+                ValidationError(
+                    field="repositories",
+                    message="No repositories configured",
+                    suggestion="Add at least one repository to get started",
+                    severity="warning",
+                )
+            )
+            return
+
+        # Check for duplicate names
+        repo_names: dict[str, int] = {}
+        for i, repo in enumerate(repositories):
+            if repo.name in repo_names:
+                self.errors.append(
+                    ValidationError(
+                        field=f"repositories[{i}].name",
+                        message=f"Duplicate repository name: {repo.name}",
+                        suggestion=f"Repository at index {repo_names[repo.name]} already uses this name",
+                        context={"duplicate_index": repo_names[repo.name]},
+                    )
+                )
+            else:
+                repo_names[repo.name] = i
+
+        # Validate each repository
+        for i, repo in enumerate(repositories):
+            self._validate_repository(repo, i)
+
+    def _validate_repository(self, repo: Repository, index: int) -> None:
+        """Validate a single repository configuration.
+
+        Args:
+            repo: Repository to validate.
+            index: Index of the repository in the list.
+        """
+        prefix = f"repositories[{index}]"
+
+        # Validate name
+        if not repo.name:
+            self.errors.append(
+                ValidationError(
+                    field=f"{prefix}.name",
+                    message="Repository name is required",
+                    suggestion="Provide a unique name for this repository",
+                )
+            )
+        elif not re.match(r"^[a-zA-Z0-9_-]+$", repo.name):
+            self.errors.append(
+                ValidationError(
+                    field=f"{prefix}.name",
+                    message=f"Invalid repository name: {repo.name}",
+                    suggestion="Use only letters, numbers, underscores, and hyphens",
+                )
+            )
+
+        # Validate fork URL
+        if not repo.fork:
+            self.errors.append(
+                ValidationError(
+                    field=f"{prefix}.fork",
+                    message="Fork URL is required",
+                    suggestion="Provide the URL of your fork",
+                )
+            )
+        else:
+            self._validate_repository_url(repo.fork, f"{prefix}.fork", "fork")
+
+        # Validate upstream URL
+        if not repo.upstream:
+            self.errors.append(
+                ValidationError(
+                    field=f"{prefix}.upstream",
+                    message="Upstream URL is required",
+                    suggestion="Provide the URL of the upstream repository",
+                )
+            )
+        else:
+            self._validate_repository_url(
+                repo.upstream, f"{prefix}.upstream", "upstream"
+            )
+
+        # Validate local path
+        if not repo.local_path:
+            self.errors.append(
+                ValidationError(
+                    field=f"{prefix}.local_path",
+                    message="Local path is required",
+                    suggestion="Provide the local path where the repository should be cloned",
+                )
+            )
+        else:
+            self._validate_local_path(repo.local_path, f"{prefix}.local_path")
+
+        # Validate skills
+        if repo.skills:
+            self._validate_skills(repo.skills, f"{prefix}.skills")
+
+        # Validate sync frequency if provided
+        if repo.sync_frequency:
+            self._validate_sync_frequency(
+                repo.sync_frequency, f"{prefix}.sync_frequency"
+            )
+
+        # Validate language if provided
+        if repo.language:
+            self._validate_language(repo.language, f"{prefix}.language")
+
+    def _validate_repository_url(self, url: str, field: str, url_type: str) -> None:
+        """Validate a repository URL.
+
+        Args:
+            url: URL to validate.
+            field: Field name for error reporting.
+            url_type: Type of URL (fork/upstream).
+        """
+        # Check if it's a valid URL format
+        try:
+            parsed = urlparse(url)
+            if not parsed.scheme or not parsed.netloc:
+                self.errors.append(
+                    ValidationError(
+                        field=field,
+                        message=f"Invalid {url_type} URL format: {url}",
+                        suggestion="Use format: https://github.com/owner/repo",
+                    )
+                )
+                return
+        except Exception:
+            self.errors.append(
+                ValidationError(
+                    field=field,
+                    message=f"Invalid {url_type} URL: {url}",
+                    suggestion="Use a valid HTTP/HTTPS URL",
+                )
+            )
+            return
+
+        # Check for GitHub-specific patterns
+        if "github.com" in url:
+            if not re.match(r"^https?://github\.com/[^/]+/[^/]+/?$", url):
+                self.errors.append(
+                    ValidationError(
+                        field=field,
+                        message=f"Invalid GitHub {url_type} URL: {url}",
+                        suggestion="Use format: https://github.com/owner/repo",
+                    )
+                )
+
+    def _validate_local_path(self, path: str, field: str) -> None:
+        """Validate a local repository path.
+
+        Args:
+            path: Path to validate.
+            field: Field name for error reporting.
+        """
+        # Check if path is absolute or uses ~
+        if not (os.path.isabs(path) or path.startswith("~")):
+            self.warnings.append(
+                ValidationError(
+                    field=field,
+                    message=f"Relative path may cause issues: {path}",
+                    suggestion="Use absolute path or path starting with ~",
+                    severity="warning",
+                )
+            )
+
+        # Check if path exists and is a git repository
+        expanded_path = os.path.expanduser(path)
+        if os.path.exists(expanded_path):
+            if not os.path.isdir(expanded_path):
+                self.errors.append(
+                    ValidationError(
+                        field=field,
+                        message=f"Path exists but is not a directory: {path}",
+                        suggestion="Provide a directory path",
+                    )
+                )
+            else:
+                # Check if it's a git repository
+                is_valid, repo_errors = self.git_manager.validate_repository_path(
+                    expanded_path
+                )
+                if not is_valid:
+                    for error in repo_errors:
+                        self.warnings.append(
+                            ValidationError(
+                                field=field,
+                                message=f"Git repository validation failed: {error}",
+                                suggestion="Ensure the directory is a valid git repository",
+                                severity="warning",
+                            )
+                        )
+
+    def _validate_skills(self, skills: list[str], field: str) -> None:
+        """Validate skills list.
+
+        Args:
+            skills: Skills to validate.
+            field: Field name for error reporting.
+        """
+        for i, skill in enumerate(skills):
+            if not skill:
+                self.errors.append(
+                    ValidationError(
+                        field=f"{field}[{i}]",
+                        message="Empty skill name",
+                        suggestion="Provide a non-empty skill name",
+                    )
+                )
+            elif not re.match(r"^[a-zA-Z0-9_-]+$", skill):
+                self.errors.append(
+                    ValidationError(
+                        field=f"{field}[{i}]",
+                        message=f"Invalid skill name: {skill}",
+                        suggestion="Use only letters, numbers, underscores, and hyphens",
+                    )
+                )
+
+    def _validate_sync_frequency(self, frequency: str, field: str) -> None:
+        """Validate sync frequency format.
+
+        Args:
+            frequency: Frequency string to validate.
+            field: Field name for error reporting.
+        """
+        # Basic cron-like format validation
+        if not re.match(
+            r"^(\*|[0-9,/-]+)\s+(\*|[0-9,/-]+)\s+(\*|[0-9,/-]+)\s+(\*|[0-9,/-]+)\s+(\*|[0-9,/-]+)$",
+            frequency,
+        ):
+            self.errors.append(
+                ValidationError(
+                    field=field,
+                    message=f"Invalid sync frequency format: {frequency}",
+                    suggestion="Use cron format: minute hour day month weekday",
+                )
+            )
+
+    def _validate_language(self, language: str, field: str) -> None:
+        """Validate programming language.
+
+        Args:
+            language: Language to validate.
+            field: Field name for error reporting.
+        """
+        common_languages = [
+            "python",
+            "javascript",
+            "typescript",
+            "java",
+            "c++",
+            "c#",
+            "go",
+            "rust",
+            "php",
+            "ruby",
+            "swift",
+            "kotlin",
+            "scala",
+            "dart",
+            "r",
+            "matlab",
+        ]
+
+        if language.lower() not in [lang.lower() for lang in common_languages]:
+            self.warnings.append(
+                ValidationError(
+                    field=field,
+                    message=f"Unrecognized language: {language}",
+                    suggestion=f"Consider using one of: {', '.join(common_languages)}",
+                    severity="warning",
+                )
+            )
+
+    def _validate_cross_references(self, config: Config) -> None:
+        """Validate cross-references and dependencies.
+
+        Args:
+            config: Configuration to validate.
+        """
+        # Check if default path exists and is accessible
+        default_path = os.path.expanduser(config.settings.default_path)
+        if not os.path.exists(default_path):
+            self.warnings.append(
+                ValidationError(
+                    field="settings.default_path",
+                    message=f"Default path does not exist: {config.settings.default_path}",
+                    suggestion="Create the directory or update the path",
+                    severity="warning",
+                )
+            )
+
+        # Check for repositories using default path
+        for i, repo in enumerate(config.repositories):
+            if repo.local_path.startswith("~") and "~/code" in repo.local_path:
+                self.warnings.append(
+                    ValidationError(
+                        field=f"repositories[{i}].local_path",
+                        message=f"Using default path pattern: {repo.local_path}",
+                        suggestion="Consider using a more specific path for better organization",
+                        severity="warning",
+                    )
+                )
+
+
 class ConfigManager:
     """Manages GitCo configuration."""
 
@@ -71,6 +561,7 @@ class ConfigManager:
         """
         self.config_path = config_path or "gitco-config.yml"
         self.config = Config()
+        self.validator = ConfigValidator()
 
     def load_config(self) -> Config:
         """Load configuration from file.
@@ -149,143 +640,53 @@ class ConfigManager:
         return config
 
     def validate_config(self, config: Config) -> list[str]:
-        """Validate configuration.
+        """Validate configuration with enhanced error reporting.
 
         Args:
             config: Configuration to validate.
 
         Returns:
-            List of validation errors.
+            List of validation error messages.
         """
         get_logger()
         log_operation_start("configuration validation")
 
-        errors = []
+        try:
+            validation_results = self.validator.validate_config(config)
 
-        # Validate repositories
-        repo_names = set()
-        git_manager = GitRepositoryManager()
+            # Log validation results
+            for error in validation_results["errors"]:
+                log_validation_result(error.field, False, error.message)
 
-        for repo in config.repositories:
-            if not repo.name:
-                errors.append("Repository name is required")
+            for warning in validation_results["warnings"]:
                 log_validation_result(
-                    "repository name", False, f"Repository {repo.name} missing name"
+                    warning.field, True, f"Warning: {warning.message}"
                 )
-            elif repo.name in repo_names:
-                errors.append(f"Duplicate repository name: {repo.name}")
-                log_validation_result(
-                    "repository name uniqueness", False, f"Duplicate name: {repo.name}"
+
+            if validation_results["errors"]:
+                log_operation_failure(
+                    "configuration validation", ConfigurationError("Validation failed")
                 )
             else:
-                repo_names.add(repo.name)
-                log_validation_result(
-                    "repository name", True, f"Repository {repo.name}"
-                )
+                log_operation_success("configuration validation")
 
-            if not repo.fork:
-                errors.append(f"Fork URL is required for repository: {repo.name}")
-                log_validation_result(
-                    "repository fork", False, f"Repository {repo.name} missing fork URL"
-                )
-            else:
-                log_validation_result(
-                    "repository fork", True, f"Repository {repo.name}"
-                )
+            # Return error messages for backward compatibility
+            return [str(error) for error in validation_results["errors"]]
 
-            if not repo.upstream:
-                errors.append(f"Upstream URL is required for repository: {repo.name}")
-                log_validation_result(
-                    "repository upstream",
-                    False,
-                    f"Repository {repo.name} missing upstream URL",
-                )
-            else:
-                log_validation_result(
-                    "repository upstream", True, f"Repository {repo.name}"
-                )
+        except Exception as e:
+            log_operation_failure("configuration validation", e)
+            raise
 
-            if not repo.local_path:
-                errors.append(f"Local path is required for repository: {repo.name}")
-                log_validation_result(
-                    "repository local_path",
-                    False,
-                    f"Repository {repo.name} missing local path",
-                )
-            else:
-                # Validate git repository at local path
-                is_valid, repo_errors = git_manager.validate_repository_path(
-                    repo.local_path
-                )
-                if not is_valid:
-                    errors.extend(
-                        [f"Repository {repo.name}: {error}" for error in repo_errors]
-                    )
-                    log_validation_result(
-                        "repository git validation",
-                        False,
-                        f"Repository {repo.name} at {repo.local_path}",
-                    )
-                else:
-                    log_validation_result(
-                        "repository git validation",
-                        True,
-                        f"Repository {repo.name} at {repo.local_path}",
-                    )
-                    log_validation_result(
-                        "repository local_path", True, f"Repository {repo.name}"
-                    )
+    def get_validation_report(self, config: Config) -> dict[str, Any]:
+        """Get detailed validation report.
 
-        # Validate settings
-        if config.settings.llm_provider not in [
-            "openai",
-            "anthropic",
-        ]:
-            errors.append("Invalid LLM provider. Must be one of: openai, anthropic")
-            log_validation_result(
-                "settings llm_provider",
-                False,
-                f"Invalid provider: {config.settings.llm_provider}",
-            )
-        else:
-            log_validation_result(
-                "settings llm_provider",
-                True,
-                f"Provider: {config.settings.llm_provider}",
-            )
+        Args:
+            config: Configuration to validate.
 
-        if config.settings.max_repos_per_batch < 1:
-            errors.append("max_repos_per_batch must be at least 1")
-            log_validation_result(
-                "settings max_repos_per_batch",
-                False,
-                f"Value: {config.settings.max_repos_per_batch}",
-            )
-        else:
-            log_validation_result(
-                "settings max_repos_per_batch",
-                True,
-                f"Value: {config.settings.max_repos_per_batch}",
-            )
-
-        if config.settings.git_timeout < 30:
-            errors.append("git_timeout must be at least 30 seconds")
-            log_validation_result(
-                "settings git_timeout", False, f"Value: {config.settings.git_timeout}"
-            )
-        else:
-            log_validation_result(
-                "settings git_timeout", True, f"Value: {config.settings.git_timeout}"
-            )
-
-        if errors:
-            log_operation_failure(
-                "configuration validation", ConfigurationError("Validation failed")
-            )
-        else:
-            log_operation_success("configuration validation")
-
-        return errors
+        Returns:
+            Detailed validation report with errors and warnings.
+        """
+        return self.validator.validate_config(config)
 
     def get_repository(self, name: str) -> Optional[Repository]:
         """Get repository by name.

@@ -30,7 +30,6 @@ from .utils.common import (
     console,
     create_progress_bar,
     get_logger,
-    handle_validation_errors,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
@@ -2507,9 +2506,12 @@ def validate(ctx: click.Context) -> None:
         config_manager = ConfigManager()
         config = config_manager.load_config()
 
-        errors = config_manager.validate_config(config)
+        # Get detailed validation report
+        validation_report = config_manager.get_validation_report(config)
+        errors = validation_report["errors"]
+        warnings = validation_report["warnings"]
 
-        if not errors:
+        if not errors and not warnings:
             log_operation_success(
                 "configuration validation", repo_count=len(config.repositories)
             )
@@ -2518,16 +2520,32 @@ def validate(ctx: click.Context) -> None:
                 f"Found {len(config.repositories)} repositories\n"
                 f"LLM provider: {config.settings.llm_provider}",
             )
+        elif not errors and warnings:
+            log_operation_success(
+                "configuration validation", repo_count=len(config.repositories)
+            )
+            print_warning_panel(
+                "Configuration is valid with warnings",
+                f"Found {len(config.repositories)} repositories\n"
+                f"LLM provider: {config.settings.llm_provider}\n\n"
+                f"Warnings ({len(warnings)}):\n"
+                + "\n".join(f"• {warning}" for warning in warnings),
+            )
         else:
             log_operation_failure(
                 "configuration validation", ValidationError("Configuration has errors")
             )
-            handle_validation_errors(errors, "Configuration")
+
+            # Display errors
+            error_details = "\n".join(f"• {error}" for error in errors)
+            if warnings:
+                error_details += f"\n\nWarnings ({len(warnings)}):\n"
+                error_details += "\n".join(f"• {warning}" for warning in warnings)
+
             print_error_panel(
-                "Configuration has errors", "❌ Configuration has errors:\n"
+                f"Configuration has {len(errors)} error(s)",
+                error_details,
             )
-            for error in errors:
-                print_error_panel("Error", f"  - {error}")
             sys.exit(1)
 
     except FileNotFoundError as e:
@@ -2596,6 +2614,120 @@ def config_status(ctx: click.Context) -> None:
     except Exception as e:
         log_operation_failure("configuration status", e)
         print_error_panel("Error reading configuration", str(e))
+        sys.exit(1)
+
+
+@config.command()
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed validation report")
+@click.option("--export", "-e", help="Export validation report to file")
+@click.pass_context
+def validate_detailed(
+    ctx: click.Context, detailed: bool, export: Optional[str]
+) -> None:
+    """Show detailed configuration validation report.
+
+    Provides comprehensive validation information including warnings and suggestions.
+    """
+    get_logger()
+    log_operation_start("detailed configuration validation")
+
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+
+        # Get detailed validation report
+        validation_report = config_manager.get_validation_report(config)
+        errors = validation_report["errors"]
+        warnings = validation_report["warnings"]
+
+        # Export report if requested
+        if export:
+            import json
+            from datetime import datetime
+
+            export_data = {
+                "timestamp": datetime.now().isoformat(),
+                "config_path": config_manager.config_path,
+                "repository_count": len(config.repositories),
+                "validation_results": {
+                    "errors": [
+                        {
+                            "field": e.field,
+                            "message": e.message,
+                            "suggestion": e.suggestion,
+                        }
+                        for e in errors
+                    ],
+                    "warnings": [
+                        {
+                            "field": w.field,
+                            "message": w.message,
+                            "suggestion": w.suggestion,
+                        }
+                        for w in warnings
+                    ],
+                },
+                "summary": {
+                    "total_errors": len(errors),
+                    "total_warnings": len(warnings),
+                    "is_valid": len(errors) == 0,
+                },
+            }
+
+            with open(export, "w") as f:
+                json.dump(export_data, f, indent=2)
+
+            print_success_panel(
+                "Validation report exported", f"Report saved to: {export}"
+            )
+
+        # Display summary
+        if not errors and not warnings:
+            print_success_panel(
+                "Configuration is fully valid!",
+                f"✓ No errors or warnings found\n"
+                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ LLM provider: {config.settings.llm_provider}",
+            )
+        elif not errors and warnings:
+            print_warning_panel(
+                "Configuration is valid with warnings",
+                f"✓ No errors found\n"
+                f"⚠ {len(warnings)} warning(s)\n"
+                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ LLM provider: {config.settings.llm_provider}",
+            )
+        else:
+            print_error_panel(
+                f"Configuration has {len(errors)} error(s)",
+                f"❌ {len(errors)} error(s) found\n"
+                f"⚠ {len(warnings)} warning(s)\n"
+                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ LLM provider: {config.settings.llm_provider}",
+            )
+
+        # Show detailed breakdown if requested
+        if detailed:
+            if errors:
+                print_error_panel("Errors", "\n".join(f"• {error}" for error in errors))
+
+            if warnings:
+                print_warning_panel(
+                    "Warnings", "\n".join(f"• {warning}" for warning in warnings)
+                )
+
+        log_operation_success("detailed configuration validation")
+
+    except FileNotFoundError as e:
+        log_operation_failure("detailed configuration validation", e)
+        print_error_panel(
+            "Configuration file not found",
+            "Run 'gitco init' to create a configuration file.",
+        )
+        sys.exit(1)
+    except Exception as e:
+        log_operation_failure("detailed configuration validation", e)
+        print_error_panel("Error validating configuration", str(e))
         sys.exit(1)
 
 

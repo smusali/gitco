@@ -6,6 +6,142 @@ This guide explains how to configure GitCo for your specific needs.
 
 GitCo uses a YAML configuration file (`gitco-config.yml`) to manage your repositories and settings.
 
+## Configuration Validation
+
+GitCo includes comprehensive configuration validation to help you identify and fix configuration issues early.
+
+### Validation Features
+
+- **Field Validation**: Ensures all required fields are present and properly formatted
+- **URL Validation**: Validates repository URLs and GitHub API endpoints
+- **Path Validation**: Checks local repository paths and file system access
+- **Cross-Reference Validation**: Validates relationships between different configuration sections
+- **Warning System**: Provides suggestions for improving configuration quality
+
+### Running Validation
+
+Use the validation command to check your configuration:
+
+```bash
+# Basic validation
+gitco config validate
+
+# Detailed validation with warnings
+gitco config validate_detailed --detailed
+
+# Export validation report
+gitco config validate_detailed --export validation-report.json
+```
+
+### Validation Error Types
+
+| Error Type | Description | Example |
+|------------|-------------|---------|
+| **Errors** | Critical issues that prevent GitCo from working | Missing required fields, invalid URLs |
+| **Warnings** | Issues that may cause problems but don't prevent operation | High timeout values, relative paths |
+
+### Common Validation Issues
+
+#### Repository Configuration Issues
+
+```yaml
+# ❌ Invalid: Missing required fields
+repositories:
+  - name: ""  # Empty name
+  - fork: ""  # Missing fork URL
+  - upstream: "invalid-url"  # Invalid URL format
+
+# ✅ Valid: Complete configuration
+repositories:
+  - name: "django"
+    fork: "https://github.com/user/django"
+    upstream: "https://github.com/django/django"
+    local_path: "~/code/django"
+```
+
+#### Settings Validation Issues
+
+```yaml
+# ❌ Invalid: Invalid LLM provider
+settings:
+  llm_provider: "invalid_provider"  # Must be openai, anthropic, or ollama
+
+# ❌ Invalid: Invalid numeric values
+settings:
+  max_repos_per_batch: 0  # Must be at least 1
+  git_timeout: 10  # Must be at least 30 seconds
+
+# ✅ Valid: Proper settings
+settings:
+  llm_provider: "openai"
+  max_repos_per_batch: 10
+  git_timeout: 300
+```
+
+#### URL Validation
+
+GitCo validates repository URLs to ensure they follow proper formats:
+
+```yaml
+# ❌ Invalid URLs
+repositories:
+  - fork: "invalid-url"
+  - upstream: "github.com/user/repo"  # Missing protocol
+
+# ✅ Valid URLs
+repositories:
+  - fork: "https://github.com/user/repo"
+  - upstream: "https://github.com/owner/repo"
+```
+
+#### Path Validation
+
+GitCo checks local repository paths:
+
+```yaml
+# ⚠️ Warning: Relative path
+repositories:
+  - local_path: "./repos/django"  # May cause issues
+
+# ✅ Recommended: Absolute or home-relative path
+repositories:
+  - local_path: "~/code/django"
+  - local_path: "/absolute/path/to/repo"
+```
+
+### Validation Report Format
+
+When exporting validation reports, GitCo provides detailed information:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00",
+  "config_path": "/path/to/gitco-config.yml",
+  "repository_count": 5,
+  "validation_results": {
+    "errors": [
+      {
+        "field": "repositories[0].name",
+        "message": "Repository name is required",
+        "suggestion": "Provide a unique name for this repository"
+      }
+    ],
+    "warnings": [
+      {
+        "field": "repositories[1].local_path",
+        "message": "Relative path may cause issues",
+        "suggestion": "Use absolute path or path starting with ~"
+      }
+    ]
+  },
+  "summary": {
+    "total_errors": 1,
+    "total_warnings": 1,
+    "is_valid": false
+  }
+}
+```
+
 ## Basic Configuration
 
 ### Repository Configuration
@@ -36,12 +172,15 @@ repositories:
 | `upstream` | string | Yes | Original repository (owner/repo) |
 | `local_path` | string | Yes | Local path where repository is cloned |
 | `skills` | list | No | Your skills relevant to this project |
+| `analysis_enabled` | boolean | No | Enable AI analysis for this repo (default: true) |
+| `sync_frequency` | string | No | Cron-like sync frequency |
+| `language` | string | No | Primary programming language |
 
 ### Settings Configuration
 
 ```yaml
 settings:
-  llm_provider: openai  # or anthropic
+  llm_provider: openai  # or anthropic, ollama
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
@@ -51,7 +190,7 @@ settings:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `llm_provider` | string | `openai` | LLM provider (openai, anthropic) |
+| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, ollama) |
 | `default_path` | string | `~/code` | Default path for repository clones |
 | `analysis_enabled` | boolean | `true` | Enable AI-powered change analysis |
 | `max_repos_per_batch` | integer | `10` | Maximum repositories to process in batch |
@@ -80,7 +219,8 @@ repositories:
     local_path: ~/code/django
     skills: [python, web, orm]
     analysis_enabled: false  # Disable analysis for this repo
-    sync_frequency: daily    # Custom sync frequency
+    sync_frequency: "0 2 * * *"  # Sync daily at 2 AM
+    language: python
 ```
 
 ### GitHub Configuration
@@ -98,143 +238,113 @@ settings:
   github_max_retries: 3
 ```
 
-#### GitHub Authentication Methods
+### Skills and Language Configuration
 
-**1. Personal Access Token (Recommended):**
-```bash
-export GITHUB_TOKEN="your-personal-access-token"
-```
-
-**2. Username/Password (Less Secure):**
-```bash
-export GITHUB_USERNAME="your-username"
-export GITHUB_PASSWORD="your-password"
-```
-
-**3. Environment Variables:**
-GitCo automatically detects GitHub credentials from environment variables:
-- `GITHUB_TOKEN` - Personal access token
-- `GITHUB_USERNAME` - GitHub username
-- `GITHUB_PASSWORD` - GitHub password
-
-#### GitHub API Features
-
-- **Rate Limiting**: Automatic handling of GitHub API rate limits
-- **Retry Logic**: Exponential backoff for failed requests
-- **Error Handling**: Comprehensive error handling for API failures
-- **Connection Testing**: Validate GitHub API connectivity
-- **Repository Info**: Fetch detailed repository metadata
-- **Issue Management**: Get issues with filtering and search
-
-### Environment Variables
-
-GitCo supports environment variables for sensitive configuration:
-
-```bash
-# LLM API Keys (choose one based on your provider)
-export OPENAI_API_KEY="your-openai-api-key"
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
-
-
-
-# GitHub API credentials (optional)
-export GITHUB_TOKEN="your-github-token"
-export GITHUB_USERNAME="your-github-username"
-export GITHUB_PASSWORD="your-github-password"
-```
-
-
-
-## Configuration Examples
-
-### Minimal Configuration
+Configure your skills and programming languages for better issue matching:
 
 ```yaml
 repositories:
-  - name: my-project
-    fork: username/my-project
-    upstream: original-owner/my-project
-    local_path: ~/code/my-project
+  - name: backend-api
+    fork: username/backend-api
+    upstream: owner/backend-api
+    local_path: ~/code/backend-api
+    skills: [python, fastapi, postgresql, docker]
+    language: python
 
-settings:
-  llm_provider: openai
+  - name: frontend-app
+    fork: username/frontend-app
+    upstream: owner/frontend-app
+    local_path: ~/code/frontend-app
+    skills: [javascript, react, typescript, css]
+    language: javascript
 ```
 
-### Full Configuration
+### Sync Frequency Configuration
+
+Configure automatic sync schedules using cron-like syntax:
 
 ```yaml
 repositories:
-  - name: django
-    fork: username/django
-    upstream: django/django
-    local_path: ~/code/django
-    skills: [python, web, orm, database]
+  - name: active-project
+    fork: username/active-project
+    upstream: owner/active-project
+    local_path: ~/code/active-project
+    sync_frequency: "0 */6 * * *"  # Every 6 hours
 
-  - name: fastapi
-    fork: username/fastapi
-    upstream: tiangolo/fastapi
-    local_path: ~/code/fastapi
-    skills: [python, api, async, web]
-
-  - name: requests
-    fork: username/requests
-    upstream: psf/requests
-    local_path: ~/code/requests
-    skills: [python, http, networking]
-
-settings:
-  llm_provider: anthropic
-  default_path: ~/code
-  analysis_enabled: true
-  max_repos_per_batch: 5
-  sync_timeout: 300
-  log_level: INFO
+  - name: stable-project
+    fork: username/stable-project
+    upstream: owner/stable-project
+    local_path: ~/code/stable-project
+    sync_frequency: "0 2 * * 0"  # Weekly on Sunday at 2 AM
 ```
 
+## Configuration Best Practices
 
+### Repository Naming
 
-## Configuration Validation
+- Use descriptive, unique names
+- Avoid special characters except hyphens and underscores
+- Keep names concise but meaningful
 
-GitCo validates your configuration file for:
+```yaml
+# ✅ Good names
+repositories:
+  - name: django-framework
+  - name: fastapi-backend
+  - name: react-frontend
 
-- Required fields presence
-- Valid repository paths
-- Correct YAML syntax
-- Valid settings values
+# ❌ Avoid
+repositories:
+  - name: "my project"  # Spaces not allowed
+  - name: "repo1"  # Not descriptive
+```
 
-### Validation Commands
+### Path Configuration
+
+- Use absolute paths or home-relative paths (`~/`)
+- Avoid relative paths that may cause issues
+- Ensure paths are accessible and writable
+
+```yaml
+# ✅ Good paths
+repositories:
+  - local_path: "~/code/django"
+  - local_path: "/Users/username/projects/fastapi"
+
+# ⚠️ May cause issues
+repositories:
+  - local_path: "./repos/django"  # Relative path
+```
+
+### Skills Configuration
+
+- List relevant technical skills for each repository
+- Use consistent skill names across repositories
+- Include both specific technologies and general areas
+
+```yaml
+# ✅ Comprehensive skills
+repositories:
+  - name: web-app
+    skills: [python, django, postgresql, docker, aws]
+
+  - name: mobile-app
+    skills: [javascript, react-native, firebase, ios, android]
+```
+
+### Validation Integration
+
+GitCo automatically validates your configuration during operations, but you can also run validation manually:
 
 ```bash
-# Validate configuration
+# Validate before making changes
 gitco config validate
 
-# Check configuration status
-gitco config status
+# Get detailed validation report
+gitco config validate_detailed --detailed
+
+# Export validation results for review
+gitco config validate_detailed --export config-validation.json
 ```
 
-## Troubleshooting Configuration
-
-### Common Issues
-
-1. **Invalid YAML syntax:**
-   - Use a YAML validator
-   - Check indentation and quotes
-
-2. **Repository not found:**
-   - Verify local paths exist
-   - Check repository permissions
-
-3. **API key issues:**
-   - Verify environment variable is set
-   - Check API key permissions
-
-### Configuration Tips
-
-1. **Use absolute paths** for local_path to avoid issues
-2. **Group related repositories** with similar skills
-3. **Start with minimal configuration** and expand as needed
-4. **Backup your configuration** before major changes
-
-## Next Steps
-
-After configuring GitCo, see the [Usage Guide](usage.md) to start using the tool.
+This validation helps ensure your configuration is correct and will work reliably with GitCo's features.

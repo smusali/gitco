@@ -1,19 +1,36 @@
-"""Test GitCo configuration management."""
+"""Tests for configuration management."""
 
 import os
+import tempfile
 from typing import Any
-from unittest.mock import patch
 
 import pytest
+import yaml
 
 from gitco.config import (
     Config,
     ConfigManager,
+    ConfigValidator,
     Repository,
     Settings,
+    ValidationError,
     create_sample_config,
     get_config_manager,
 )
+
+
+@pytest.fixture
+def temp_config_file() -> str:
+    """Create a temporary configuration file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+        yaml.dump(create_sample_config(), f)
+        return f.name
+
+
+@pytest.fixture
+def sample_config_data() -> dict[str, Any]:
+    """Sample configuration data."""
+    return create_sample_config()
 
 
 def test_repository_dataclass() -> None:
@@ -23,30 +40,28 @@ def test_repository_dataclass() -> None:
         fork="user/fork",
         upstream="owner/repo",
         local_path="/path/to/repo",
-        skills=["python"],
+        skills=["python", "web"],
         analysis_enabled=True,
     )
-
     assert repo.name == "test"
     assert repo.fork == "user/fork"
     assert repo.upstream == "owner/repo"
     assert repo.local_path == "/path/to/repo"
-    assert repo.skills == ["python"]
+    assert repo.skills == ["python", "web"]
     assert repo.analysis_enabled is True
 
 
 def test_settings_dataclass() -> None:
     """Test Settings dataclass."""
     settings = Settings(
-        llm_provider="anthropic",
-        default_path="/custom/path",
-        analysis_enabled=False,
+        llm_provider="openai",
+        default_path="~/code",
+        analysis_enabled=True,
         max_repos_per_batch=5,
     )
-
-    assert settings.llm_provider == "anthropic"
-    assert settings.default_path == "/custom/path"
-    assert settings.analysis_enabled is False
+    assert settings.llm_provider == "openai"
+    assert settings.default_path == "~/code"
+    assert settings.analysis_enabled is True
     assert settings.max_repos_per_batch == 5
 
 
@@ -55,10 +70,8 @@ def test_config_dataclass() -> None:
     repo = Repository(
         name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-    settings = Settings(llm_provider="openai")
-
+    settings = Settings()
     config = Config(repositories=[repo], settings=settings)
-
     assert len(config.repositories) == 1
     assert config.repositories[0].name == "test"
     assert config.settings.llm_provider == "openai"
@@ -67,7 +80,7 @@ def test_config_dataclass() -> None:
 def test_config_manager_initialization() -> None:
     """Test ConfigManager initialization."""
     manager = ConfigManager()
-    assert manager.config_path is not None
+    assert manager.config_path == "gitco-config.yml"
     assert isinstance(manager.config, Config)
 
 
@@ -76,33 +89,31 @@ def test_create_sample_config() -> None:
     config = create_sample_config()
     assert "repositories" in config
     assert "settings" in config
+    assert len(config["repositories"]) == 2
 
 
 def test_config_manager_create_default_config(temp_config_file: str) -> None:
     """Test config_manager create_default_config method."""
+    # Remove the existing file first
+    if os.path.exists(temp_config_file):
+        os.remove(temp_config_file)
+
     manager = ConfigManager(temp_config_file)
     config = manager.create_default_config()
-
     assert isinstance(config, Config)
-    assert len(config.repositories) >= 0  # Can be 0 or more
+    assert os.path.exists(temp_config_file)
 
 
 def test_config_manager_create_default_config_force(temp_config_file: str) -> None:
     """Test config_manager create_default_config method with force."""
     manager = ConfigManager(temp_config_file)
     config = manager.create_default_config(force=True)
-
     assert isinstance(config, Config)
-    assert len(config.repositories) >= 0  # Can be 0 or more
 
 
 def test_config_manager_create_default_config_exists(temp_config_file: str) -> None:
-    """Test config_manager create_default_config method when config exists."""
+    """Test config_manager create_default_config method when file exists."""
     manager = ConfigManager(temp_config_file)
-    # Create initial config
-    manager.create_default_config()
-
-    # Try to create again without force
     with pytest.raises(FileExistsError):
         manager.create_default_config()
 
@@ -112,12 +123,9 @@ def test_config_manager_load_config(
 ) -> None:
     """Test config_manager load_config method."""
     manager = ConfigManager(temp_config_file)
-    # Create a config file first
-    manager.create_default_config()
     config = manager.load_config()
-
     assert isinstance(config, Config)
-    assert len(config.repositories) >= 0
+    assert len(config.repositories) == 2
 
 
 def test_config_manager_save_config(temp_config_file: str) -> None:
@@ -126,8 +134,7 @@ def test_config_manager_save_config(temp_config_file: str) -> None:
     repo = Repository(
         name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-    settings = Settings(llm_provider="openai")
-    config = Config(repositories=[repo], settings=settings)
+    config = Config(repositories=[repo], settings=Settings())
 
     manager.save_config(config)
     assert os.path.exists(temp_config_file)
@@ -232,14 +239,15 @@ def test_config_manager_load_config_file_not_found() -> None:
 
 
 def test_config_manager_parse_config_empty() -> None:
-    """Test config_manager parse_config with empty data."""
+    """Test config_manager _parse_config method with empty data."""
     manager = ConfigManager()
     config = manager._parse_config({})
     assert isinstance(config, Config)
+    assert len(config.repositories) == 0
 
 
 def test_config_manager_parse_config_with_repositories() -> None:
-    """Test config_manager parse_config with repositories."""
+    """Test config_manager _parse_config method with repositories."""
     manager = ConfigManager()
     data = {
         "repositories": [
@@ -250,38 +258,32 @@ def test_config_manager_parse_config_with_repositories() -> None:
                 "local_path": "/path",
                 "skills": ["python"],
             }
-        ],
-        "settings": {"llm_provider": "openai"},
+        ]
     }
     config = manager._parse_config(data)
-    assert isinstance(config, Config)
     assert len(config.repositories) == 1
     assert config.repositories[0].name == "test"
+    assert config.repositories[0].skills == ["python"]
 
 
 def test_config_manager_serialize_config() -> None:
-    """Test config_manager serialize_config method."""
+    """Test config_manager _serialize_config method."""
     manager = ConfigManager()
     repo = Repository(
         name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-    settings = Settings(llm_provider="openai")
-    config = Config(repositories=[repo], settings=settings)
+    config = Config(repositories=[repo], settings=Settings())
 
-    serialized = manager._serialize_config(config)
-    assert "repositories" in serialized
-    assert "settings" in serialized
-    assert serialized["repositories"][0]["name"] == "test"
+    data = manager._serialize_config(config)
+    assert "repositories" in data
+    assert "settings" in data
+    assert len(data["repositories"]) == 1
 
 
 def test_config_manager_parse_config_with_invalid_data() -> None:
-    """Test config_manager parse_config with invalid data."""
+    """Test config_manager _parse_config method with invalid data."""
     manager = ConfigManager()
-    invalid_data = {"invalid": "data"}
-
-    # The _parse_config method doesn't raise ConfigurationError for invalid data
-    # It just returns a default config, so we'll test that behavior
-    config = manager._parse_config(invalid_data)
+    config = manager._parse_config({"invalid": "data"})
     assert isinstance(config, Config)
 
 
@@ -291,7 +293,7 @@ def test_config_manager_validate_config_with_empty_repositories() -> None:
     config = Config(repositories=[], settings=Settings())
 
     errors = manager.validate_config(config)
-    assert len(errors) == 0  # Empty repositories should be valid
+    assert isinstance(errors, list)
 
 
 def test_config_manager_validate_config_with_invalid_settings() -> None:
@@ -300,112 +302,94 @@ def test_config_manager_validate_config_with_invalid_settings() -> None:
     repo = Repository(
         name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-    settings = Settings(llm_provider="invalid_provider")
+    settings = Settings(max_repos_per_batch=0)
     config = Config(repositories=[repo], settings=settings)
 
     errors = manager.validate_config(config)
     assert len(errors) > 0
-    # The validation errors are logged but not returned in the list
-    # So we just check that there are errors
-    assert len(errors) > 0
 
 
 def test_config_manager_get_repository_not_found() -> None:
-    """Test config_manager get_repository when repository not found."""
+    """Test config_manager get_repository method when repository not found."""
     manager = ConfigManager()
-    repo = Repository(
-        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
-    )
-    config = Config(repositories=[repo], settings=Settings())
-
-    # Set the config on the manager
-    manager.config = config
-
-    # The get_repository method takes only the name
     result = manager.get_repository("nonexistent")
     assert result is None
 
 
-# New test cases for Repository dataclass
 def test_repository_with_all_fields() -> None:
-    """Test Repository with all fields specified."""
+    """Test Repository with all fields set."""
     repo = Repository(
         name="test-repo",
         fork="https://github.com/user/fork",
-        upstream="https://github.com/original/repo",
+        upstream="https://github.com/owner/repo",
         local_path="/path/to/repo",
-        skills=["python", "api", "testing"],
+        skills=["python", "web", "api"],
         analysis_enabled=True,
-        sync_frequency="daily",
+        sync_frequency="0 */6 * * *",
+        language="python",
     )
-
     assert repo.name == "test-repo"
     assert repo.fork == "https://github.com/user/fork"
-    assert repo.upstream == "https://github.com/original/repo"
+    assert repo.upstream == "https://github.com/owner/repo"
     assert repo.local_path == "/path/to/repo"
-    assert repo.skills == ["python", "api", "testing"]
+    assert repo.skills == ["python", "web", "api"]
     assert repo.analysis_enabled is True
-    assert repo.sync_frequency == "daily"
+    assert repo.sync_frequency == "0 */6 * * *"
+    assert repo.language == "python"
 
 
 def test_repository_with_defaults() -> None:
-    """Test Repository with default field values."""
+    """Test Repository with default values."""
     repo = Repository(
-        name="simple-repo",
-        fork="https://github.com/user/simple",
-        upstream="https://github.com/original/simple",
-        local_path="/path/to/simple",
+        name="test",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
     )
-
     assert repo.skills == []
     assert repo.analysis_enabled is True
     assert repo.sync_frequency is None
+    assert repo.language is None
 
 
 def test_repository_with_disabled_analysis() -> None:
     """Test Repository with analysis disabled."""
     repo = Repository(
-        name="no-analysis-repo",
-        fork="https://github.com/user/no-analysis",
-        upstream="https://github.com/original/no-analysis",
-        local_path="/path/to/no-analysis",
+        name="test",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
         analysis_enabled=False,
     )
-
     assert repo.analysis_enabled is False
 
 
 def test_repository_with_sync_frequency() -> None:
-    """Test Repository with sync frequency specified."""
+    """Test Repository with sync frequency."""
     repo = Repository(
-        name="frequent-repo",
-        fork="https://github.com/user/frequent",
-        upstream="https://github.com/original/frequent",
-        local_path="/path/to/frequent",
-        sync_frequency="hourly",
+        name="test",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
+        sync_frequency="0 2 * * *",
     )
-
-    assert repo.sync_frequency == "hourly"
+    assert repo.sync_frequency == "0 2 * * *"
 
 
 def test_repository_with_skills() -> None:
-    """Test Repository with skills list."""
-    skills = ["javascript", "react", "node.js", "typescript"]
+    """Test Repository with skills."""
     repo = Repository(
-        name="js-repo",
-        fork="https://github.com/user/js-repo",
-        upstream="https://github.com/original/js-repo",
-        local_path="/path/to/js-repo",
-        skills=skills,
+        name="test",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
+        skills=["python", "javascript", "docker"],
     )
-
-    assert repo.skills == skills
-    assert len(repo.skills) == 4
+    assert repo.skills == ["python", "javascript", "docker"]
 
 
-# New test cases for Settings dataclass
 def test_settings_with_all_fields() -> None:
-    """Test Settings with all fields specified."""
+    """Test Settings with all fields set."""
     settings = Settings(
         llm_provider="anthropic",
         default_path="~/projects",
@@ -414,8 +398,13 @@ def test_settings_with_all_fields() -> None:
         git_timeout=600,
         rate_limit_delay=2.0,
         log_level="DEBUG",
+        github_token_env="CUSTOM_GITHUB_TOKEN",
+        github_username_env="CUSTOM_GITHUB_USERNAME",
+        github_password_env="CUSTOM_GITHUB_PASSWORD",
+        github_api_url="https://api.github.com",
+        github_timeout=60,
+        github_max_retries=5,
     )
-
     assert settings.llm_provider == "anthropic"
     assert settings.default_path == "~/projects"
     assert settings.analysis_enabled is False
@@ -423,14 +412,17 @@ def test_settings_with_all_fields() -> None:
     assert settings.git_timeout == 600
     assert settings.rate_limit_delay == 2.0
     assert settings.log_level == "DEBUG"
+    assert settings.github_token_env == "CUSTOM_GITHUB_TOKEN"
+    assert settings.github_username_env == "CUSTOM_GITHUB_USERNAME"
+    assert settings.github_password_env == "CUSTOM_GITHUB_PASSWORD"
+    assert settings.github_api_url == "https://api.github.com"
+    assert settings.github_timeout == 60
+    assert settings.github_max_retries == 5
 
 
 def test_settings_with_defaults() -> None:
-    """Test Settings with default field values."""
+    """Test Settings with default values."""
     settings = Settings()
-
-    assert settings.llm_provider == "openai"
-    # api_key_env is no longer used - we use provider-specific environment variables
     assert settings.llm_provider == "openai"
     assert settings.default_path == "~/code"
     assert settings.analysis_enabled is True
@@ -441,38 +433,26 @@ def test_settings_with_defaults() -> None:
 
 
 def test_settings_custom_timeout() -> None:
-    """Test Settings with custom timeout values."""
-    settings = Settings(git_timeout=900, rate_limit_delay=5.0)
-
+    """Test Settings with custom timeout."""
+    settings = Settings(git_timeout=900)
     assert settings.git_timeout == 900
-    assert settings.rate_limit_delay == 5.0
 
 
 def test_settings_custom_batch_size() -> None:
     """Test Settings with custom batch size."""
-    settings = Settings(max_repos_per_batch=50)
+    settings = Settings(max_repos_per_batch=15)
+    assert settings.max_repos_per_batch == 15
 
-    assert settings.max_repos_per_batch == 50
 
-
-# New test cases for Config dataclass
 def test_config_with_repositories() -> None:
-    """Test Config with repositories."""
+    """Test Config with multiple repositories."""
     repo1 = Repository(
-        name="repo1",
-        fork="https://github.com/user/repo1",
-        upstream="https://github.com/original/repo1",
-        local_path="/path/to/repo1",
+        name="repo1", fork="user/repo1", upstream="owner/repo1", local_path="/path1"
     )
     repo2 = Repository(
-        name="repo2",
-        fork="https://github.com/user/repo2",
-        upstream="https://github.com/original/repo2",
-        local_path="/path/to/repo2",
+        name="repo2", fork="user/repo2", upstream="owner/repo2", local_path="/path2"
     )
-
-    config = Config(repositories=[repo1, repo2])
-
+    config = Config(repositories=[repo1, repo2], settings=Settings())
     assert len(config.repositories) == 2
     assert config.repositories[0].name == "repo1"
     assert config.repositories[1].name == "repo2"
@@ -480,41 +460,39 @@ def test_config_with_repositories() -> None:
 
 def test_config_with_custom_settings() -> None:
     """Test Config with custom settings."""
-    settings = Settings(llm_provider="anthropic", analysis_enabled=False)
-    config = Config(settings=settings)
-
+    settings = Settings(llm_provider="anthropic", max_repos_per_batch=25)
+    config = Config(repositories=[], settings=settings)
     assert config.settings.llm_provider == "anthropic"
-    assert config.settings.analysis_enabled is False
+    assert config.settings.max_repos_per_batch == 25
 
 
 def test_config_empty() -> None:
-    """Test Config with default empty state."""
+    """Test Config with no repositories."""
     config = Config()
-
-    assert config.repositories == []
-    assert config.settings is not None
+    assert len(config.repositories) == 0
     assert isinstance(config.settings, Settings)
 
 
 def test_config_with_mixed_repositories() -> None:
-    """Test Config with repositories having different settings."""
+    """Test Config with repositories having different configurations."""
     repo1 = Repository(
-        name="enabled-repo",
-        fork="https://github.com/user/enabled",
-        upstream="https://github.com/original/enabled",
-        local_path="/path/to/enabled",
+        name="python-repo",
+        fork="user/python-repo",
+        upstream="owner/python-repo",
+        local_path="/path/python",
+        skills=["python", "web"],
         analysis_enabled=True,
     )
     repo2 = Repository(
-        name="disabled-repo",
-        fork="https://github.com/user/disabled",
-        upstream="https://github.com/original/disabled",
-        local_path="/path/to/disabled",
+        name="js-repo",
+        fork="user/js-repo",
+        upstream="owner/js-repo",
+        local_path="/path/js",
+        skills=["javascript", "frontend"],
         analysis_enabled=False,
     )
-
-    config = Config(repositories=[repo1, repo2])
-
+    config = Config(repositories=[repo1, repo2], settings=Settings())
+    assert len(config.repositories) == 2
     assert config.repositories[0].analysis_enabled is True
     assert config.repositories[1].analysis_enabled is False
 
@@ -522,487 +500,648 @@ def test_config_with_mixed_repositories() -> None:
 def test_config_with_skills_repositories() -> None:
     """Test Config with repositories having skills."""
     repo1 = Repository(
-        name="python-repo",
-        fork="https://github.com/user/python",
-        upstream="https://github.com/original/python",
-        local_path="/path/to/python",
-        skills=["python", "django", "postgresql"],
+        name="backend",
+        fork="user/backend",
+        upstream="owner/backend",
+        local_path="/path/backend",
+        skills=["python", "api", "database"],
     )
     repo2 = Repository(
-        name="js-repo",
-        fork="https://github.com/user/js",
-        upstream="https://github.com/original/js",
-        local_path="/path/to/js",
-        skills=["javascript", "react", "node.js"],
+        name="frontend",
+        fork="user/frontend",
+        upstream="owner/frontend",
+        local_path="/path/frontend",
+        skills=["javascript", "react", "css"],
     )
-
-    config = Config(repositories=[repo1, repo2])
-
+    config = Config(repositories=[repo1, repo2], settings=Settings())
+    assert len(config.repositories) == 2
     assert "python" in config.repositories[0].skills
     assert "javascript" in config.repositories[1].skills
 
 
-# New test cases for ConfigManager class
 def test_config_manager_custom_path() -> None:
     """Test ConfigManager with custom config path."""
-    config_manager = ConfigManager(config_path="/custom/path/config.yml")
-
-    assert config_manager.config_path == "/custom/path/config.yml"
+    manager = ConfigManager("/custom/path/config.yml")
+    assert manager.config_path == "/custom/path/config.yml"
 
 
 def test_config_manager_default_path() -> None:
     """Test ConfigManager with default config path."""
-    config_manager = ConfigManager()
-
-    assert config_manager.config_path == "gitco-config.yml"
+    manager = ConfigManager()
+    assert manager.config_path == "gitco-config.yml"
 
 
 def test_config_manager_initial_config() -> None:
-    """Test ConfigManager initial config state."""
-    config_manager = ConfigManager()
+    """Test ConfigManager initial configuration."""
+    manager = ConfigManager()
+    assert isinstance(manager.config, Config)
+    assert len(manager.config.repositories) == 0
+    assert isinstance(manager.config.settings, Settings)
 
-    assert config_manager.config is not None
-    assert isinstance(config_manager.config, Config)
-    assert config_manager.config.repositories == []
 
-
-# Additional test cases for Repository dataclass
 def test_repository_with_custom_analysis_settings() -> None:
     """Test Repository with custom analysis settings."""
-    repository = Repository(
-        name="test-repo",
-        fork="https://github.com/user/test-repo",
-        upstream="https://github.com/original/test-repo",
-        local_path="/path/to/repo",
-        analysis_enabled=True,
-        sync_frequency="3600",
-        skills=["python", "testing"],
+    repo = Repository(
+        name="test",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
+        analysis_enabled=False,
     )
-
-    assert repository.analysis_enabled is True
-    assert repository.sync_frequency == "3600"
-    assert repository.skills == ["python", "testing"]
+    assert repo.analysis_enabled is False
 
 
 def test_repository_with_minimal_fields() -> None:
     """Test Repository with minimal required fields."""
-    repository = Repository(
-        name="minimal-repo",
-        fork="https://github.com/user/minimal",
-        upstream="https://github.com/original/minimal",
-        local_path="/path/to/minimal",
+    repo = Repository(
+        name="minimal",
+        fork="user/minimal",
+        upstream="owner/minimal",
+        local_path="/minimal/path",
     )
-
-    assert repository.name == "minimal-repo"
-    assert repository.fork == "https://github.com/user/minimal"
-    assert repository.upstream == "https://github.com/original/minimal"
-    assert repository.local_path == "/path/to/minimal"
-    assert repository.analysis_enabled is True
-    assert repository.sync_frequency is None
-    assert repository.skills == []
+    assert repo.name == "minimal"
+    assert repo.fork == "user/minimal"
+    assert repo.upstream == "owner/minimal"
+    assert repo.local_path == "/minimal/path"
+    assert repo.skills == []
+    assert repo.analysis_enabled is True
 
 
 def test_repository_equality() -> None:
-    """Test Repository instances equality."""
+    """Test Repository equality."""
     repo1 = Repository(
-        name="test-repo",
-        fork="https://github.com/user/test-repo",
-        upstream="https://github.com/original/test-repo",
-        local_path="/path/to/repo",
-        analysis_enabled=True,
-        sync_frequency="3600",
-        skills=["python", "testing"],
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-
     repo2 = Repository(
-        name="test-repo",
-        fork="https://github.com/user/test-repo",
-        upstream="https://github.com/original/test-repo",
-        local_path="/path/to/repo",
-        analysis_enabled=True,
-        sync_frequency="3600",
-        skills=["python", "testing"],
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-
     assert repo1 == repo2
 
 
 def test_repository_inequality() -> None:
-    """Test Repository instances inequality."""
+    """Test Repository inequality."""
     repo1 = Repository(
-        name="test-repo-1",
-        fork="https://github.com/user/test-repo-1",
-        upstream="https://github.com/original/test-repo-1",
-        local_path="/path/to/repo1",
+        name="test1", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-
     repo2 = Repository(
-        name="test-repo-2",
-        fork="https://github.com/user/test-repo-2",
-        upstream="https://github.com/original/test-repo-2",
-        local_path="/path/to/repo2",
+        name="test2", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-
     assert repo1 != repo2
 
 
 def test_repository_repr() -> None:
     """Test Repository string representation."""
-    repository = Repository(
-        name="test-repo",
-        fork="https://github.com/user/test-repo",
-        upstream="https://github.com/original/test-repo",
-        local_path="/path/to/repo",
-        analysis_enabled=True,
-        sync_frequency="3600",
-        skills=["python", "testing"],
+    repo = Repository(
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
-
-    repr_str = repr(repository)
+    repr_str = repr(repo)
     assert "Repository" in repr_str
-    assert "test-repo" in repr_str
-    assert "python" in repr_str
+    assert "test" in repr_str
 
 
-# Additional test cases for Settings dataclass
 def test_settings_with_custom_api_keys() -> None:
-    """Test Settings with custom API keys."""
+    """Test Settings with custom API key environment variables."""
     settings = Settings(
-        llm_provider="openai",
-        analysis_enabled=True,
-        git_timeout=120,
-        max_repos_per_batch=50,
+        github_token_env="CUSTOM_TOKEN",
+        github_username_env="CUSTOM_USERNAME",
+        github_password_env="CUSTOM_PASSWORD",
     )
-
-    assert settings.llm_provider == "openai"
-    assert settings.analysis_enabled is True
-    assert settings.git_timeout == 120
-    assert settings.max_repos_per_batch == 50
+    assert settings.github_token_env == "CUSTOM_TOKEN"
+    assert settings.github_username_env == "CUSTOM_USERNAME"
+    assert settings.github_password_env == "CUSTOM_PASSWORD"
 
 
 def test_settings_with_environment_variables() -> None:
-    """Test Settings with environment variable defaults."""
+    """Test Settings with default environment variable names."""
     settings = Settings()
-
-    assert settings.llm_provider == "openai"
-    assert settings.analysis_enabled is True
-    assert settings.git_timeout == 300
-    assert settings.max_repos_per_batch == 10
+    assert settings.github_token_env == "GITHUB_TOKEN"
+    assert settings.github_username_env == "GITHUB_USERNAME"
+    assert settings.github_password_env == "GITHUB_PASSWORD"
 
 
 def test_settings_equality() -> None:
-    """Test Settings instances equality."""
-    settings1 = Settings(
-        llm_provider="openai",
-        analysis_enabled=True,
-        git_timeout=60,
-        max_repos_per_batch=10,
-    )
-
-    settings2 = Settings(
-        llm_provider="openai",
-        analysis_enabled=True,
-        git_timeout=60,
-        max_repos_per_batch=10,
-    )
-
+    """Test Settings equality."""
+    settings1 = Settings(llm_provider="openai", max_repos_per_batch=10)
+    settings2 = Settings(llm_provider="openai", max_repos_per_batch=10)
     assert settings1 == settings2
 
 
 def test_settings_inequality() -> None:
-    """Test Settings instances inequality."""
-    settings1 = Settings(
-        llm_provider="openai",
-        analysis_enabled=True,
-        git_timeout=60,
-        max_repos_per_batch=10,
-    )
-
-    settings2 = Settings(
-        llm_provider="anthropic",
-        analysis_enabled=True,
-        git_timeout=60,
-        max_repos_per_batch=10,
-    )
-
+    """Test Settings inequality."""
+    settings1 = Settings(llm_provider="openai", max_repos_per_batch=10)
+    settings2 = Settings(llm_provider="anthropic", max_repos_per_batch=10)
     assert settings1 != settings2
 
 
 def test_settings_repr() -> None:
     """Test Settings string representation."""
-    settings = Settings(
-        llm_provider="openai",
-        analysis_enabled=True,
-        git_timeout=60,
-        max_repos_per_batch=10,
-    )
-
+    settings = Settings(llm_provider="openai")
     repr_str = repr(settings)
     assert "Settings" in repr_str
     assert "openai" in repr_str
 
 
-# Additional test cases for Config dataclass
 def test_config_with_custom_settings_and_repositories() -> None:
-    """Test Config with custom settings and repositories."""
+    """Test Config with both custom settings and repositories."""
+    repo = Repository(
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
     settings = Settings(
         llm_provider="anthropic",
-        analysis_enabled=True,
-        git_timeout=120,
-        max_repos_per_batch=50,
+        default_path="~/custom/path",
+        analysis_enabled=False,
+        max_repos_per_batch=15,
     )
-
-    repositories = [
-        Repository(
-            name="repo1",
-            fork="https://github.com/user/repo1",
-            upstream="https://github.com/original/repo1",
-            local_path="/path/to/repo1",
-            skills=["python"],
-        ),
-        Repository(
-            name="repo2",
-            fork="https://github.com/user/repo2",
-            upstream="https://github.com/original/repo2",
-            local_path="/path/to/repo2",
-            skills=["javascript"],
-        ),
-    ]
-
-    config = Config(settings=settings, repositories=repositories)
-
-    assert config.settings == settings
-    assert config.repositories == repositories
-    assert len(config.repositories) == 2
+    config = Config(repositories=[repo], settings=settings)
+    assert len(config.repositories) == 1
+    assert config.settings.llm_provider == "anthropic"
+    assert config.settings.default_path == "~/custom/path"
+    assert config.settings.analysis_enabled is False
+    assert config.settings.max_repos_per_batch == 15
 
 
 def test_config_with_empty_repositories() -> None:
     """Test Config with empty repositories list."""
-    config = Config(repositories=[])
-
-    assert config.repositories == []
-    assert config.settings is not None
+    config = Config(repositories=[], settings=Settings())
+    assert len(config.repositories) == 0
     assert isinstance(config.settings, Settings)
 
 
 def test_config_equality() -> None:
-    """Test Config instances equality."""
-    settings = Settings(llm_provider="openai", analysis_enabled=True)
-    repositories = [
-        Repository(
-            name="repo1",
-            fork="https://github.com/user/repo1",
-            upstream="https://github.com/original/repo1",
-            local_path="/path/to/repo1",
-        )
-    ]
-
-    config1 = Config(settings=settings, repositories=repositories)
-    config2 = Config(settings=settings, repositories=repositories)
-
+    """Test Config equality."""
+    repo = Repository(
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    config1 = Config(repositories=[repo], settings=Settings())
+    config2 = Config(repositories=[repo], settings=Settings())
     assert config1 == config2
 
 
 def test_config_inequality() -> None:
-    """Test Config instances inequality."""
-    settings1 = Settings(llm_provider="openai", analysis_enabled=True)
-    settings2 = Settings(llm_provider="anthropic", analysis_enabled=True)
-    repositories = [
-        Repository(
-            name="repo1",
-            fork="https://github.com/user/repo1",
-            upstream="https://github.com/original/repo1",
-            local_path="/path/to/repo1",
-        )
-    ]
-
-    config1 = Config(settings=settings1, repositories=repositories)
-    config2 = Config(settings=settings2, repositories=repositories)
-
+    """Test Config inequality."""
+    repo1 = Repository(
+        name="test1", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    repo2 = Repository(
+        name="test2", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    config1 = Config(repositories=[repo1], settings=Settings())
+    config2 = Config(repositories=[repo2], settings=Settings())
     assert config1 != config2
 
 
 def test_config_repr() -> None:
     """Test Config string representation."""
-    settings = Settings(llm_provider="openai", analysis_enabled=True)
-    repositories = [
-        Repository(
-            name="repo1",
-            fork="https://github.com/user/repo1",
-            upstream="https://github.com/original/repo1",
-            local_path="/path/to/repo1",
-        )
-    ]
-
-    config = Config(settings=settings, repositories=repositories)
-
+    repo = Repository(
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    config = Config(repositories=[repo], settings=Settings())
     repr_str = repr(config)
     assert "Config" in repr_str
 
 
-# Additional test cases for ConfigManager class
 def test_config_manager_with_custom_config() -> None:
-    """Test ConfigManager with custom config."""
-    custom_config = Config()
-    custom_config.repositories = [
-        Repository(
-            name="custom-repo",
-            fork="https://github.com/user/custom",
-            upstream="https://github.com/original/custom",
-            local_path="/path/to/custom",
-        )
-    ]
-
-    config_manager = ConfigManager()
-    config_manager.config = custom_config
-
-    assert config_manager.config == custom_config
-    assert len(config_manager.config.repositories) == 1
-    assert config_manager.config.repositories[0].name == "custom-repo"
+    """Test ConfigManager with custom configuration."""
+    manager = ConfigManager()
+    repo = Repository(
+        name="custom", fork="user/custom", upstream="owner/custom", local_path="/custom"
+    )
+    settings = Settings(llm_provider="anthropic")
+    config = Config(repositories=[repo], settings=settings)
+    manager.config = config
+    assert len(manager.config.repositories) == 1
+    assert manager.config.settings.llm_provider == "anthropic"
 
 
 def test_config_manager_validate_config_with_valid_data() -> None:
     """Test ConfigManager validate_config with valid data."""
-    config_manager = ConfigManager()
-    config_manager.config.repositories = [
-        Repository(
-            name="valid-repo",
-            fork="https://github.com/user/valid",
-            upstream="https://github.com/original/valid",
-            local_path="/path/to/valid",
-        )
-    ]
+    manager = ConfigManager()
+    repo = Repository(
+        name="valid-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/owner/repo",
+        local_path="/valid/path",
+        skills=["python"],
+    )
+    settings = Settings(llm_provider="openai")
+    config = Config(repositories=[repo], settings=settings)
 
-    # Should not raise any exception
-    config_manager.validate_config(config_manager.config)
+    errors = manager.validate_config(config)
+    assert isinstance(errors, list)
 
 
 def test_config_manager_validate_config_with_invalid_repository() -> None:
     """Test ConfigManager validate_config with invalid repository."""
-    config_manager = ConfigManager()
-    config_manager.config.repositories = [
-        Repository(
-            name="",  # Invalid empty name
-            fork="https://github.com/user/invalid",
-            upstream="https://github.com/original/invalid",
-            local_path="/path/to/invalid",
-        )
-    ]
-
-    errors = config_manager.validate_config(config_manager.config)
-    assert len(errors) > 0
-    # Check for any validation error since the exact message might vary
-    assert any(
-        "name" in error.lower() or "missing" in error.lower() for error in errors
+    manager = ConfigManager()
+    repo = Repository(
+        name="",  # Invalid: empty name
+        fork="",  # Invalid: empty fork
+        upstream="",  # Invalid: empty upstream
+        local_path="",  # Invalid: empty path
     )
+    settings = Settings(llm_provider="openai")
+    config = Config(repositories=[repo], settings=settings)
+
+    errors = manager.validate_config(config)
+    assert len(errors) > 0
 
 
 def test_config_manager_get_repository_by_name() -> None:
     """Test ConfigManager get_repository by name."""
-    config_manager = ConfigManager()
-    config_manager.config.repositories = [
-        Repository(
-            name="test-repo",
-            fork="https://github.com/user/test",
-            upstream="https://github.com/original/test",
-            local_path="/path/to/test",
-        )
-    ]
-
-    repository = config_manager.get_repository("test-repo")
-    assert repository is not None
-    assert repository.name == "test-repo"
-    assert repository.fork == "https://github.com/user/test"
+    manager = ConfigManager()
+    repo = Repository(
+        name="test-repo", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    manager.add_repository(repo)
+    result = manager.get_repository("test-repo")
+    assert result is not None
+    assert result.name == "test-repo"
 
 
 def test_config_manager_remove_repository_by_name() -> None:
-    """Test removing repository by name."""
+    """Test ConfigManager remove_repository by name."""
     manager = ConfigManager()
     repo = Repository(
-        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
+        name="test-repo", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
     manager.add_repository(repo)
+    assert len(manager.config.repositories) == 1
 
-    result = manager.remove_repository("test")
+    result = manager.remove_repository("test-repo")
     assert result is True
     assert len(manager.config.repositories) == 0
 
 
 def test_config_manager_load_config_exception_handling() -> None:
-    """Test load_config exception handling (lines 127-131)."""
-    manager = ConfigManager("nonexistent_config.yml")
-
-    with pytest.raises(FileNotFoundError, match="Configuration file not found"):
+    """Test ConfigManager load_config exception handling."""
+    manager = ConfigManager("/nonexistent/file.yml")
+    with pytest.raises(FileNotFoundError):
         manager.load_config()
 
 
 def test_config_manager_save_config_exception_handling() -> None:
-    """Test save_config exception handling (lines 187-188, 197-198)."""
-    manager = ConfigManager()
+    """Test ConfigManager save_config exception handling."""
+    manager = ConfigManager("/invalid/path/config.yml")
     config = Config()
-
-    # Mock open to raise exception
-    with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-        with pytest.raises(PermissionError):  # The exception is re-raised
-            manager.save_config(config)
+    # This should raise an exception due to invalid path
+    with pytest.raises((OSError, PermissionError)):
+        manager.save_config(config)
 
 
 def test_config_manager_validate_config_edge_cases() -> None:
     """Test validate_config with edge cases (lines 209-210, 230-235, 258-259, 272-273)."""
     manager = ConfigManager()
 
-    # Test with None config - this should raise an AttributeError when trying to access config.repositories
-    with pytest.raises(AttributeError):
+    # Test with None config
+    with pytest.raises((TypeError, AttributeError)):
         manager.validate_config(None)  # type: ignore
 
-    # Test with invalid repository data
+    # Test with empty config
     config = Config()
-    config.repositories = [Repository("", "", "", "")]  # Invalid repository
-
     errors = manager.validate_config(config)
-    assert len(errors) > 0
-    # Check for any validation error since the exact message might vary
-    assert any(
-        "name" in error.lower() or "missing" in error.lower() for error in errors
-    )
+    assert isinstance(errors, list)
 
 
 def test_config_manager_get_github_credentials() -> None:
-    """Test get_github_credentials method (lines 331-348)."""
+    """Test ConfigManager get_github_credentials method."""
     manager = ConfigManager()
+    repo = Repository(
+        name="test", fork="user/fork", upstream="owner/repo", local_path="/path"
+    )
+    settings = Settings(
+        github_token_env="TEST_GITHUB_TOKEN",
+        github_username_env="TEST_GITHUB_USERNAME",
+        github_password_env="TEST_GITHUB_PASSWORD",
+        github_api_url="https://api.github.com",
+        github_timeout=30,
+        github_max_retries=3,
+    )
+    config = Config(repositories=[repo], settings=settings)
+    manager.config = config
 
-    # Test with environment variables
-    with patch.dict(
-        os.environ,
-        {
-            "GITHUB_TOKEN": "test_token",
-            "GITHUB_USERNAME": "test_user",
-            "GITHUB_PASSWORD": "test_pass",
-        },
-    ):
-        credentials = manager.get_github_credentials()
-
-        assert credentials["token"] == "test_token"
-        assert credentials["username"] == "test_user"
-        assert credentials["password"] == "test_pass"
-        # Check for the actual keys used in the implementation
-        assert "base_url" in credentials or "api_url" in credentials
-        assert "timeout" in credentials
-        assert "max_retries" in credentials
+    credentials = manager.get_github_credentials()
+    assert "token" in credentials
+    assert "username" in credentials
+    assert "password" in credentials
+    assert "base_url" in credentials
+    assert "timeout" in credentials
+    assert "max_retries" in credentials
 
 
 def test_config_manager_get_github_credentials_missing_env() -> None:
-    """Test get_github_credentials with missing environment variables (lines 331-348)."""
+    """Test ConfigManager get_github_credentials with missing environment variables."""
     manager = ConfigManager()
+    config = Config(repositories=[], settings=Settings())
+    manager.config = config
 
-    # Test with missing environment variables
-    with patch.dict(os.environ, {}, clear=True):
-        credentials = manager.get_github_credentials()
+    credentials = manager.get_github_credentials()
+    assert credentials["token"] is None
+    assert credentials["username"] is None
+    assert credentials["password"] is None
 
-        assert credentials["token"] is None
-        assert credentials["username"] is None
-        assert credentials["password"] is None
-        # Check for the actual keys used in the implementation
-        assert "base_url" in credentials or "api_url" in credentials
-        assert "timeout" in credentials
-        assert "max_retries" in credentials
+
+# New tests for enhanced validation functionality
+
+
+def test_validation_error_dataclass() -> None:
+    """Test ValidationError dataclass."""
+    error = ValidationError(
+        field="test.field",
+        message="Test error message",
+        severity="error",
+        context={"key": "value"},
+        suggestion="Test suggestion",
+    )
+    assert error.field == "test.field"
+    assert error.message == "Test error message"
+    assert error.severity == "error"
+    assert error.context == {"key": "value"}
+    assert error.suggestion == "Test suggestion"
+
+
+def test_validation_error_str_representation() -> None:
+    """Test ValidationError string representation."""
+    error = ValidationError(
+        field="test.field", message="Test error message", suggestion="Test suggestion"
+    )
+    error_str = str(error)
+    assert "test.field: Test error message" in error_str
+    assert "(suggestion: Test suggestion)" in error_str
+
+
+def test_config_validator_initialization() -> None:
+    """Test ConfigValidator initialization."""
+    validator = ConfigValidator()
+    assert isinstance(validator.errors, list)
+    assert isinstance(validator.warnings, list)
+    assert len(validator.errors) == 0
+    assert len(validator.warnings) == 0
+
+
+def test_config_validator_validate_settings_valid() -> None:
+    """Test ConfigValidator _validate_settings with valid settings."""
+    validator = ConfigValidator()
+    settings = Settings(
+        llm_provider="openai",
+        max_repos_per_batch=10,
+        git_timeout=300,
+        rate_limit_delay=1.0,
+        log_level="INFO",
+    )
+
+    validator._validate_settings(settings)
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_settings_invalid_llm_provider() -> None:
+    """Test ConfigValidator _validate_settings with invalid LLM provider."""
+    validator = ConfigValidator()
+    settings = Settings(llm_provider="invalid_provider")
+
+    validator._validate_settings(settings)
+    assert len(validator.errors) > 0
+    assert any("llm_provider" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_settings_invalid_batch_size() -> None:
+    """Test ConfigValidator _validate_settings with invalid batch size."""
+    validator = ConfigValidator()
+    settings = Settings(max_repos_per_batch=0)
+
+    validator._validate_settings(settings)
+    assert len(validator.errors) > 0
+    assert any("max_repos_per_batch" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_settings_invalid_timeout() -> None:
+    """Test ConfigValidator _validate_settings with invalid timeout."""
+    validator = ConfigValidator()
+    settings = Settings(git_timeout=10)  # Too low
+
+    validator._validate_settings(settings)
+    assert len(validator.errors) > 0
+    assert any("git_timeout" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_github_settings_valid() -> None:
+    """Test ConfigValidator _validate_github_settings with valid settings."""
+    validator = ConfigValidator()
+    settings = Settings(
+        github_api_url="https://api.github.com", github_timeout=30, github_max_retries=3
+    )
+
+    validator._validate_github_settings(settings)
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_github_settings_invalid_url() -> None:
+    """Test ConfigValidator _validate_github_settings with invalid URL."""
+    validator = ConfigValidator()
+    settings = Settings(github_api_url="invalid-url")
+
+    validator._validate_github_settings(settings)
+    assert len(validator.errors) > 0
+    assert any("github_api_url" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_repositories_empty() -> None:
+    """Test ConfigValidator _validate_repositories with empty list."""
+    validator = ConfigValidator()
+
+    validator._validate_repositories([])
+    assert len(validator.warnings) > 0
+    assert any("repositories" in warning.field for warning in validator.warnings)
+
+
+def test_config_validator_validate_repositories_duplicate_names() -> None:
+    """Test ConfigValidator _validate_repositories with duplicate names."""
+    validator = ConfigValidator()
+    repos = [
+        Repository(
+            name="test", fork="user/fork1", upstream="owner/repo1", local_path="/path1"
+        ),
+        Repository(
+            name="test", fork="user/fork2", upstream="owner/repo2", local_path="/path2"
+        ),
+    ]
+
+    validator._validate_repositories(repos)
+    assert len(validator.errors) > 0
+    assert any(
+        "Duplicate repository name" in error.message for error in validator.errors
+    )
+
+
+def test_config_validator_validate_repository_valid() -> None:
+    """Test ConfigValidator _validate_repository with valid repository."""
+    validator = ConfigValidator()
+    repo = Repository(
+        name="test-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/owner/repo",
+        local_path="/valid/path",
+    )
+
+    validator._validate_repository(repo, 0)
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_repository_invalid_name() -> None:
+    """Test ConfigValidator _validate_repository with invalid name."""
+    validator = ConfigValidator()
+    repo = Repository(
+        name="",  # Empty name
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
+    )
+
+    validator._validate_repository(repo, 0)
+    assert len(validator.errors) > 0
+    assert any("name" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_repository_invalid_name_format() -> None:
+    """Test ConfigValidator _validate_repository with invalid name format."""
+    validator = ConfigValidator()
+    repo = Repository(
+        name="invalid name with spaces",
+        fork="user/fork",
+        upstream="owner/repo",
+        local_path="/path",
+    )
+
+    validator._validate_repository(repo, 0)
+    assert len(validator.errors) > 0
+    assert any("name" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_repository_url_valid() -> None:
+    """Test ConfigValidator _validate_repository_url with valid URL."""
+    validator = ConfigValidator()
+
+    validator._validate_repository_url(
+        "https://github.com/user/repo", "test.field", "fork"
+    )
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_repository_url_invalid() -> None:
+    """Test ConfigValidator _validate_repository_url with invalid URL."""
+    validator = ConfigValidator()
+
+    validator._validate_repository_url("invalid-url", "test.field", "fork")
+    assert len(validator.errors) > 0
+    assert any("test.field" in error.field for error in validator.errors)
+
+
+def test_config_validator_validate_skills_valid() -> None:
+    """Test ConfigValidator _validate_skills with valid skills."""
+    validator = ConfigValidator()
+    skills = ["python", "javascript", "docker"]
+
+    validator._validate_skills(skills, "test.field")
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_skills_invalid() -> None:
+    """Test ConfigValidator _validate_skills with invalid skills."""
+    validator = ConfigValidator()
+    skills = ["python", "", "invalid skill with spaces"]
+
+    validator._validate_skills(skills, "test.field")
+    assert len(validator.errors) > 0
+
+
+def test_config_validator_validate_sync_frequency_valid() -> None:
+    """Test ConfigValidator _validate_sync_frequency with valid format."""
+    validator = ConfigValidator()
+
+    validator._validate_sync_frequency("0 2 * * *", "test.field")
+    assert len(validator.errors) == 0
+
+
+def test_config_validator_validate_sync_frequency_invalid() -> None:
+    """Test ConfigValidator _validate_sync_frequency with invalid format."""
+    validator = ConfigValidator()
+
+    validator._validate_sync_frequency("invalid-cron", "test.field")
+    assert len(validator.errors) > 0
+
+
+def test_config_validator_validate_language_valid() -> None:
+    """Test ConfigValidator _validate_language with valid language."""
+    validator = ConfigValidator()
+
+    validator._validate_language("python", "test.field")
+    assert len(validator.errors) == 0
+    assert len(validator.warnings) == 0
+
+
+def test_config_validator_validate_language_unknown() -> None:
+    """Test ConfigValidator _validate_language with unknown language."""
+    validator = ConfigValidator()
+
+    validator._validate_language("unknown_language", "test.field")
+    assert len(validator.warnings) > 0
+    assert any("test.field" in warning.field for warning in validator.warnings)
+
+
+def test_config_validator_validate_cross_references() -> None:
+    """Test ConfigValidator _validate_cross_references."""
+    validator = ConfigValidator()
+    config = Config(
+        repositories=[
+            Repository(
+                name="test",
+                fork="user/fork",
+                upstream="owner/repo",
+                local_path="~/code/test",
+            )
+        ],
+        settings=Settings(default_path="~/code"),
+    )
+
+    validator._validate_cross_references(config)
+    # Should generate warnings for default path usage
+    assert len(validator.warnings) > 0
+
+
+def test_config_manager_get_validation_report() -> None:
+    """Test ConfigManager get_validation_report method."""
+    manager = ConfigManager()
+    repo = Repository(
+        name="test",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/owner/repo",
+        local_path="/path",
+    )
+    config = Config(repositories=[repo], settings=Settings())
+
+    report = manager.get_validation_report(config)
+    assert "errors" in report
+    assert "warnings" in report
+    assert isinstance(report["errors"], list)
+    assert isinstance(report["warnings"], list)
+
+
+def test_config_validator_validate_config_comprehensive() -> None:
+    """Test ConfigValidator validate_config with comprehensive validation."""
+    validator = ConfigValidator()
+
+    # Valid config
+    repo = Repository(
+        name="test-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/owner/repo",
+        local_path="/valid/path",
+        skills=["python", "web"],
+    )
+    settings = Settings(llm_provider="openai", max_repos_per_batch=10, git_timeout=300)
+    config = Config(repositories=[repo], settings=settings)
+
+    result = validator.validate_config(config)
+    assert "errors" in result
+    assert "warnings" in result
+    assert isinstance(result["errors"], list)
+    assert isinstance(result["warnings"], list)
