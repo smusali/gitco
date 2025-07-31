@@ -191,18 +191,18 @@ gitco init --force
 gitco init --template custom.yml
 ```
 
-This creates a `gitco-config.yml` file in your current directory with guided setup options.
+This creates a `~/.gitco/config.yml` file in your home directory with guided setup options.
 
 **Interactive Setup Features:**
 - Guided repository configuration with validation
-- LLM provider selection (OpenAI, Anthropic, Ollama)
+- LLM provider selection (OpenAI, Anthropic)
 - GitHub integration setup with authentication options
 - General settings configuration with default paths
 - Skill-based repository configuration
 - Configuration summary and confirmation
 
 ### 2. Configure Your Repositories
-Edit `gitco-config.yml` to add your repositories:
+Edit `~/.gitco/config.yml` to add your repositories:
 
 ```yaml
 repositories:
@@ -219,10 +219,15 @@ repositories:
     skills: [python, api, async]
 
 settings:
-  llm_provider: openai  # or anthropic
+  llm_provider: openai  # or anthropic, custom
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
+  # Optional: Custom LLM endpoints
+  # llm_openai_api_url: https://api.openai.com/v1
+  # llm_anthropic_api_url: https://api.anthropic.com
+  # llm_custom_endpoints:
+  #   my_custom_llm: https://api.mycompany.com/v1/chat/completions
 ```
 
 ### 3. Set Up LLM API Key
@@ -233,7 +238,33 @@ export OPENAI_API_KEY="your-openai-api-key-here"
 # For Anthropic
 export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
 
+# For custom endpoints
+export MY_CUSTOM_LLM_API_KEY="your-custom-api-key-here"
+```
 
+### Custom LLM Endpoints
+
+GitCo supports custom LLM endpoints for enterprise deployments and self-hosted models:
+
+```yaml
+settings:
+  # Custom API endpoints
+  llm_openai_api_url: https://api.openai.com/v1  # Custom OpenAI endpoint
+  llm_anthropic_api_url: https://api.anthropic.com  # Custom Anthropic endpoint
+
+  # Custom LLM providers
+  llm_custom_endpoints:
+    my_custom_llm: https://api.mycompany.com/v1/chat/completions
+    local_llm: http://localhost:11434/v1/chat/completions
+```
+
+**Usage:**
+```bash
+# Use custom provider
+gitco analyze --repo django --provider my_custom_llm
+
+# Use custom OpenAI endpoint
+gitco analyze --repo django --provider openai
 ```
 
 ### 4. Sync Your Repositories
@@ -820,7 +851,7 @@ gitco contributions stats --quiet
 
 ## 🔧 Configuration
 
-### Repository Configuration (`gitco-config.yml`)
+### Repository Configuration (`~/.gitco/config.yml`)
 
 ```yaml
 repositories:

@@ -611,14 +611,14 @@ class GitHubClient(RateLimitedAPIClient):
             rate_limit = self.github.get_rate_limit()
             return {
                 "core": {
-                    "limit": rate_limit.core.limit,
-                    "remaining": rate_limit.core.remaining,
-                    "reset": int(rate_limit.core.reset.timestamp()),
+                    "limit": rate_limit.core.limit,  # type: ignore[attr-defined]
+                    "remaining": rate_limit.core.remaining,  # type: ignore[attr-defined]
+                    "reset": int(rate_limit.core.reset.timestamp()),  # type: ignore[attr-defined]
                 },
                 "search": {
-                    "limit": rate_limit.search.limit,
-                    "remaining": rate_limit.search.remaining,
-                    "reset": int(rate_limit.search.reset.timestamp()),
+                    "limit": rate_limit.search.limit,  # type: ignore[attr-defined]
+                    "remaining": rate_limit.search.remaining,  # type: ignore[attr-defined]
+                    "reset": int(rate_limit.search.reset.timestamp()),  # type: ignore[attr-defined]
                 },
             }
         except GithubException as e:
@@ -666,21 +666,21 @@ class GitHubClient(RateLimitedAPIClient):
             rate_limit = self.github.get_rate_limit()
             return {
                 "core": {
-                    "limit": rate_limit.core.limit,
-                    "remaining": rate_limit.core.remaining,
+                    "limit": rate_limit.core.limit,  # type: ignore[attr-defined]
+                    "remaining": rate_limit.core.remaining,  # type: ignore[attr-defined]
                     "reset": (
-                        int(rate_limit.core.reset.timestamp())
-                        if hasattr(rate_limit.core.reset, "timestamp")
-                        else rate_limit.core.reset
+                        int(rate_limit.core.reset.timestamp())  # type: ignore[attr-defined]
+                        if hasattr(rate_limit.core.reset, "timestamp")  # type: ignore[attr-defined]
+                        else rate_limit.core.reset  # type: ignore[attr-defined]
                     ),
                 },
                 "search": {
-                    "limit": rate_limit.search.limit,
-                    "remaining": rate_limit.search.remaining,
+                    "limit": rate_limit.search.limit,  # type: ignore[attr-defined]
+                    "remaining": rate_limit.search.remaining,  # type: ignore[attr-defined]
                     "reset": (
-                        int(rate_limit.search.reset.timestamp())
-                        if hasattr(rate_limit.search.reset, "timestamp")
-                        else rate_limit.search.reset
+                        int(rate_limit.search.reset.timestamp())  # type: ignore[attr-defined]
+                        if hasattr(rate_limit.search.reset, "timestamp")  # type: ignore[attr-defined]
+                        else rate_limit.search.reset  # type: ignore[attr-defined]
                     ),
                 },
             }

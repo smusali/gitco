@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Custom LLM endpoint support for enterprise deployments and self-hosted models**
+- **CustomAnalyzer class for handling custom LLM API endpoints**
+- **Support for custom OpenAI and Anthropic API URLs**
+- **Configuration options for custom LLM endpoints (llm_custom_endpoints)**
+- **Environment variable support for custom endpoint API keys**
+- **Multiple response format support (OpenAI, Anthropic, simple text)**
+- **Custom endpoint validation with URL format checking**
+- **Integration with existing rate limiting and retry mechanisms**
+- **Documentation for custom endpoint configuration and usage**
+- **Example configurations for common custom endpoint scenarios**
 - **Cost optimization for LLM usage with comprehensive cost tracking and management**
 - **CostOptimizer class with token counting and cost estimation capabilities**
 - **TokenUsage dataclass for tracking individual API call costs**
@@ -94,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Interactive guided configuration setup for init command**
 - **Enhanced init command with --interactive flag for guided setup**
 - **Interactive prompts for repository configuration with validation**
-- **LLM provider configuration with OpenAI, Anthropic, and Ollama support**
+- **LLM provider configuration with OpenAI, Anthropic support**
 - **GitHub integration configuration with token and username/password options**
 - **General settings configuration with default paths and batch processing**
 - **Repository information prompts with skill matching and analysis settings**

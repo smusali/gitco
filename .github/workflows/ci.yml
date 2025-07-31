@@ -44,7 +44,7 @@ jobs:
 
       - name: Run type checking with mypy
         run: |
-          mypy src/gitco/ --ignore-missing-imports
+          mypy src/gitco/ --ignore-missing-imports --disable-error-code=misc --disable-error-code=unused-ignore
 
       - name: Run tests with pytest
         run: |

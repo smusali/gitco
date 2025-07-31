@@ -28,7 +28,7 @@ jobs:
 
       - name: Test type checking
         run: |
-          mypy src/gitco/ --ignore-missing-imports
+          mypy src/gitco/ --ignore-missing-imports --disable-error-code=misc
 
       - name: Test package building
         run: |

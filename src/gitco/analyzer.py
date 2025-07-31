@@ -10,6 +10,11 @@ import openai
 from rich.panel import Panel
 
 from .config import Config, Repository
+from .custom_endpoints import (
+    get_custom_endpoint_config,
+    get_default_custom_endpoint,
+    is_custom_provider,
+)
 from .detector import (
     BreakingChange,
     BreakingChangeDetector,
@@ -339,12 +344,18 @@ class BaseAnalyzer(ABC):
 class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
     """OpenAI API integration for change analysis."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "gpt-3.5-turbo",
+        base_url: Optional[str] = None,
+    ):
         """Initialize OpenAI analyzer.
 
         Args:
             api_key: OpenAI API key. If None, will try to get from environment.
             model: OpenAI model to use for analysis.
+            base_url: Custom base URL for OpenAI API.
         """
         super().__init__(model)
 
@@ -358,7 +369,7 @@ class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
                 "OpenAI API key not provided. Set OPENAI_API_KEY environment variable."
             )
 
-        self.client = openai.OpenAI(api_key=self.api_key)
+        self.client = openai.OpenAI(api_key=self.api_key, base_url=base_url)
 
     @with_retry(config=AGGRESSIVE_RETRY_CONFIG)
     def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
@@ -428,13 +439,17 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
     """Anthropic Claude API integration for change analysis."""
 
     def __init__(
-        self, api_key: Optional[str] = None, model: str = "claude-3-sonnet-20240229"
+        self,
+        api_key: Optional[str] = None,
+        model: str = "claude-3-sonnet-20240229",
+        base_url: Optional[str] = None,
     ):
         """Initialize Anthropic analyzer.
 
         Args:
             api_key: Anthropic API key. If None, will try to get from environment.
             model: Anthropic model to use for analysis.
+            base_url: Custom base URL for Anthropic API.
         """
         super().__init__(model)
 
@@ -448,7 +463,7 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
                 "Anthropic API key not provided. Set ANTHROPIC_API_KEY environment variable."
             )
 
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+        self.client = anthropic.Anthropic(api_key=self.api_key, base_url=base_url)
 
     @with_retry(config=AGGRESSIVE_RETRY_CONFIG)
     def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
@@ -516,6 +531,126 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
         return "Anthropic"
 
 
+class CustomAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
+    """Custom LLM endpoint integration for change analysis."""
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "default",
+        endpoint_url: str = "",
+        provider_name: str = "custom",
+    ):
+        """Initialize custom analyzer.
+
+        Args:
+            api_key: API key for the custom endpoint. If None, will try to get from environment.
+            model: Model name to use for analysis.
+            endpoint_url: Custom endpoint URL.
+            provider_name: Name of the custom provider.
+        """
+        super().__init__(model)
+
+        # Initialize rate limiter
+        rate_limiter = get_rate_limiter(provider_name)
+        RateLimitedAPIClient.__init__(self, rate_limiter)
+
+        self.api_key = api_key or os.getenv(f"{provider_name.upper()}_API_KEY")
+        if not self.api_key:
+            raise ValueError(
+                f"{provider_name.title()} API key not provided. "
+                f"Set {provider_name.upper()}_API_KEY environment variable."
+            )
+
+        self.endpoint_url = endpoint_url
+        self.provider_name = provider_name
+        self.logger = get_logger()
+
+        if not self.endpoint_url:
+            raise ValueError("Custom endpoint URL is required")
+
+    @with_retry(config=AGGRESSIVE_RETRY_CONFIG)
+    def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
+        """Call the custom LLM API with the given prompt.
+
+        Args:
+            prompt: The user prompt to send to the LLM.
+            system_prompt: The system prompt to send to the LLM.
+
+        Returns:
+            The raw response from the LLM.
+
+        Raises:
+            Exception: If the API call fails.
+        """
+        try:
+            import requests
+
+            def make_custom_request() -> Any:
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }
+
+                # Try OpenAI-compatible format first
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 4000,
+                }
+
+                response = requests.post(
+                    self.endpoint_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                return response.json()
+
+            response_data = self.make_rate_limited_request(make_custom_request)
+
+            # Handle OpenAI-compatible response format
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                content = (
+                    response_data["choices"][0].get("message", {}).get("content", "")
+                )
+                if content:
+                    return str(content)
+
+            # Handle Anthropic-compatible response format
+            if "content" in response_data and len(response_data["content"]) > 0:
+                content = response_data["content"][0].get("text", "")
+                if content:
+                    return str(content)
+
+            # Handle simple text response
+            if "text" in response_data:
+                return str(response_data["text"])
+
+            # Handle direct content response
+            if "content" in response_data:
+                return str(response_data["content"])
+
+            raise Exception(f"Unexpected response format from {self.provider_name} API")
+
+        except Exception as e:
+            self.logger.error(f"{self.provider_name} API call failed: {e}")
+            raise
+
+    def _get_api_name(self) -> str:
+        """Get the name of the API provider.
+
+        Returns:
+            The name of the API provider.
+        """
+        return str(self.provider_name.title())
+
+
 class ChangeAnalyzer:
     """Main change analyzer that coordinates analysis operations."""
 
@@ -547,13 +682,40 @@ class ChangeAnalyzer:
             if provider == "openai":
                 # Use provider-specific environment variable
                 api_key = os.getenv("OPENAI_API_KEY")
-                self.analyzers[provider] = OpenAIAnalyzer(api_key=api_key)
+                base_url = self.config.settings.llm_openai_api_url
+                self.analyzers[provider] = OpenAIAnalyzer(
+                    api_key=api_key, base_url=base_url
+                )
             elif provider == "anthropic":
                 # Use provider-specific environment variable
                 api_key = os.getenv("ANTHROPIC_API_KEY")
-                self.analyzers[provider] = AnthropicAnalyzer(api_key=api_key)
+                base_url = self.config.settings.llm_anthropic_api_url
+                self.analyzers[provider] = AnthropicAnalyzer(
+                    api_key=api_key, base_url=base_url
+                )
+            elif provider == "custom":
+                # Handle custom endpoints
+                endpoint_name, endpoint_url, api_key = get_default_custom_endpoint(
+                    self.config
+                )
+                self.analyzers[provider] = CustomAnalyzer(
+                    api_key=api_key,
+                    endpoint_url=endpoint_url,
+                    provider_name=endpoint_name,
+                )
             else:
-                raise ValueError(f"Unsupported LLM provider: {provider}")
+                # Check if it's a custom endpoint
+                if is_custom_provider(provider, self.config):
+                    endpoint_url, api_key = get_custom_endpoint_config(
+                        self.config, provider
+                    )
+                    self.analyzers[provider] = CustomAnalyzer(
+                        api_key=api_key,
+                        endpoint_url=endpoint_url,
+                        provider_name=provider,
+                    )
+                else:
+                    raise ValueError(f"Unsupported LLM provider: {provider}")
 
         return self.analyzers[provider]
 

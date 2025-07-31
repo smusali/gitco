@@ -105,7 +105,7 @@ gitco init --interactive
 gitco init
 ```
 
-This creates a `gitco-config.yml` file in your current directory.
+This creates a `~/.gitco/config.yml` file in your home directory.
 
 ## LLM Provider Setup
 
@@ -127,7 +127,7 @@ export ANTHROPIC_API_KEY="your-anthropic-api-key"
 
 ### 3. Configure Repositories
 
-Edit the generated `gitco-config.yml` file to add your repositories:
+Edit the generated `~/.gitco/config.yml` file to add your repositories:
 
 ```yaml
 repositories:

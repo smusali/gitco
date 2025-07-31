@@ -4,7 +4,7 @@ This guide explains how to configure GitCo for your specific needs.
 
 ## Configuration File
 
-GitCo uses a YAML configuration file (`gitco-config.yml`) to manage your repositories and settings.
+GitCo uses a YAML configuration file (`~/.gitco/config.yml`) to manage your repositories and settings. The configuration file is automatically created in the `~/.gitco/` directory when you run `gitco init`.
 
 ## Configuration Validation
 
@@ -64,7 +64,7 @@ repositories:
 ```yaml
 # ❌ Invalid: Invalid LLM provider
 settings:
-  llm_provider: "invalid_provider"  # Must be openai, anthropic, or ollama
+  llm_provider: "invalid_provider"  # Must be openai, anthropic
 
 # ❌ Invalid: Invalid numeric values
 settings:
@@ -180,7 +180,7 @@ repositories:
 
 ```yaml
 settings:
-  llm_provider: openai  # or anthropic, ollama
+  llm_provider: openai  # or anthropic
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 10
@@ -190,7 +190,7 @@ settings:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, ollama) |
+| `llm_provider` | string | `openai` | LLM provider (openai, anthropic, custom) |
 | `default_path` | string | `~/code` | Default path for repository clones |
 | `analysis_enabled` | boolean | `true` | Enable AI-powered change analysis |
 | `max_repos_per_batch` | integer | `10` | Maximum repositories to process in batch |
@@ -236,6 +236,79 @@ settings:
   github_api_url: https://api.github.com
   github_timeout: 30
   github_max_retries: 3
+```
+
+### Custom LLM Endpoints
+
+GitCo supports custom LLM endpoints for enterprise deployments and self-hosted models:
+
+```yaml
+settings:
+  # LLM provider configuration
+  llm_provider: openai  # or anthropic, custom
+
+  # Custom API endpoints (optional)
+  llm_openai_api_url: https://api.openai.com/v1  # Custom OpenAI endpoint
+  llm_anthropic_api_url: https://api.anthropic.com  # Custom Anthropic endpoint
+
+  # Custom LLM endpoints
+  llm_custom_endpoints:
+    my_custom_llm: https://api.mycompany.com/v1/chat/completions
+    local_llm: http://localhost:11434/v1/chat/completions
+
+```
+
+#### Custom Endpoint Configuration
+
+When using custom endpoints, you can:
+
+1. **Override default API URLs**: Set `llm_openai_api_url` or `llm_anthropic_api_url` to use custom endpoints for these providers
+2. **Add custom providers**: Use `llm_custom_endpoints` to define new LLM providers with custom URLs
+3. **Environment variables**: Set API keys using `{PROVIDER_NAME}_API_KEY` environment variables
+
+#### Example Custom Endpoint Usage
+
+```bash
+# Set API key for custom provider
+export MY_CUSTOM_LLM_API_KEY="your-api-key"
+
+# Use custom provider in analysis
+gitco analyze --repo django --provider my_custom_llm
+```
+
+#### Supported Response Formats
+
+Custom endpoints should return responses in one of these formats:
+
+**OpenAI-compatible format:**
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "content": "Analysis result..."
+      }
+    }
+  ]
+}
+```
+
+**Anthropic-compatible format:**
+```json
+{
+  "content": [
+    {
+      "text": "Analysis result..."
+    }
+  ]
+}
+```
+
+**Simple text format:**
+```json
+{
+  "text": "Analysis result..."
+}
 ```
 
 ### Skills and Language Configuration

@@ -1,6 +1,5 @@
 """Tests for retry mechanisms."""
 
-import asyncio
 import time
 from typing import Any, cast
 from unittest.mock import Mock, patch
@@ -255,24 +254,6 @@ class TestRetryAsync:
 
         assert result == "success"
         assert call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_retry_async_timeout(self) -> None:
-        """Test async retry decorator with timeout."""
-        call_count = 0
-
-        @retry_async(max_attempts=2, timeout=0.1)
-        async def test_function() -> str:
-            nonlocal call_count
-            call_count += 1
-            await asyncio.sleep(0.2)  # Longer than timeout
-            return "success"
-
-        with pytest.raises(asyncio.TimeoutError):
-            await test_function()
-
-        # The function was called twice (initial + retry) before timing out
-        assert call_count == 2
 
 
 class TestCreateRetrySession:

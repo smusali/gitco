@@ -80,7 +80,7 @@ def test_config_dataclass() -> None:
 def test_config_manager_initialization() -> None:
     """Test ConfigManager initialization."""
     manager = ConfigManager()
-    assert manager.config_path == "gitco-config.yml"
+    assert manager.config_path == os.path.expanduser("~/.gitco/config.yml")
     assert isinstance(manager.config, Config)
 
 
@@ -528,7 +528,7 @@ def test_config_manager_custom_path() -> None:
 def test_config_manager_default_path() -> None:
     """Test ConfigManager with default config path."""
     manager = ConfigManager()
-    assert manager.config_path == "gitco-config.yml"
+    assert manager.config_path == os.path.expanduser("~/.gitco/config.yml")
 
 
 def test_config_manager_initial_config() -> None:

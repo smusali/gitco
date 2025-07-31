@@ -22,11 +22,11 @@ gitco init --force
 gitco init --template custom.yml
 ```
 
-This creates a `gitco-config.yml` file in your current directory with guided setup options.
+This creates a `~/.gitco/config.yml` file in your home directory with guided setup options.
 
 **Interactive Setup Features:**
 - **Repository Configuration**: Add repositories with validation and skill matching
-- **LLM Provider Setup**: Configure OpenAI, Anthropic, or Ollama integration
+- **LLM Provider Setup**: Configure OpenAI, Anthropic integration
 - **GitHub Integration**: Set up authentication with tokens or username/password
 - **General Settings**: Configure default paths and batch processing options
 - **Configuration Summary**: Review all settings before saving

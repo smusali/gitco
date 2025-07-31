@@ -202,6 +202,9 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 @click.option(
     "--log-backups", type=int, help="Number of backup log files to keep (default: 5)"
 )
+@click.option(
+    "--config", "-c", help="Path to configuration file (default: ~/.gitco/config.yml)"
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -211,6 +214,7 @@ def main(
     detailed_log: bool,
     max_log_size: Optional[int],
     log_backups: Optional[int],
+    config: Optional[str],
 ) -> None:
     """GitCo - A simple CLI tool for intelligent OSS fork management and contribution discovery.
 
@@ -229,6 +233,7 @@ def main(
     ctx.obj["detailed_log"] = detailed_log
     ctx.obj["max_log_size"] = max_log_size
     ctx.obj["log_backups"] = log_backups
+    ctx.obj["config"] = config
 
     # Set global quiet mode state
     set_quiet_mode(quiet)
@@ -283,7 +288,7 @@ def init(
     )
 
     try:
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
 
         if template:
             logger.info(f"Using custom template: {template}")
@@ -400,7 +405,7 @@ def init(
                 "Configuration initialized successfully!",
                 f"Configuration file created: {config_manager.config_path}\n\n"
                 "Next steps:\n"
-                "1. Edit gitco-config.yml to add your repositories\n"
+                "1. Edit ~/.gitco/config.yml to add your repositories\n"
                 "2. Set up your LLM API key\n"
                 "3. Run 'gitco sync' to start managing your forks\n\n"
                 "Tip: Run 'gitco init --interactive' for guided setup",
@@ -496,7 +501,7 @@ def sync(
         start_time = time.time()
 
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         # Initialize repository manager
@@ -954,7 +959,7 @@ def analyze(
 
     try:
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         # Get repository configuration
@@ -1124,7 +1129,7 @@ def discover(
 
     try:
         # Load configuration
-        config_manager = get_config_manager()
+        config_manager = get_config_manager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         if not config.repositories:
@@ -1428,7 +1433,7 @@ def status(
     log_operation_start("repository status check")
 
     try:
-        config_manager = get_config_manager()
+        config_manager = get_config_manager(ctx.obj.get("config"))
         config = config_manager.load_config()
         github_client = create_github_client()
 
@@ -1545,7 +1550,7 @@ def activity(
     log_operation_start("repository activity dashboard")
 
     try:
-        config_manager = get_config_manager()
+        config_manager = get_config_manager(ctx.obj.get("config"))
         config = config_manager.load_config()
         github_client = create_github_client()
 
@@ -2504,7 +2509,7 @@ def validate(ctx: click.Context) -> None:
     log_operation_start("configuration validation")
 
     try:
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         # Get detailed validation report
@@ -2573,7 +2578,7 @@ def config_status(ctx: click.Context) -> None:
     log_operation_start("configuration status")
 
     try:
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         log_operation_success(
@@ -2633,7 +2638,7 @@ def validate_detailed(
     log_operation_start("detailed configuration validation")
 
     try:
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
         # Get detailed validation report
@@ -3383,7 +3388,7 @@ def test_connection(ctx: click.Context) -> None:
 
     try:
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
         # Get GitHub credentials
@@ -3467,7 +3472,7 @@ def get_repo(ctx: click.Context, repo: str) -> None:
 
     try:
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
         # Get GitHub credentials
@@ -3567,7 +3572,7 @@ def get_issues(
 
     try:
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
         # Get GitHub credentials
@@ -3693,7 +3698,7 @@ def get_issues_multi(
 
     try:
         # Load configuration
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
         # Get GitHub credentials

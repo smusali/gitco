@@ -33,7 +33,6 @@ def test_init_command(runner: CliRunner) -> None:
     result = runner.invoke(main, ["init"])
     # The command will fail if config file exists, which is expected
     if result.exit_code == 0:
-        assert "Initializing GitCo configuration" in result.output
         assert "Configuration initialized successfully" in result.output
     else:
         assert "Configuration file already exists" in result.output

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from .custom_endpoints import validate_custom_endpoints
 from .git_ops import GitRepositoryManager
 from .utils.common import (
     get_logger,
@@ -78,6 +79,10 @@ class Settings:
     llm_rate_limit_per_hour: int = 1000
     llm_burst_limit: int = 10
     min_request_interval: float = 0.1
+    # LLM API settings
+    llm_openai_api_url: Optional[str] = None
+    llm_anthropic_api_url: Optional[str] = None
+    llm_custom_endpoints: dict[str, str] = field(default_factory=dict)
     # Cost optimization settings
     enable_cost_tracking: bool = True
     enable_token_optimization: bool = True
@@ -138,13 +143,25 @@ class ConfigValidator:
             settings: Settings to validate.
         """
         # Validate LLM provider
-        valid_providers = ["openai", "anthropic", "ollama"]
+        valid_providers = ["openai", "anthropic", "custom"]
         if settings.llm_provider not in valid_providers:
             self.errors.append(
                 ValidationError(
                     field="settings.llm_provider",
                     message=f"Invalid LLM provider '{settings.llm_provider}'",
                     suggestion=f"Must be one of: {', '.join(valid_providers)}",
+                )
+            )
+
+        # Validate custom endpoints
+        try:
+            validate_custom_endpoints(settings)
+        except ValueError as e:
+            self.errors.append(
+                ValidationError(
+                    field="settings.llm_custom_endpoints",
+                    message=str(e),
+                    suggestion="Configure valid custom endpoints or change llm_provider",
                 )
             )
 
@@ -628,9 +645,9 @@ class ConfigManager:
         """Initialize configuration manager.
 
         Args:
-            config_path: Path to configuration file. Defaults to 'gitco-config.yml'.
+            config_path: Path to configuration file. Defaults to '~/.gitco/config.yml'.
         """
-        self.config_path = config_path or "gitco-config.yml"
+        self.config_path = os.path.expanduser(config_path or "~/.gitco/config.yml")
         self.config = Config()
         self.validator = ConfigValidator()
 
@@ -866,6 +883,10 @@ class ConfigManager:
                 ),
                 github_timeout=settings_data.get("github_timeout", 30),
                 github_max_retries=settings_data.get("github_max_retries", 3),
+                # LLM API settings
+                llm_openai_api_url=settings_data.get("llm_openai_api_url"),
+                llm_anthropic_api_url=settings_data.get("llm_anthropic_api_url"),
+                llm_custom_endpoints=settings_data.get("llm_custom_endpoints", {}),
                 # Cost optimization settings
                 enable_cost_tracking=settings_data.get("enable_cost_tracking", True),
                 enable_token_optimization=settings_data.get(
@@ -912,6 +933,10 @@ class ConfigManager:
                 "github_api_url": config.settings.github_api_url,
                 "github_timeout": config.settings.github_timeout,
                 "github_max_retries": config.settings.github_max_retries,
+                # LLM API settings
+                "llm_openai_api_url": config.settings.llm_openai_api_url,
+                "llm_anthropic_api_url": config.settings.llm_anthropic_api_url,
+                "llm_custom_endpoints": config.settings.llm_custom_endpoints,
                 # Cost optimization settings
                 "enable_cost_tracking": config.settings.enable_cost_tracking,
                 "enable_token_optimization": config.settings.enable_token_optimization,
@@ -982,5 +1007,13 @@ def create_sample_config() -> dict[str, Any]:
             "git_timeout": 300,
             "rate_limit_delay": 1.0,
             "log_level": "INFO",
+            # LLM API settings
+            "llm_openai_api_url": None,  # Optional: "https://api.openai.com/v1"
+            "llm_anthropic_api_url": None,  # Optional: "https://api.anthropic.com"
+            "llm_custom_endpoints": {
+                # Example custom endpoints
+                # "my_custom_llm": "https://api.mycompany.com/v1/chat/completions",
+                # "local_llm": "http://localhost:11434/v1/chat/completions",
+            },
         },
     }

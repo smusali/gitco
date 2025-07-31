@@ -186,6 +186,7 @@ markers = [
     "asyncio: marks tests as asyncio tests",
 ]
 timeout = 30
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["src"]

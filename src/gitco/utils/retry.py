@@ -390,6 +390,10 @@ def retry_async(
                     ):
                         raise
 
+                    # If this is the last attempt, don't retry
+                    if attempt >= config.max_attempts:
+                        raise
+
                     # Calculate delay
                     delay = config.strategy.get_delay(attempt, config.max_attempts)
 

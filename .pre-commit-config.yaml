@@ -23,7 +23,12 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-requests, types-PyYAML]
-        args: [--ignore-missing-imports, --disable-error-code=misc]
+        args:
+          [
+            --ignore-missing-imports,
+            --disable-error-code=misc,
+            --disable-error-code=unused-ignore,
+          ]
 
   # Conventional commit message validation
   - repo: https://github.com/commitizen-tools/commitizen

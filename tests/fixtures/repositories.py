@@ -81,6 +81,10 @@ def mock_config(
     mock_config.settings.enabled = enabled
     mock_config.settings.max_diff_size = max_diff_size
     mock_config.settings.max_commit_messages = max_commit_messages
+    # Add new LLM settings
+    mock_config.settings.llm_openai_api_url = None
+    mock_config.settings.llm_anthropic_api_url = None
+    mock_config.settings.llm_custom_endpoints = {}
 
     return mock_config
 

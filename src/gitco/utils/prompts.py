@@ -259,29 +259,29 @@ def prompt_llm_settings() -> dict[str, Any]:
     """
     console.print("\n[bold blue]LLM Provider Configuration[/bold blue]")
 
-    providers = ["openai", "anthropic", "ollama", "none"]
+    providers = ["openai", "anthropic", "custom"]
     provider = prompt_choice("Select LLM provider", providers, default="openai")
 
     settings = {"llm_provider": provider}
 
-    if provider != "none":
-        console.print(f"\n[bold]Configuring {provider.title()}[/bold]")
+    console.print(f"\n[bold]Configuring {provider.title()}[/bold]")
 
-        if provider == "openai":
-            settings["api_key_env"] = prompt_text(
-                "OpenAI API key environment variable", default="OPENAI_API_KEY"
-            )
-        elif provider == "anthropic":
-            settings["api_key_env"] = prompt_text(
-                "Anthropic API key environment variable", default="ANTHROPIC_API_KEY"
-            )
-        elif provider == "ollama":
-            settings["ollama_url"] = prompt_text(
-                "Ollama URL", default="http://localhost:11434"
-            )
-            settings["ollama_model"] = prompt_text(
-                "Ollama model name", default="llama2"
-            )
+    if provider == "openai":
+        settings["api_key_env"] = prompt_text(
+            "OpenAI API key environment variable", default="OPENAI_API_KEY"
+        )
+    elif provider == "anthropic":
+        settings["api_key_env"] = prompt_text(
+            "Anthropic API key environment variable", default="ANTHROPIC_API_KEY"
+        )
+    elif provider == "custom":
+        console.print(
+            "[yellow]Note: Custom endpoints must be configured manually in gitco-config.yml[/yellow]"
+        )
+        custom_endpoint = prompt_text(
+            "Custom endpoint name (e.g., my_custom_llm)", default="custom_llm"
+        )
+        settings["custom_endpoint_name"] = custom_endpoint
 
     return settings
 

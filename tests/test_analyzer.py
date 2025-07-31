@@ -652,6 +652,7 @@ class TestChangeAnalyzer:
     def test_get_analyzer_unsupported_provider(self) -> None:
         """Test getting unsupported analyzer."""
         mock_config = Mock()
+        mock_config.settings.llm_custom_endpoints = {}
         analyzer = ChangeAnalyzer(mock_config)
         with pytest.raises(ValueError, match="Unsupported LLM provider: unsupported"):
             analyzer.get_analyzer("unsupported")
