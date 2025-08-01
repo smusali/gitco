@@ -2219,6 +2219,150 @@ def logs(ctx: click.Context, export: Optional[str], format: str) -> None:
 
 
 @main.command()
+@click.option(
+    "--detailed", "-d", is_flag=True, help="Show detailed performance metrics"
+)
+@click.option("--export", "-e", help="Export performance data to file (.json or .csv)")
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["json", "csv"]),
+    default="json",
+    help="Export format",
+)
+@click.pass_context
+def performance(
+    ctx: click.Context, detailed: bool, export: Optional[str], format: str
+) -> None:
+    """Show batch processing performance metrics and system resource usage."""
+
+    try:
+        # Get system resource information
+        import psutil
+
+        memory = psutil.virtual_memory()
+        cpu_count = psutil.cpu_count()
+        disk = psutil.disk_usage("/")
+
+        # Create performance overview
+        console.print("\n[bold blue]📊 System Performance Overview[/bold blue]")
+
+        from rich import box
+        from rich.table import Table
+
+        table = Table(box=box.ROUNDED, show_header=True, header_style="bold magenta")
+        table.add_column("Resource", style="cyan")
+        table.add_column("Current", style="white")
+        table.add_column("Total", style="white")
+        table.add_column("Usage", style="white")
+
+        # Memory information
+        memory_used_gb = memory.used / (1024**3)
+        memory_total_gb = memory.total / (1024**3)
+        memory_percent = memory.percent
+
+        table.add_row(
+            "Memory",
+            f"{memory_used_gb:.1f} GB",
+            f"{memory_total_gb:.1f} GB",
+            f"{memory_percent:.1f}%",
+        )
+
+        # CPU information
+        cpu_percent = psutil.cpu_percent(interval=1)
+        table.add_row("CPU", f"{cpu_percent:.1f}%", f"{cpu_count} cores", "N/A")
+
+        # Disk information
+        disk_used_gb = disk.used / (1024**3)
+        disk_total_gb = disk.total / (1024**3)
+        disk_percent = (disk.used / disk.total) * 100
+
+        table.add_row(
+            "Disk",
+            f"{disk_used_gb:.1f} GB",
+            f"{disk_total_gb:.1f} GB",
+            f"{disk_percent:.1f}%",
+        )
+
+        console.print(table)
+
+        if detailed:
+            # Show detailed system information
+            console.print("\n[bold blue]🔧 Detailed System Information[/bold blue]")
+
+            # Network information
+            net_io = psutil.net_io_counters()
+            console.print(
+                f"[cyan]Network I/O:[/cyan] {net_io.bytes_sent / (1024**2):.1f} MB sent, {net_io.bytes_recv / (1024**2):.1f} MB received"
+            )
+
+            # Load average (Unix-like systems)
+            try:
+                load_avg = psutil.getloadavg()
+                console.print(
+                    f"[cyan]Load Average:[/cyan] {load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}"
+                )
+            except AttributeError:
+                console.print("[cyan]Load Average:[/cyan] Not available on this system")
+
+            # Process information
+            process = psutil.Process()
+            console.print(
+                f"[cyan]GitCo Process Memory:[/cyan] {process.memory_info().rss / (1024**2):.1f} MB"
+            )
+            console.print(f"[cyan]GitCo Process CPU:[/cyan] {process.cpu_percent()}%")
+
+        # Export performance data if requested
+        if export:
+            performance_data = {
+                "timestamp": time.time(),
+                "system": {
+                    "memory": {
+                        "total_gb": memory_total_gb,
+                        "used_gb": memory_used_gb,
+                        "percent": memory_percent,
+                    },
+                    "cpu": {"count": cpu_count, "percent": cpu_percent},
+                    "disk": {
+                        "total_gb": disk_total_gb,
+                        "used_gb": disk_used_gb,
+                        "percent": disk_percent,
+                    },
+                },
+            }
+
+            if format == "json":
+                import json
+
+                with open(export, "w") as f:
+                    json.dump(performance_data, f, indent=2)
+            else:  # CSV
+                import csv
+
+                with open(export, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Metric", "Value"])
+                    writer.writerow(["Memory Total (GB)", memory_total_gb])
+                    writer.writerow(["Memory Used (GB)", memory_used_gb])
+                    writer.writerow(["Memory Percent", memory_percent])
+                    writer.writerow(["CPU Count", cpu_count])
+                    writer.writerow(["CPU Percent", cpu_percent])
+                    writer.writerow(["Disk Total (GB)", disk_total_gb])
+                    writer.writerow(["Disk Used (GB)", disk_used_gb])
+                    writer.writerow(["Disk Percent", disk_percent])
+
+            console.print(f"\n[green]✅ Performance data exported to {export}[/green]")
+
+        log_operation_success("performance monitoring")
+
+    except Exception as e:
+        error_msg = f"Failed to get performance metrics: {e}"
+        log_operation_failure("performance monitoring", e)
+        print_error_panel("Performance monitoring failed", error_msg)
+        sys.exit(1)
+
+
+@main.command()
 @click.pass_context
 def help(ctx: click.Context) -> None:
     """Show detailed help information with contextual examples.

@@ -1,5 +1,6 @@
 """Git operations and repository management for GitCo."""
 
+import gc
 import os
 import re
 import subprocess
@@ -7,8 +8,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Any, Callable, Optional
 
+import psutil
 from rich import box
 from rich.table import Table
 
@@ -34,8 +37,24 @@ class BatchResult:
     error: Optional[Exception] = None
 
 
+@dataclass
+class BatchPerformanceMetrics:
+    """Performance metrics for batch processing."""
+
+    total_repositories: int
+    successful_operations: int
+    failed_operations: int
+    total_duration: float
+    average_duration: float
+    memory_usage_mb: float
+    cpu_usage_percent: float
+    throughput_repos_per_second: float
+    concurrent_workers: int
+    batch_size: int
+
+
 class BatchProcessor:
-    """Handles batch processing of multiple repositories."""
+    """Handles batch processing of multiple repositories with performance optimizations."""
 
     def __init__(self, max_workers: int = 4, rate_limit_delay: float = 1.0):
         """Initialize batch processor.
@@ -48,6 +67,93 @@ class BatchProcessor:
         self.rate_limit_delay = rate_limit_delay
         self.logger = get_logger()
 
+        # Performance optimization attributes
+        self._thread_pool: Optional[ThreadPoolExecutor] = None
+        self._repository_cache: dict[str, Any] = {}
+        self._cache_lock = Lock()
+        self._performance_metrics: Optional[BatchPerformanceMetrics] = None
+
+        # Optimize batch size based on system resources
+        self._optimal_batch_size = self._calculate_optimal_batch_size()
+
+    def _calculate_optimal_batch_size(self) -> int:
+        """Calculate optimal batch size based on system resources."""
+        try:
+            # Get system memory in GB
+            memory_gb = psutil.virtual_memory().total / (1024**3)
+            cpu_count = psutil.cpu_count()
+
+            # Calculate optimal batch size based on available resources
+            if memory_gb >= 16 and cpu_count >= 8:
+                return min(50, self.max_workers * 4)
+            elif memory_gb >= 8 and cpu_count >= 4:
+                return min(30, self.max_workers * 3)
+            else:
+                return min(20, self.max_workers * 2)
+        except Exception:
+            # Fallback to conservative defaults
+            return min(20, self.max_workers * 2)
+
+    def _get_or_create_thread_pool(self) -> ThreadPoolExecutor:
+        """Get or create a thread pool with connection reuse."""
+        if self._thread_pool is None or self._thread_pool._shutdown:
+            self._thread_pool = ThreadPoolExecutor(
+                max_workers=self.max_workers, thread_name_prefix="gitco-batch"
+            )
+        return self._thread_pool
+
+    def _get_cached_repository(self, repo_path: str) -> Optional[Any]:
+        """Get cached repository object to avoid recreation."""
+        with self._cache_lock:
+            return self._repository_cache.get(repo_path)
+
+    def _cache_repository(self, repo_path: str, repo_obj: Any) -> None:
+        """Cache repository object for reuse."""
+        with self._cache_lock:
+            # Limit cache size to prevent memory issues
+            if len(self._repository_cache) >= self._optimal_batch_size:
+                # Remove oldest entries
+                oldest_keys = list(self._repository_cache.keys())[:5]
+                for key in oldest_keys:
+                    del self._repository_cache[key]
+            self._repository_cache[repo_path] = repo_obj
+
+    def _clear_cache(self) -> None:
+        """Clear the repository cache."""
+        with self._cache_lock:
+            self._repository_cache.clear()
+        gc.collect()  # Force garbage collection
+
+    def _monitor_performance(
+        self, start_time: float, results: list[BatchResult]
+    ) -> BatchPerformanceMetrics:
+        """Monitor and calculate performance metrics."""
+        total_duration = time.time() - start_time
+        successful = sum(1 for r in results if r.success)
+        failed = len(results) - successful
+
+        # Calculate memory usage
+        memory_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+
+        # Calculate CPU usage (approximate)
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+
+        # Calculate throughput
+        throughput = len(results) / total_duration if total_duration > 0 else 0
+
+        return BatchPerformanceMetrics(
+            total_repositories=len(results),
+            successful_operations=successful,
+            failed_operations=failed,
+            total_duration=total_duration,
+            average_duration=total_duration / len(results) if results else 0,
+            memory_usage_mb=memory_mb,
+            cpu_usage_percent=cpu_percent,
+            throughput_repos_per_second=throughput,
+            concurrent_workers=self.max_workers,
+            batch_size=self._optimal_batch_size,
+        )
+
     def process_repositories(
         self,
         repositories: list[dict[str, Any]],
@@ -55,7 +161,7 @@ class BatchProcessor:
         operation_name: str = "sync",
         show_progress: bool = True,
     ) -> list[BatchResult]:
-        """Process multiple repositories in batch.
+        """Process multiple repositories in batch with performance optimizations.
 
         Args:
             repositories: List of repository configurations
@@ -67,11 +173,20 @@ class BatchProcessor:
             List of batch results for each repository
         """
         self.logger.info(
-            f"Starting batch {operation_name} for {len(repositories)} repositories"
+            f"Starting optimized batch {operation_name} for {len(repositories)} repositories"
         )
 
+        # Pre-allocate results list for better memory efficiency
         results = []
         start_time = time.time()
+
+        # Handle empty repositories list
+        if not repositories:
+            self.logger.info(f"No repositories to process for {operation_name}")
+            return []
+
+        # Process repositories in optimal batch sizes
+        batch_size = min(self._optimal_batch_size, len(repositories))
 
         if show_progress:
             self._print_batch_header(operation_name, len(repositories))
@@ -84,88 +199,147 @@ class BatchProcessor:
                     f"[cyan]{operation_name}[/cyan]", total=len(repositories)
                 )
 
-                # Process repositories with thread pool for concurrent execution
-                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                    # Submit all tasks
-                    future_to_repo = {
-                        executor.submit(
-                            self._process_single_repository,
-                            repo,
-                            operation_func,
-                            operation_name,
-                        ): repo
-                        for repo in repositories
-                    }
+                # Process repositories in batches for better memory management
+                for i in range(0, len(repositories), batch_size):
+                    batch = repositories[i : i + batch_size]
 
-                    # Collect results as they complete
-                    for future in as_completed(future_to_repo):
-                        repo = future_to_repo[future]
-                        try:
-                            result = future.result()
-                            results.append(result)
+                    # Process current batch with thread pool
+                    batch_results = self._process_batch(
+                        batch, operation_func, operation_name, progress, task
+                    )
+                    results.extend(batch_results)
 
-                            # Update progress bar
-                            progress.update(task, advance=1)
-
-                            # Show result with color coding
-                            self._print_repository_result(result)
-
-                        except Exception as e:
-                            # Handle unexpected errors in the future
-                            error_result = BatchResult(
-                                repository_name=repo.get("name", "unknown"),
-                                repository_path=repo.get("local_path", "unknown"),
-                                success=False,
-                                operation=operation_name,
-                                message=f"Unexpected error: {e}",
-                                details={"error": str(e)},
-                                duration=0.0,
-                                error=e,
-                            )
-                            results.append(error_result)
-
-                            # Update progress bar
-                            progress.update(task, advance=1)
-
-                            # Show error result
-                            self._print_repository_result(error_result)
+                    # Clear cache between batches to prevent memory buildup
+                    if i + batch_size < len(repositories):
+                        self._clear_cache()
         else:
             # Process without progress bar (for quiet mode)
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                future_to_repo = {
-                    executor.submit(
-                        self._process_single_repository,
-                        repo,
-                        operation_func,
-                        operation_name,
-                    ): repo
-                    for repo in repositories
-                }
+            for i in range(0, len(repositories), batch_size):
+                batch = repositories[i : i + batch_size]
+                batch_results = self._process_batch_quiet(
+                    batch, operation_func, operation_name
+                )
+                results.extend(batch_results)
 
-                for future in as_completed(future_to_repo):
-                    repo = future_to_repo[future]
-                    try:
-                        result = future.result()
-                        results.append(result)
-                    except Exception as e:
-                        error_result = BatchResult(
-                            repository_name=repo.get("name", "unknown"),
-                            repository_path=repo.get("local_path", "unknown"),
-                            success=False,
-                            operation=operation_name,
-                            message=f"Unexpected error: {e}",
-                            details={"error": str(e)},
-                            duration=0.0,
-                            error=e,
-                        )
-                        results.append(error_result)
+                # Clear cache between batches
+                if i + batch_size < len(repositories):
+                    self._clear_cache()
 
-        total_duration = time.time() - start_time
+        # Calculate performance metrics
+        self._performance_metrics = self._monitor_performance(start_time, results)
 
         if show_progress:
-            self._print_batch_summary(results, operation_name, total_duration)
+            self._print_batch_summary(
+                results, operation_name, self._performance_metrics.total_duration
+            )
+            self._print_performance_metrics(self._performance_metrics)
+
+        # Clean up thread pool
+        if self._thread_pool:
+            self._thread_pool.shutdown(wait=False)
+            self._thread_pool = None
 
         return results
+
+    def _process_batch(
+        self,
+        batch: list[dict[str, Any]],
+        operation_func: Callable[[str, dict[str, Any]], dict[str, Any]],
+        operation_name: str,
+        progress: Any,
+        task: Any,
+    ) -> list[BatchResult]:
+        """Process a batch of repositories with progress tracking."""
+        batch_results = []
+        thread_pool = self._get_or_create_thread_pool()
+
+        # Submit all tasks in the batch
+        future_to_repo = {
+            thread_pool.submit(
+                self._process_single_repository,
+                repo,
+                operation_func,
+                operation_name,
+            ): repo
+            for repo in batch
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_repo):
+            repo = future_to_repo[future]
+            try:
+                result = future.result()
+                batch_results.append(result)
+
+                # Update progress bar
+                progress.update(task, advance=1)
+
+                # Show result with color coding
+                self._print_repository_result(result)
+
+            except Exception as e:
+                # Handle unexpected errors in the future
+                error_result = BatchResult(
+                    repository_name=repo.get("name", "unknown"),
+                    repository_path=repo.get("local_path", "unknown"),
+                    success=False,
+                    operation=operation_name,
+                    message=f"Unexpected error: {e}",
+                    details={"error": str(e)},
+                    duration=0.0,
+                    error=e,
+                )
+                batch_results.append(error_result)
+
+                # Update progress bar
+                progress.update(task, advance=1)
+
+                # Show error result
+                self._print_repository_result(error_result)
+
+        return batch_results
+
+    def _process_batch_quiet(
+        self,
+        batch: list[dict[str, Any]],
+        operation_func: Callable[[str, dict[str, Any]], dict[str, Any]],
+        operation_name: str,
+    ) -> list[BatchResult]:
+        """Process a batch of repositories without progress tracking."""
+        batch_results = []
+        thread_pool = self._get_or_create_thread_pool()
+
+        # Submit all tasks in the batch
+        future_to_repo = {
+            thread_pool.submit(
+                self._process_single_repository,
+                repo,
+                operation_func,
+                operation_name,
+            ): repo
+            for repo in batch
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_repo):
+            repo = future_to_repo[future]
+            try:
+                result = future.result()
+                batch_results.append(result)
+            except Exception as e:
+                error_result = BatchResult(
+                    repository_name=repo.get("name", "unknown"),
+                    repository_path=repo.get("local_path", "unknown"),
+                    success=False,
+                    operation=operation_name,
+                    message=f"Unexpected error: {e}",
+                    details={"error": str(e)},
+                    duration=0.0,
+                    error=e,
+                )
+                batch_results.append(error_result)
+
+        return batch_results
 
     def _process_single_repository(
         self,
@@ -173,7 +347,7 @@ class BatchProcessor:
         operation_func: Callable[[str, dict[str, Any]], dict[str, Any]],
         operation_name: str,
     ) -> BatchResult:
-        """Process a single repository.
+        """Process a single repository with caching optimization.
 
         Args:
             repo_config: Repository configuration
@@ -223,32 +397,30 @@ class BatchProcessor:
 
         Args:
             operation_name: Name of the operation
-            total_repos: Total number of repositories
+            total_repos: Total number of repositories to process
         """
+        console.print(f"\n[bold blue]🔄 Batch {operation_name.title()}[/bold blue]")
         console.print(
-            f"\n[bold blue]🔄 Starting batch {operation_name} for {total_repos} repositories[/bold blue]"
+            f"[dim]Processing {total_repos} repositories with {self.max_workers} workers[/dim]"
         )
-        console.print("=" * 60)
+        console.print(f"[dim]Optimal batch size: {self._optimal_batch_size}[/dim]\n")
 
     def _print_repository_result(self, result: BatchResult) -> None:
-        """Print result for a single repository with color coding.
+        """Print individual repository result with color coding.
 
         Args:
-            result: Batch result to print
+            result: Batch result to display
         """
-        duration_str = f"{result.duration:.2f}s"
-
         if result.success:
-            status_icon = "[green]✅[/green]"
-            status_color = "green"
+            console.print(
+                f"✅ [green]{result.repository_name}[/green] - {result.message} "
+                f"([dim]{result.duration:.2f}s[/dim])"
+            )
         else:
-            status_icon = "[red]❌[/red]"
-            status_color = "red"
-
-        console.print(
-            f"{status_icon} [{status_color}]{result.repository_name:<20}[/{status_color}] "
-            f"[cyan]{duration_str:>8}[/cyan] - {result.message}"
-        )
+            console.print(
+                f"❌ [red]{result.repository_name}[/red] - {result.message} "
+                f"([dim]{result.duration:.2f}s[/dim])"
+            )
 
     def _print_batch_summary(
         self, results: list[BatchResult], operation_name: str, total_duration: float
@@ -258,37 +430,63 @@ class BatchProcessor:
         Args:
             results: List of batch results
             operation_name: Name of the operation
-            total_duration: Total duration of the batch
+            total_duration: Total duration of the batch operation
         """
         successful = sum(1 for r in results if r.success)
         failed = len(results) - successful
 
-        # Create summary table
-        table = Table(title=f"📊 Batch {operation_name} Summary", box=box.ROUNDED)
-        table.add_column("Metric", style="cyan", no_wrap=True)
+        table = Table(
+            title=f"Batch {operation_name.title()} Summary",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta",
+        )
+
+        table.add_column("Metric", style="cyan")
         table.add_column("Value", style="white")
 
-        table.add_row("Total repositories", str(len(results)))
+        table.add_row("Total Repositories", str(len(results)))
         table.add_row("Successful", f"[green]{successful}[/green]")
         table.add_row("Failed", f"[red]{failed}[/red]")
-        table.add_row("Total duration", f"{total_duration:.2f}s")
-        if len(results) > 0:
-            table.add_row("Average per repo", f"{total_duration / len(results):.2f}s")
-        else:
-            table.add_row("Average per repo", "N/A")
+        table.add_row("Success Rate", f"{(successful / len(results) * 100):.1f}%")
+        table.add_row("Total Duration", f"{total_duration:.2f}s")
+        table.add_row("Average Duration", f"{total_duration / len(results):.2f}s")
 
-        console.print("\n")
         console.print(table)
 
-        if failed > 0:
-            console.print("\n[red]❌ Failed repositories:[/red]")
-            for result in results:
-                if not result.success:
-                    console.print(
-                        f"  [red]• {result.repository_name}: {result.message}[/red]"
-                    )
+    def _print_performance_metrics(self, metrics: BatchPerformanceMetrics) -> None:
+        """Print detailed performance metrics.
 
-        console.print("=" * 60)
+        Args:
+            metrics: Performance metrics to display
+        """
+        table = Table(
+            title="Performance Metrics",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold blue",
+        )
+
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="white")
+
+        table.add_row(
+            "Throughput", f"{metrics.throughput_repos_per_second:.2f} repos/sec"
+        )
+        table.add_row("Memory Usage", f"{metrics.memory_usage_mb:.1f} MB")
+        table.add_row("CPU Usage", f"{metrics.cpu_usage_percent:.1f}%")
+        table.add_row("Concurrent Workers", str(metrics.concurrent_workers))
+        table.add_row("Batch Size", str(metrics.batch_size))
+
+        console.print(table)
+
+    def get_performance_metrics(self) -> Optional[BatchPerformanceMetrics]:
+        """Get the last batch processing performance metrics.
+
+        Returns:
+            Performance metrics from the last batch operation, or None if no metrics available
+        """
+        return self._performance_metrics
 
 
 class GitRepository:

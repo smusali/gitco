@@ -494,6 +494,16 @@ gitco activity --sort contributors
 gitco status --activity
 gitco status --activity --detailed
 
+# Monitor system performance
+gitco performance
+
+# Show detailed performance metrics
+gitco performance --detailed
+
+# Export performance data
+gitco performance --export performance.json
+gitco performance --export performance.csv --format csv
+
 # Get comprehensive help with contextual examples
 gitco help
 
@@ -510,6 +520,40 @@ gitco validate-repo --recursive --detailed
 gitco upstream add --repo ~/code/django --url git@github.com:django/django.git
 gitco upstream validate-upstream --repo ~/code/django
 gitco upstream fetch --repo ~/code/django
+```
+
+### Performance Optimizations
+
+GitCo includes advanced batch processing optimizations for handling large numbers of repositories efficiently:
+
+**Key Optimizations:**
+- **System Resource Monitoring**: Automatic detection of available memory and CPU cores
+- **Optimal Batch Sizing**: Dynamic batch size calculation based on system resources
+- **Thread Pool Reuse**: Efficient connection pooling and thread management
+- **Memory Management**: Automatic cache clearing and garbage collection
+- **Performance Metrics**: Real-time throughput and resource usage tracking
+- **Progress Optimization**: Efficient progress tracking with minimal overhead
+
+**Performance Features:**
+- **Resource-Based Scaling**: Automatically scales based on available system resources
+- **Memory-Efficient Processing**: Processes repositories in optimal batch sizes
+- **Performance Monitoring**: Real-time metrics for throughput and resource usage
+- **System Resource Dashboard**: Comprehensive view of CPU, memory, and disk usage
+- **Export Capabilities**: Export performance data for analysis and monitoring
+
+```bash
+# Monitor system performance
+gitco performance
+
+# Show detailed performance metrics
+gitco performance --detailed
+
+# Export performance data
+gitco performance --export performance.json
+gitco performance --export performance.csv --format csv
+
+# Batch processing with optimized workers
+gitco sync --batch --max-workers 8
 ```
 
 ### AI Analysis

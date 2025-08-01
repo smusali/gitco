@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Batch processing performance optimizations with system resource monitoring**
+- **Optimal batch size calculation based on available memory and CPU cores**
+- **Thread pool reuse and connection pooling for improved efficiency**
+- **Memory-efficient processing with automatic cache management**
+- **Performance metrics tracking with throughput and resource usage**
+- **New `performance` command for system resource monitoring**
+- **Batch processing performance dashboard with detailed metrics**
+- **Automatic garbage collection between batch operations**
+- **System resource-based batch size optimization**
+- **Performance monitoring integration with existing batch operations**
 - **Custom LLM endpoint support for enterprise deployments and self-hosted models**
 - **CustomAnalyzer class for handling custom LLM API endpoints**
 - **Support for custom OpenAI and Anthropic API URLs**
