@@ -1028,6 +1028,9 @@ mypy src/
 - [Installation Guide](docs/installation.md)
 - [Configuration Guide](docs/configuration.md)
 - [Usage Guide](docs/usage.md)
+- [Tutorials Guide](docs/tutorials.md) - Step-by-step tutorials and examples
+- [Examples Guide](docs/examples.md) - Real-world scenarios and code snippets
+- [Workflows Guide](docs/workflows.md) - User persona-based workflows
 - [Troubleshooting](docs/troubleshooting.md)
 
 ## 🤝 Contributing

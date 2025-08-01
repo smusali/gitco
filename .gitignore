@@ -209,3 +209,4 @@ __marimo__/
 
 # GitCo configuration directory (local)
 .gitco/
+.DS_Store

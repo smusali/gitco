@@ -481,6 +481,14 @@ gitco status --export status-report.json
 
 GitCo supports automated workflows with comprehensive quiet mode functionality:
 
+**Automation Options:**
+- **Cron Jobs**: Simple scheduled execution (recommended)
+- **GitHub Actions**: Cloud-based automation
+- **Manual Systemd**: Advanced users can create service files manually
+- **Custom Scripts**: Integration with existing automation tools
+
+**Note**: GitCo does not provide built-in service installation. For automation, use cron jobs (simplest) or create systemd service files manually.
+
 #### Quiet Mode Usage
 
 ```bash
@@ -573,7 +581,8 @@ gitco help
 - **Contribution Tracking**: contributions sync-history, stats, recommendations, export, trending
 - **GitHub Integration**: github test-connection, get-repo, get-issues, get-issues-multi
 - **Upstream Management**: upstream add, remove, update, validate, fetch, merge
-- **Backup & Recovery**: backup create, list, restore, validate, delete, cleanup
+- **Backup & Recovery**: backup create, list-backups, restore, validate-backup, delete, cleanup
+- **Cost Management**: cost summary, configure, reset, breakdown
 - **Utilities**: logs, help
 
 **Contextual Examples:**
@@ -612,6 +621,15 @@ gitco help
 - Configuration status checks
 - GitHub connectivity testing
 - Repository validation
+
+**Comprehensive Documentation:**
+- [Tutorials Guide](tutorials.md) - Step-by-step tutorials and examples
+- [Examples Guide](examples.md) - Real-world scenarios and code snippets
+- [Workflows Guide](workflows.md) - User persona-based workflows
+- [Configuration Guide](configuration.md) - Detailed configuration options
+- [Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
+
+**Note**: GitCo is a CLI tool that provides repository management, AI analysis, and contribution discovery. It does not include built-in service installation or enterprise features. The documentation includes examples of how to integrate GitCo with external automation tools.
 
 ## Command Reference
 
