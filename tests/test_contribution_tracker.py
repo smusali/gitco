@@ -627,3 +627,121 @@ class TestContributionTracker:
         assert stats.critical_contributions == 0
         assert stats.impact_trend_30d == 0.0
         assert stats.impact_trend_7d == 0.0
+
+    def test_contribution_with_none_values(self) -> None:
+        """Test Contribution creation with None values."""
+        contribution = Contribution(
+            repository="test-repo",
+            issue_number=1,
+            issue_title="Test Issue",
+            issue_url="https://github.com/test/issue/1",
+            contribution_type="issue",
+            status="open",
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+            labels=None,
+            assignees=None,
+            comments_count=None,
+            reactions_count=None,
+            impact_score=None,
+        )
+
+        assert contribution.repository == "test-repo"
+        assert contribution.labels is None
+        assert contribution.assignees is None
+        assert contribution.comments_count is None
+        assert contribution.reactions_count is None
+        assert contribution.impact_score is None
+
+    def test_contribution_stats_with_none_values(self) -> None:
+        """Test ContributionStats creation with None values."""
+        stats = ContributionStats(
+            total_contributions=0,
+            open_contributions=0,
+            closed_contributions=0,
+            high_impact_contributions=0,
+            critical_contributions=0,
+            impact_trend_30d=0.0,
+            impact_trend_7d=0.0,
+        )
+
+        assert stats.total_contributions == 0
+        assert stats.open_contributions == 0
+        assert stats.closed_contributions == 0
+        assert stats.high_impact_contributions == 0
+        assert stats.critical_contributions == 0
+        assert stats.impact_trend_30d == 0.0
+        assert stats.impact_trend_7d == 0.0
+
+    def test_contribution_tracker_with_empty_config(self) -> None:
+        """Test ContributionTracker with empty configuration."""
+        empty_config = Mock()
+        empty_config.repositories = []
+
+        github_client = Mock()
+
+        tracker = ContributionTracker(empty_config, github_client)
+
+        # Should not raise any exceptions
+        assert tracker is not None
+        assert tracker.config == empty_config
+        assert tracker.github_client == github_client
+
+    def test_contribution_tracker_calculate_impact_score_with_none_issue(self) -> None:
+        """Test _calculate_impact_score with None issue data."""
+        config = Mock()
+        github_client = Mock()
+        tracker = ContributionTracker(config, github_client)
+
+        # Test with issue that has None values
+        issue = GitHubIssue(
+            number=1,
+            title="Test Issue",
+            state="open",
+            labels=[],
+            assignees=[],
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+            html_url="https://github.com/test/issue/1",
+        )
+        issue.comments_count = 0
+        issue.reactions_count = 0
+
+        impact_score = tracker._calculate_impact_score(issue)
+        assert isinstance(impact_score, float)
+        assert 0.0 <= impact_score <= 1.0
+
+    def test_contribution_tracker_serialization_roundtrip(self) -> None:
+        """Test Contribution serialization and deserialization."""
+        original_contribution = Contribution(
+            repository="test-repo",
+            issue_number=1,
+            issue_title="Test Issue",
+            issue_url="https://github.com/test/issue/1",
+            contribution_type="issue",
+            status="open",
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+            labels=["bug", "help wanted"],
+            assignees=["user1", "user2"],
+            comments_count=5,
+            reactions_count=3,
+            impact_score=0.8,
+        )
+
+        # Convert to dict and back
+        contribution_dict = original_contribution.to_dict()
+        restored_contribution = Contribution.from_dict(contribution_dict)
+
+        assert restored_contribution.repository == original_contribution.repository
+        assert restored_contribution.issue_number == original_contribution.issue_number
+        assert restored_contribution.labels == original_contribution.labels
+        assert restored_contribution.assignees == original_contribution.assignees
+        assert (
+            restored_contribution.comments_count == original_contribution.comments_count
+        )
+        assert (
+            restored_contribution.reactions_count
+            == original_contribution.reactions_count
+        )
+        assert restored_contribution.impact_score == original_contribution.impact_score

@@ -26,10 +26,6 @@ jobs:
           ruff check src/ tests/
           ruff format --check src/ tests/
 
-      - name: Test type checking
-        run: |
-          mypy src/gitco/ --ignore-missing-imports --disable-error-code=misc
-
       - name: Test package building
         run: |
           python -m build

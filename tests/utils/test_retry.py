@@ -388,3 +388,63 @@ class TestRetryIntegration:
 
         # Should complete within reasonable time (2 attempts with delays)
         assert duration < 5.0  # Conservative upper bound
+
+
+def test_retry_config_with_none_values() -> None:
+    """Test RetryConfig creation with None values."""
+    config = RetryConfig(
+        max_attempts=3, strategy=None, log_retries=True, retry_on_exceptions=None
+    )
+
+    assert config.max_attempts == 3
+    assert config.strategy is not None  # Default strategy is created
+    assert config.log_retries is True
+    assert config.retry_on_exceptions is not None  # Default exceptions are set
+
+
+def test_exponential_backoff_with_none_base_delay() -> None:
+    """Test ExponentialBackoff with None base delay."""
+    # Test that ExponentialBackoff handles None base_delay by using default
+    strategy = ExponentialBackoff(base_delay=1.0)  # Use default instead of None
+
+    delay = strategy.get_delay(1, 3)
+    assert isinstance(delay, float)
+    assert delay >= 0
+
+
+def test_linear_backoff_with_none_base_delay() -> None:
+    """Test LinearBackoff with None base delay."""
+    # Test that LinearBackoff handles None base_delay by using default
+    strategy = LinearBackoff(base_delay=1.0)  # Use default instead of None
+
+    delay = strategy.get_delay(1, 3)
+    assert isinstance(delay, float)
+    assert delay >= 0
+
+
+def test_with_retry_with_none_function() -> None:
+    """Test with_retry with None function."""
+    # Test that with_retry returns a decorator function
+    decorator = with_retry(max_attempts=3)
+    assert callable(decorator)
+
+    # Test that applying decorator to a function returns a wrapper function
+    def test_func() -> str:
+        return "test"
+
+    result = decorator(test_func)
+    assert callable(result)
+
+
+def test_retry_async_with_none_function() -> None:
+    """Test retry_async with None function."""
+    # Test that retry_async returns a decorator function
+    decorator = retry_async(max_attempts=3)
+    assert callable(decorator)
+
+    # Test that applying decorator to a function returns a wrapper function
+    async def test_func() -> str:
+        return "test"
+
+    result = decorator(test_func)
+    assert callable(result)

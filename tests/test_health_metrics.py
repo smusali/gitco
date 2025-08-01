@@ -746,3 +746,76 @@ def test_repository_health_calculator_extract_repo_name_from_simple_url() -> Non
     repo_name = calculator._extract_repo_name_from_url(simple_url)
 
     assert repo_name == "owner/test-repo"
+
+
+def test_repository_health_metrics_with_none_values() -> None:
+    """Test RepositoryHealthMetrics creation with None values."""
+    metrics = RepositoryHealthMetrics(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        overall_health_score=0.8,
+        health_status="good",
+        upstream_url=None,
+        last_commit_days_ago=None,
+        days_since_last_sync=None,
+        issue_response_time_avg=None,
+        pr_merge_time_avg=None,
+        language=None,
+    )
+
+    assert metrics.repository_name == "test-repo"
+    assert metrics.repository_path == "/path/to/repo"
+    assert metrics.overall_health_score == 0.8
+    assert metrics.health_status == "good"
+    assert metrics.upstream_url is None
+    assert metrics.last_commit_days_ago is None
+    assert metrics.days_since_last_sync is None
+    assert metrics.issue_response_time_avg is None
+    assert metrics.pr_merge_time_avg is None
+    assert metrics.language is None
+
+
+def test_health_summary_with_none_values() -> None:
+    """Test HealthSummary creation with None values."""
+    summary = HealthSummary(
+        total_repositories=5,
+        healthy_repositories=3,
+        needs_attention_repositories=1,
+        critical_repositories=1,
+        average_activity_score=0.7,
+    )
+
+    assert summary.total_repositories == 5
+    assert summary.healthy_repositories == 3
+    assert summary.needs_attention_repositories == 1
+    assert summary.critical_repositories == 1
+    assert summary.average_activity_score == 0.7
+
+
+def test_repository_health_calculator_with_none_config() -> None:
+    """Test RepositoryHealthCalculator with None config."""
+    calculator = RepositoryHealthCalculator(None, Mock())
+
+    # Should handle None config gracefully
+    assert calculator.config is None
+    assert calculator.github_client is not None
+    assert calculator.logger is not None
+
+
+def test_repository_health_calculator_with_none_github_client() -> None:
+    """Test RepositoryHealthCalculator with None GitHub client."""
+    calculator = RepositoryHealthCalculator(Mock(), None)
+
+    # Should handle None GitHub client gracefully
+    assert calculator.config is not None
+    assert calculator.github_client is None
+    assert calculator.logger is not None
+
+
+def test_repository_health_calculator_extract_repo_name_from_none_url() -> None:
+    """Test RepositoryHealthCalculator extract_repo_name_from_url with None URL."""
+    calculator = RepositoryHealthCalculator(Mock(), Mock())
+
+    # Should handle None URL gracefully
+    repo_name = calculator._extract_repo_name_from_url("")
+    assert repo_name is None

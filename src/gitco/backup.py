@@ -146,9 +146,7 @@ class BackupManager:
         Returns:
             Unique backup identifier
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
-            :-3
-        ]  # Include milliseconds
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         return f"gitco_backup_{timestamp}"
 
     def create_backup(

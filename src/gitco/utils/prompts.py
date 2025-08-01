@@ -1,8 +1,10 @@
 """Interactive prompts for GitCo CLI."""
 
+import logging
 import os
 import re
-from typing import Any, Callable, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Optional, Union
 
 from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
@@ -26,6 +28,104 @@ __all__ = [
     "show_configuration_summary",
     "prompt_save_configuration",
 ]
+
+
+@dataclass
+class PromptConfig:
+    """Configuration for prompt functionality."""
+
+    max_tokens: Optional[int] = 1000
+    temperature: Optional[float] = 0.7
+    top_p: Optional[float] = 1.0
+    frequency_penalty: Optional[float] = 0.0
+    presence_penalty: Optional[float] = 0.0
+
+
+@dataclass
+class PromptTemplate:
+    """Template for prompts."""
+
+    name: Optional[str] = None
+    content: Optional[str] = None
+    variables: Optional[list[str]] = None
+
+
+class PromptManager:
+    """Manager for prompt functionality."""
+
+    def __init__(self, config: Optional[PromptConfig] = None):
+        """Initialize the prompt manager.
+
+        Args:
+            config: Configuration for prompts
+        """
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        self.templates: dict[str, PromptTemplate] = {}
+
+    def get_prompt_template(self, template_name: str) -> Optional[PromptTemplate]:
+        """Get a prompt template by name.
+
+        Args:
+            template_name: Name of the template
+
+        Returns:
+            Prompt template or None if not found
+        """
+        return self.templates.get(template_name)
+
+    def format_prompt(
+        self,
+        template: Optional[Union[str, PromptTemplate]],
+        variables: Optional[dict[str, str]],
+    ) -> str:
+        """Format a prompt with variables.
+
+        Args:
+            template: Prompt template name or PromptTemplate object
+            variables: Variables to substitute
+
+        Returns:
+            Formatted prompt
+        """
+        # Handle string template names
+        if isinstance(template, str):
+            template = self.get_prompt_template(template)
+
+        if not template or not template.content:
+            return ""
+
+        if not variables:
+            return template.content
+
+        # Simple variable substitution
+        result = template.content
+        for key, value in variables.items():
+            result = result.replace(f"{{{key}}}", str(value))
+
+        return result
+
+
+# Global prompt manager instance
+_prompt_manager: Optional[PromptManager] = None
+
+
+def get_prompt_manager() -> PromptManager:
+    """Get the global prompt manager instance.
+
+    Returns:
+        Global prompt manager
+    """
+    global _prompt_manager
+    if _prompt_manager is None:
+        _prompt_manager = PromptManager()
+    return _prompt_manager
+
+
+def reset_prompt_manager() -> None:
+    """Reset the global prompt manager instance."""
+    global _prompt_manager
+    _prompt_manager = None
 
 
 def prompt_text(

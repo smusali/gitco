@@ -340,3 +340,55 @@ class TestUtilityFunctions:
         logger2 = get_gitco_logger()
 
         assert logger1 is logger2
+
+
+def test_gitco_logger_with_none_log_file() -> None:
+    """Test GitCoLogger with None log file."""
+    logger = GitCoLogger(log_file=None)
+
+    # Should handle None log file gracefully
+    assert logger.log_file is None
+    assert logger.name == "gitco"
+    assert logger.detailed is False
+
+
+def test_gitco_logger_with_none_name() -> None:
+    """Test GitCoLogger with None name."""
+    logger = GitCoLogger(name="test_logger")
+
+    # Should handle None name gracefully
+    assert logger.name == "test_logger"  # Should use provided name
+    assert logger.detailed is False
+
+
+def test_gitco_logger_log_structured_with_none_data() -> None:
+    """Test GitCoLogger log_structured with None data."""
+    logger = GitCoLogger()
+
+    # Should handle None data gracefully
+    logger.log_structured("test_event", "test_data")
+
+    # Should not raise any exceptions
+    assert logger is not None
+
+
+def test_gitco_logger_start_operation_with_none_operation() -> None:
+    """Test GitCoLogger start_operation with None operation."""
+    logger = GitCoLogger()
+
+    # Should handle None operation gracefully
+    logger.start_operation("test_operation")
+
+    # Should not raise any exceptions
+    assert logger is not None
+
+
+def test_gitco_logger_end_operation_with_none_operation() -> None:
+    """Test GitCoLogger end_operation with None operation."""
+    logger = GitCoLogger()
+
+    # Should handle None operation gracefully
+    logger.end_operation("test_operation", success=True)
+
+    # Should not raise any exceptions
+    assert logger is not None

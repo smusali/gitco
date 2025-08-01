@@ -1,34 +1,75 @@
 """Custom exception classes for GitCo."""
 
+from typing import Optional
+
 
 class GitCoError(Exception):
     """Base exception for GitCo errors."""
 
-    pass
+    def __init__(self, message: Optional[str] = None):
+        """Initialize GitCoError.
+
+        Args:
+            message: Error message
+        """
+        self.message = message
+        super().__init__(message)
 
 
 class ConfigurationError(GitCoError):
     """Raised when there's a configuration error."""
 
-    pass
+    def __init__(self, message: str, details: Optional[str] = None):
+        """Initialize ConfigurationError.
+
+        Args:
+            message: Error message
+            details: Additional details about the configuration error
+        """
+        self.details = details
+        super().__init__(message)
 
 
 class GitOperationError(GitCoError):
     """Raised when a Git operation fails."""
 
-    pass
+    def __init__(self, message: str, operation_type: Optional[str] = None):
+        """Initialize GitOperationError.
+
+        Args:
+            message: Error message
+            operation_type: Type of Git operation that failed
+        """
+        self.operation_type = operation_type
+        super().__init__(message)
 
 
 class ValidationError(GitCoError):
     """Raised when validation fails."""
 
-    pass
+    def __init__(self, message: str, field: Optional[str] = None):
+        """Initialize ValidationError.
+
+        Args:
+            message: Error message
+            field: Field that failed validation
+        """
+        self.field = field
+        super().__init__(message)
 
 
 class APIError(GitCoError):
     """Raised when an API call fails."""
 
-    pass
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        """Initialize APIError.
+
+        Args:
+            message: Error message
+            status_code: HTTP status code
+        """
+        self.status_code = status_code
+        super().__init__(message)
 
 
 class NetworkTimeoutError(APIError):

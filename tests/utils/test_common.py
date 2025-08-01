@@ -860,3 +860,43 @@ def test_quiet_mode_functionality() -> None:
 
     # Reset quiet mode
     set_quiet_mode(False)
+
+
+def test_gitco_error_with_none_message() -> None:
+    """Test GitCoError with None message."""
+    error = GitCoError("Test error message")
+
+    # Should handle None message gracefully
+    assert error.message == "Test error message"
+    assert isinstance(error, Exception)
+
+
+def test_validation_error_with_none_field() -> None:
+    """Test ValidationError with None field."""
+    error = ValidationError("Validation failed", field="test_field")
+
+    assert error.message == "Validation failed"
+    assert error.field == "test_field"
+
+
+def test_api_error_with_none_status_code() -> None:
+    """Test APIError with None status code."""
+    error = APIError("API request failed", status_code=500)
+
+    assert error.message == "API request failed"
+    assert error.status_code == 500
+
+
+def test_safe_execute_with_none_function() -> None:
+    """Test safe_execute with None function."""
+    # Should handle None function gracefully
+    result = safe_execute(None, exit_on_error=False)
+    assert result is None
+
+
+def test_log_operation_with_none_context() -> None:
+    """Test log_operation functions with None context."""
+    # Should handle None context gracefully
+    log_operation_start("test operation", context=None)
+    log_operation_success("test operation", context=None)
+    log_operation_failure("test operation", context=None)

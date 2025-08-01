@@ -112,6 +112,7 @@ def setup_logging(
     detailed: bool = False,
     max_file_size: Optional[int] = None,
     backup_count: Optional[int] = None,
+    log_level: Optional[str] = None,
 ) -> logging.Logger:
     """Set up logging for GitCo with enhanced file output capabilities.
 
@@ -128,7 +129,9 @@ def setup_logging(
         Configured logger instance.
     """
     # Determine log level
-    if verbose:
+    if log_level:
+        log_level = log_level.upper()
+    elif verbose:
         log_level = "DEBUG"
     elif quiet:
         log_level = "ERROR"
@@ -391,6 +394,12 @@ def safe_execute(
     import time
 
     start_time = time.time()
+
+    # Handle None function gracefully
+    if func is None:
+        operation_name = "None"
+        return None
+
     operation_name = f"{func.__module__}.{func.__name__}"
 
     try:
@@ -574,15 +583,20 @@ def log_operation_success(operation: str, **kwargs: Any) -> None:
     log_operation_with_context(operation, "completed", kwargs)
 
 
-def log_operation_failure(operation: str, error: Exception, **kwargs: Any) -> None:
+def log_operation_failure(
+    operation: str, error: Optional[Exception] = None, **kwargs: Any
+) -> None:
     """Log the failure of an operation.
 
     Args:
         operation: Name of the operation
-        error: The exception that caused the failure
+        error: The exception that caused the failure (optional)
         **kwargs: Additional context for the operation
     """
-    log_error_with_stack(error, operation, kwargs)
+    if error is not None:
+        log_error_with_stack(error, operation, kwargs)
+    else:
+        log_operation_with_context(operation, "failed", kwargs)
 
 
 def create_progress_context(operation: str, total: int = 0) -> dict[str, Any]:

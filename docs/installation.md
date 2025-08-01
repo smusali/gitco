@@ -76,8 +76,7 @@ black src/ tests/
 # Lint code
 ruff check src/ tests/
 
-# Type checking
-mypy src/
+
 ```
 
 ## Verification

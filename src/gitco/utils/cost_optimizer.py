@@ -111,7 +111,7 @@ class CostOptimizer:
                 self.logger.error(f"Failed to initialize fallback tokenizer: {e2}")
                 self._tokenizer = None
 
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: Optional[str]) -> int:
         """Count tokens in text.
 
         Args:
@@ -120,6 +120,10 @@ class CostOptimizer:
         Returns:
             Number of tokens in the text.
         """
+        # Handle None or empty text
+        if not text:
+            return 0
+
         if not self._tokenizer:
             # Fallback: rough estimation (1 token ≈ 4 characters)
             return len(text) // 4
@@ -133,8 +137,8 @@ class CostOptimizer:
 
     def estimate_cost(
         self,
-        prompt: str,
-        model: str,
+        prompt: Optional[str],
+        model: Optional[str],
         provider: str,
         max_completion_tokens: Optional[int] = None,
     ) -> float:
@@ -149,6 +153,10 @@ class CostOptimizer:
         Returns:
             Estimated cost in USD.
         """
+        # Handle None values
+        if not prompt or not model:
+            return 0.0
+
         prompt_tokens = self.count_tokens(prompt)
 
         # Estimate completion tokens if not provided

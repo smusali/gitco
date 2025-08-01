@@ -24,18 +24,18 @@ class RateLimitConfig:
 class RateLimiter:
     """Thread-safe rate limiter for API calls."""
 
-    def __init__(self, config: RateLimitConfig):
+    def __init__(self, config: Optional[RateLimitConfig]):
         """Initialize rate limiter.
 
         Args:
-            config: Rate limiting configuration
+            config: Rate limiting configuration, or None for no rate limiting
         """
-        self.config = config
+        self.config = config or RateLimitConfig()
         self.logger = get_logger()
         self._lock = threading.Lock()
 
         # Track request timestamps
-        self._request_times: deque = deque()
+        self._request_times: deque[float] = deque()
         self._last_request_time = 0.0
 
         # Track rate limit headers from responses
@@ -107,13 +107,20 @@ class RateLimiter:
         if self._last_request_time < cutoff_time:
             self._last_request_time = 0.0
 
-    def update_from_response_headers(self, headers: dict[str, Any]) -> None:
+    def update_from_response_headers(
+        self, headers: Optional[dict[str, Any]], provider: Optional[str] = None
+    ) -> None:
         """Update rate limit info from response headers.
 
         Args:
             headers: Response headers from API call
+            provider: API provider name (optional, for future use)
         """
         with self._lock:
+            # Handle None headers gracefully
+            if headers is None:
+                return
+
             # Ensure headers is a dictionary-like object
             if not hasattr(headers, "get"):
                 return

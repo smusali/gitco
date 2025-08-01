@@ -47,7 +47,7 @@ class Repository:
     fork: str
     upstream: str
     local_path: str
-    skills: list[str] = field(default_factory=list)
+    skills: Optional[list[str]] = None
     analysis_enabled: bool = True
     sync_frequency: Optional[str] = None
     language: Optional[str] = None
@@ -97,7 +97,7 @@ class Settings:
 class Config:
     """Main configuration class."""
 
-    repositories: list[Repository] = field(default_factory=list)
+    repositories: Optional[list[Repository]] = None
     settings: Settings = field(default_factory=Settings)
 
 
@@ -126,7 +126,8 @@ class ConfigValidator:
         self._validate_settings(config.settings)
 
         # Validate repositories
-        self._validate_repositories(config.repositories)
+        if config.repositories is not None:
+            self._validate_repositories(config.repositories)
 
         # Validate cross-references and dependencies
         self._validate_cross_references(config)
@@ -626,16 +627,17 @@ class ConfigValidator:
             )
 
         # Check for repositories using default path
-        for i, repo in enumerate(config.repositories):
-            if repo.local_path.startswith("~") and "~/code" in repo.local_path:
-                self.warnings.append(
-                    ValidationError(
-                        field=f"repositories[{i}].local_path",
-                        message=f"Using default path pattern: {repo.local_path}",
-                        suggestion="Consider using a more specific path for better organization",
-                        severity="warning",
+        if config.repositories is not None:
+            for i, repo in enumerate(config.repositories):
+                if repo.local_path.startswith("~") and "~/code" in repo.local_path:
+                    self.warnings.append(
+                        ValidationError(
+                            field=f"repositories[{i}].local_path",
+                            message=f"Using default path pattern: {repo.local_path}",
+                            suggestion="Consider using a more specific path for better organization",
+                            severity="warning",
+                        )
                     )
-                )
 
 
 class ConfigManager:
@@ -676,7 +678,10 @@ class ConfigManager:
             config = self._parse_config(data)
             self.config = config  # Update the instance config
             log_operation_success("configuration loading", config_path=self.config_path)
-            log_configuration_loaded(self.config_path, len(config.repositories))
+            log_configuration_loaded(
+                self.config_path,
+                len(config.repositories) if config.repositories is not None else 0,
+            )
 
             return config
 
@@ -785,9 +790,10 @@ class ConfigManager:
         Returns:
             Repository configuration or None if not found.
         """
-        for repo in self.config.repositories:
-            if repo.name == name:
-                return repo
+        if self.config.repositories is not None:
+            for repo in self.config.repositories:
+                if repo.name == name:
+                    return repo
         return None
 
     def add_repository(self, repo: Repository) -> None:
@@ -797,10 +803,13 @@ class ConfigManager:
             repo: Repository to add.
         """
         # Remove existing repository with same name
-        self.config.repositories = [
-            r for r in self.config.repositories if r.name != repo.name
-        ]
-        self.config.repositories.append(repo)
+        if self.config.repositories is not None:
+            self.config.repositories = [
+                r for r in self.config.repositories if r.name != repo.name
+            ]
+            self.config.repositories.append(repo)
+        else:
+            self.config.repositories = [repo]
 
     def remove_repository(self, name: str) -> bool:
         """Remove repository from configuration.
@@ -811,11 +820,13 @@ class ConfigManager:
         Returns:
             True if repository was removed, False if not found.
         """
-        initial_count = len(self.config.repositories)
-        self.config.repositories = [
-            r for r in self.config.repositories if r.name != name
-        ]
-        return len(self.config.repositories) < initial_count
+        if self.config.repositories is not None:
+            initial_count = len(self.config.repositories)
+            self.config.repositories = [
+                r for r in self.config.repositories if r.name != name
+            ]
+            return len(self.config.repositories) < initial_count
+        return False
 
     def get_github_credentials(self) -> dict[str, Union[Optional[str], int]]:
         """Get GitHub credentials from environment variables.
@@ -847,17 +858,21 @@ class ConfigManager:
 
         # Parse repositories
         if "repositories" in data:
-            for repo_data in data["repositories"]:
-                repo = Repository(
-                    name=repo_data.get("name", ""),
-                    fork=repo_data.get("fork", ""),
-                    upstream=repo_data.get("upstream", ""),
-                    local_path=repo_data.get("local_path", ""),
-                    skills=repo_data.get("skills", []),
-                    analysis_enabled=repo_data.get("analysis_enabled", True),
-                    sync_frequency=repo_data.get("sync_frequency"),
-                )
-                config.repositories.append(repo)
+            if data["repositories"] is None:
+                config.repositories = None
+            else:
+                config.repositories = []
+                for repo_data in data["repositories"]:
+                    repo = Repository(
+                        name=repo_data.get("name", ""),
+                        fork=repo_data.get("fork", ""),
+                        upstream=repo_data.get("upstream", ""),
+                        local_path=repo_data.get("local_path", ""),
+                        skills=repo_data.get("skills"),
+                        analysis_enabled=repo_data.get("analysis_enabled", True),
+                        sync_frequency=repo_data.get("sync_frequency"),
+                    )
+                    config.repositories.append(repo)
 
         # Parse settings
         if "settings" in data:
@@ -917,7 +932,6 @@ class ConfigManager:
             Serialized configuration.
         """
         data: dict[str, Any] = {
-            "repositories": [],
             "settings": {
                 "llm_provider": config.settings.llm_provider,
                 "default_path": config.settings.default_path,
@@ -948,18 +962,23 @@ class ConfigManager:
             },
         }
 
-        for repo in config.repositories:
-            repo_data = {
-                "name": repo.name,
-                "fork": repo.fork,
-                "upstream": repo.upstream,
-                "local_path": repo.local_path,
-                "skills": repo.skills,
-                "analysis_enabled": repo.analysis_enabled,
-            }
-            if repo.sync_frequency:
-                repo_data["sync_frequency"] = repo.sync_frequency
-            data["repositories"].append(repo_data)
+        # Handle repositories - preserve None values
+        if config.repositories is None:
+            data["repositories"] = None
+        else:
+            data["repositories"] = []
+            for repo in config.repositories:
+                repo_data = {
+                    "name": repo.name,
+                    "fork": repo.fork,
+                    "upstream": repo.upstream,
+                    "local_path": repo.local_path,
+                    "skills": repo.skills,
+                    "analysis_enabled": repo.analysis_enabled,
+                }
+                if repo.sync_frequency:
+                    repo_data["sync_frequency"] = repo.sync_frequency
+                data["repositories"].append(repo_data)
 
         return data
 

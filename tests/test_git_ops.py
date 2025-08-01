@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
+import pytest
+
 from gitco.git_ops import (
     BatchProcessor,
     BatchResult,
@@ -1471,3 +1473,69 @@ def test_git_repository_manager_get_repository() -> None:
     # This would normally get a repository instance
     # For testing, we just verify the method exists
     assert hasattr(manager, "get_repository")
+
+
+def test_batch_result_with_none_values() -> None:
+    """Test BatchResult creation with None values."""
+    result = BatchResult(
+        repository_name="test-repo",
+        repository_path="/path/to/repo",
+        success=True,
+        operation="test",
+        message="Test operation",
+        details={},
+        duration=1.5,
+        error=None,
+    )
+
+    assert result.repository_name == "test-repo"
+    assert result.repository_path == "/path/to/repo"
+    assert result.success is True
+    assert result.operation == "test"
+    assert result.message == "Test operation"
+    assert result.details == {}
+    assert result.error is None
+    assert result.duration == 1.5
+
+
+def test_git_repository_with_none_path() -> None:
+    """Test GitRepository with None path."""
+    with pytest.raises(TypeError):
+        GitRepository("")  # Empty string instead of None
+
+
+def test_git_repository_manager_with_none_config() -> None:
+    """Test GitRepositoryManager with None repository config."""
+    manager = GitRepositoryManager()
+
+    # Test with None config
+    result = manager.validate_repository_path("/path/to/repo")
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    assert isinstance(result[0], bool)
+    assert isinstance(result[1], list)
+
+
+def test_batch_processor_with_none_operation() -> None:
+    """Test BatchProcessor with None operation."""
+    processor = BatchProcessor()
+
+    # Test with None operation
+    repositories = [{"path": "/path/to/repo", "config": {}}]
+
+    # The processor handles None operation gracefully and returns results with errors
+    results = processor.process_repositories(repositories, None)
+    assert len(results) == 1
+    assert not results[0].success
+    assert "object is not callable" in results[0].message
+
+
+def test_git_repository_get_commit_info_with_none_commit_hash() -> None:
+    """Test GitRepository get_commit_info with None commit hash."""
+    repo = GitRepository("/path/to/repo")
+
+    # Test with None commit hash
+    result = repo.get_commit_info("")
+    assert isinstance(result, dict)
+    assert result["hash"] is None
+    assert result["info"] == ""

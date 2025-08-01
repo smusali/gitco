@@ -735,11 +735,6 @@ class CustomAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
         RateLimitedAPIClient.__init__(self, rate_limiter)
 
         self.api_key = api_key or os.getenv(f"{provider_name.upper()}_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                f"API key for custom endpoint '{provider_name}' not provided. "
-                f"Set {provider_name.upper()}_API_KEY environment variable."
-            )
 
         if not endpoint_url:
             raise ValueError("Custom endpoint URL is required")
@@ -801,6 +796,9 @@ class CustomAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
             response_data = self.make_rate_limited_request(make_custom_request)
 
             # Extract response content (adapt based on your custom endpoint format)
+            if not response_data:
+                return ""
+
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 content = (
                     response_data["choices"][0].get("message", {}).get("content", "")
@@ -818,7 +816,8 @@ class CustomAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
                 # Handle simple text format: {"text": "..."}
                 content = response_data["text"]
             else:
-                content = str(response_data)
+                # For malformed responses, return empty string
+                return ""
 
             response_content: str = content
             return response_content

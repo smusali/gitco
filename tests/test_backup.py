@@ -629,3 +629,80 @@ class TestBackupIntegration:
 
         assert result["valid"] is False
         assert "Backup file not found" in result.get("error", "")
+
+    def test_backup_metadata_with_none_values(self) -> None:
+        """Test BackupMetadata creation with None values."""
+        metadata = BackupMetadata(
+            backup_id="test-backup",
+            timestamp=datetime.now(),
+            repositories=[],
+            config_included=False,
+            backup_type="full",
+            size_bytes=0,
+        )
+
+        assert metadata.backup_id == "test-backup"
+        assert metadata.repositories == []
+        assert metadata.config_included is False
+        assert metadata.backup_type == "full"
+        assert metadata.size_bytes == 0
+
+    def test_backup_manager_with_empty_backup_directory(self) -> None:
+        """Test BackupManager initialization with empty backup directory."""
+        empty_backup_dir = os.path.join(self.backup_dir, "empty")
+        os.makedirs(empty_backup_dir, exist_ok=True)
+
+        backup_manager = BackupManager(empty_backup_dir)
+
+        assert str(backup_manager.backup_dir) == empty_backup_dir
+        assert len(backup_manager.backups) == 0
+
+    def test_backup_manager_generate_backup_id_uniqueness(self) -> None:
+        """Test that generated backup IDs are unique."""
+        backup_manager = BackupManager(self.backup_dir)
+
+        backup_ids = set()
+        for _ in range(10):  # Reduced to 10 to avoid timestamp collision
+            backup_id = backup_manager._generate_backup_id()
+            backup_ids.add(backup_id)
+
+        # All generated IDs should be unique
+        assert len(backup_ids) == 10
+
+    def test_backup_metadata_serialization_roundtrip(self) -> None:
+        """Test BackupMetadata serialization and deserialization."""
+        original_metadata = BackupMetadata(
+            backup_id="test-backup",
+            timestamp=datetime.now(),
+            repositories=["repo1", "repo2"],
+            config_included=True,
+            backup_type="full",
+            size_bytes=1024,
+        )
+
+        # Convert to dict and back
+        metadata_dict = original_metadata.to_dict()
+        restored_metadata = BackupMetadata.from_dict(metadata_dict)
+
+        assert restored_metadata.backup_id == original_metadata.backup_id
+        assert restored_metadata.repositories == original_metadata.repositories
+        assert restored_metadata.config_included == original_metadata.config_included
+        assert restored_metadata.backup_type == original_metadata.backup_type
+        assert restored_metadata.size_bytes == original_metadata.size_bytes
+
+    def test_backup_manager_cleanup_with_invalid_backup_files(self) -> None:
+        """Test cleanup_old_backups with invalid backup files."""
+        backup_manager = BackupManager(self.backup_dir)
+
+        # Create backup entries but no actual files
+        backup_manager.backups = {
+            "backup1": BackupMetadata("backup1", datetime.now(), [], True, "full", 100),
+            "backup2": BackupMetadata("backup2", datetime.now(), [], True, "full", 200),
+            "backup3": BackupMetadata("backup3", datetime.now(), [], True, "full", 300),
+        }
+
+        # Should handle missing files gracefully
+        result = backup_manager.cleanup_old_backups(keep_count=1)
+
+        # Should not raise exceptions even with missing files
+        assert isinstance(result, int)

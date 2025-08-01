@@ -38,7 +38,7 @@ class GitCoLogger:
             max_file_size: Maximum file size in bytes before rotation
             backup_count: Number of backup files to keep
         """
-        self.name = name
+        self.name = name if name is not None else "gitco"
         self.log_file = log_file
         self.detailed = detailed
         self.max_file_size = max_file_size

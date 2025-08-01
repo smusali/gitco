@@ -887,6 +887,92 @@ gitco contributions stats --quiet
 ```
 
 **Quiet Mode Features:**
+
+### Shell Completion
+
+GitCo provides comprehensive shell completion support for both bash and zsh, making command-line usage more efficient and user-friendly.
+
+**Installation:**
+
+```bash
+# Generate bash completion script
+gitco completion --shell bash --output ~/.bash_completion.d/gitco
+
+# Generate zsh completion script
+gitco completion --shell zsh --output ~/.zsh/completions/_gitco
+
+# Install completion scripts automatically
+gitco completion --shell bash --install
+gitco completion --shell zsh --install
+```
+
+**Bash Setup:**
+Add this line to your `~/.bashrc`:
+```bash
+source ~/.bash_completion.d/gitco
+```
+
+**Zsh Setup:**
+Add these lines to your `~/.zshrc`:
+```bash
+autoload -U compinit
+compinit
+```
+
+**Completion Features:**
+- **Command completion** for all GitCo commands and subcommands
+- **Option completion** for all command-line flags and options
+- **Repository name completion** for `--repo` options (dynamically loaded from configuration)
+- **Skill name completion** for `--skill` options (dynamically loaded from configuration)
+- **Label name completion** for `--label` options (common GitHub labels)
+- **Provider name completion** for `--provider` options (openai, anthropic)
+- **Format name completion** for `--format` options (json, csv)
+- **Backup type completion** for `--type` options (full, incremental, config-only)
+- **Strategy name completion** for `--strategy` options (ours, theirs, manual)
+- **State name completion** for `--state` options (open, closed, all)
+- **Filter name completion** for `--filter` options (healthy, needs_attention, critical)
+- **Sort name completion** for `--sort` options (health, activity, stars, forks, engagement, commits, contributors)
+- **Activity level completion** for activity filtering (high, moderate, low)
+
+**Example Usage:**
+```bash
+# Tab completion for commands
+gitco <TAB>
+# Shows: init sync analyze discover status activity logs performance help config upstream validate-repo github contributions backup cost completion
+
+# Tab completion for subcommands
+gitco config <TAB>
+# Shows: validate config-status validate-detailed
+
+# Tab completion for repository names
+gitco sync --repo <TAB>
+# Shows repository names from your configuration
+
+# Tab completion for skills
+gitco discover --skill <TAB>
+# Shows skill names from your configuration
+
+# Tab completion for labels
+gitco discover --label <TAB>
+# Shows common GitHub labels
+
+# Tab completion for providers
+gitco analyze --provider <TAB>
+# Shows: openai anthropic
+```
+
+**Dynamic Completion:**
+GitCo's completion system dynamically loads data from your configuration:
+- **Repository names** are loaded from your configured repositories
+- **Skill names** are extracted from repository skills in your configuration
+- **Labels** include common GitHub labels and can be customized
+- **Providers** include all supported LLM providers
+
+**Cross-Platform Support:**
+- **Bash completion** works on Linux, macOS, and Windows (with bash)
+- **Zsh completion** works on macOS and Linux with zsh
+- **Automatic installation** to standard shell directories
+- **Error handling** for completion script generation and installation
 - **Suppresses all user-facing output** (progress bars, panels, console messages)
 - **Maintains logging functionality** for debugging and monitoring
 - **Preserves error reporting** for critical issues
@@ -1063,8 +1149,7 @@ black src/ tests/
 # Lint code
 ruff check src/ tests/
 
-# Type checking
-mypy src/
+
 ```
 
 ## 📚 Documentation

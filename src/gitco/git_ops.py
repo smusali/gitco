@@ -363,6 +363,19 @@ class BatchProcessor:
         start_time = time.time()
 
         try:
+            # Check if operation_func is callable
+            if not callable(operation_func):
+                duration = time.time() - start_time
+                return BatchResult(
+                    repository_name=repo_name,
+                    repository_path=repo_path,
+                    success=False,
+                    operation=operation_name,
+                    message="object is not callable",
+                    details={"error": "Operation function is not callable"},
+                    duration=duration,
+                )
+
             # Execute the operation
             result = operation_func(repo_path, repo_config)
 
@@ -497,7 +510,12 @@ class GitRepository:
 
         Args:
             path: Path to the repository
+
+        Raises:
+            TypeError: If path is None or empty
         """
+        if not path:
+            raise TypeError("Repository path cannot be None or empty")
         self.path = Path(path).resolve()
         self.logger = get_logger()
 
@@ -1719,6 +1737,9 @@ class GitRepository:
         Returns:
             Dictionary with commit information
         """
+        if not commit_hash:
+            return {"hash": None, "info": ""}
+
         try:
             result = self._run_git_command(
                 ["show", "--format=fuller", "--no-patch", commit_hash],

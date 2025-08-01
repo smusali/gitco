@@ -309,21 +309,22 @@ class IssueDiscovery:
         try:
             recommendations = []
 
-            for repo in self.config.repositories:
-                # Skip if skill filter doesn't match repository skills
-                if skill_filter and skill_filter.lower() not in [
-                    s.lower() for s in repo.skills
-                ]:
-                    continue
+            if self.config.repositories is not None:
+                for repo in self.config.repositories:
+                    # Skip if skill filter doesn't match repository skills
+                    if skill_filter and skill_filter.lower() not in [
+                        s.lower() for s in repo.skills
+                    ]:
+                        continue
 
-                repo_recommendations = self._discover_for_repository(
-                    repo,
-                    skill_filter,
-                    label_filter,
-                    min_confidence,
-                    include_personalization,
-                )
-                recommendations.extend(repo_recommendations)
+                    repo_recommendations = self._discover_for_repository(
+                        repo,
+                        skill_filter,
+                        label_filter,
+                        min_confidence,
+                        include_personalization,
+                    )
+                    recommendations.extend(repo_recommendations)
 
             # Sort by overall score (descending)
             recommendations.sort(key=lambda x: x.overall_score, reverse=True)

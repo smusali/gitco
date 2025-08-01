@@ -1214,3 +1214,82 @@ def test_breaking_change_detector_with_configuration_changes() -> None:
     )
 
     assert isinstance(changes, list)
+
+
+def test_security_update_with_none_values() -> None:
+    """Test SecurityUpdate creation with None values."""
+    security_update = SecurityUpdate(
+        type="vulnerability_fix",
+        description="Fixed security issue",
+        severity="high",
+        cve_id=None,
+        affected_components=None,
+        remediation_guidance=None,
+    )
+
+    assert security_update.type == "vulnerability_fix"
+    assert security_update.description == "Fixed security issue"
+    assert security_update.severity == "high"
+    assert security_update.cve_id is None
+    assert security_update.affected_components == []
+    assert security_update.remediation_guidance is None
+
+
+def test_deprecation_with_none_values() -> None:
+    """Test Deprecation creation with None values."""
+    deprecation = Deprecation(
+        type="api_deprecation",
+        description="Deprecated old API",
+        severity="medium",
+        replacement_suggestion=None,
+        removal_date=None,
+        affected_components=None,
+        migration_path=None,
+    )
+
+    assert deprecation.type == "api_deprecation"
+    assert deprecation.description == "Deprecated old API"
+    assert deprecation.severity == "medium"
+    assert deprecation.replacement_suggestion is None
+    assert deprecation.removal_date is None
+    assert deprecation.affected_components == []
+    assert deprecation.migration_path is None
+
+
+def test_breaking_change_with_none_values() -> None:
+    """Test BreakingChange creation with None values."""
+    breaking_change = BreakingChange(
+        type="api_signature_change",
+        description="API signature changed",
+        severity="high",
+        affected_components=[],
+        migration_guidance=None,
+    )
+
+    assert breaking_change.type == "api_signature_change"
+    assert breaking_change.description == "API signature changed"
+    assert breaking_change.severity == "high"
+    assert breaking_change.affected_components == []
+    assert breaking_change.migration_guidance is None
+
+
+def test_base_detector_with_empty_text() -> None:
+    """Test BaseDetector with empty text input."""
+    detector = MockDetector()
+
+    # Test with empty text
+    result = detector._match_patterns("", {"test_patterns": ["pattern1", "pattern2"]})
+    assert isinstance(result, list)
+    assert len(result) == 0
+
+
+def test_security_deprecation_detector_with_none_input() -> None:
+    """Test SecurityDeprecationDetector with None input."""
+    detector = SecurityDeprecationDetector()
+
+    # Test with empty text and empty commit messages
+    updates = detector.detect_security_updates("", [])
+    deprecations = detector.detect_deprecations("", [])
+
+    assert isinstance(updates, list)
+    assert isinstance(deprecations, list)

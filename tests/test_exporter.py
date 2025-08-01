@@ -10,6 +10,7 @@ import yaml
 from click.testing import CliRunner
 
 from gitco.cli import main
+from gitco.contribution_tracker import Contribution
 
 
 def test_sync_export_functionality(runner: CliRunner, tmp_path: Path) -> None:
@@ -379,3 +380,66 @@ def test_export_health_data_function() -> None:
 
         # Clean up
         export_file.unlink(missing_ok=True)
+
+
+def test_export_with_none_values() -> None:
+    """Test export functions with None values."""
+    from gitco.exporter import export_sync_results
+
+    # Test with None repositories
+    export_sync_results({}, "/tmp/test_none.json")
+    # Function returns None implicitly
+
+
+def test_export_with_empty_data() -> None:
+    """Test export functions with empty data."""
+    from gitco.exporter import export_discovery_results
+
+    # Test with empty opportunities list
+    export_discovery_results([], "/tmp/test_empty.json")
+    # Function returns None implicitly
+
+
+def test_export_with_invalid_path() -> None:
+    """Test export functions with invalid file path."""
+    from gitco.exporter import export_contribution_data_to_csv
+
+    # Test with invalid path
+    contributions = [
+        Contribution(
+            repository="test/repo",
+            issue_number=123,
+            issue_title="Test Issue",
+            issue_url="https://github.com/test/issue/123",
+            contribution_type="issue",
+            status="open",
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+        )
+    ]
+
+    # Should handle invalid path gracefully
+    export_contribution_data_to_csv(contributions, "/invalid/path/test.csv")
+    # Function returns None implicitly
+
+
+def test_export_with_none_contributions() -> None:
+    """Test export contribution data with None contributions."""
+    from gitco.exporter import export_contribution_data_to_csv
+
+    # Test with None contributions
+    export_contribution_data_to_csv([], "/tmp/test_none_contributions.csv")
+    # Function returns None implicitly
+
+
+def test_export_with_none_health_calculator() -> None:
+    """Test export health data with None health calculator."""
+    from gitco.exporter import export_health_data
+
+    # Test with None health calculator
+    mock_repository = Mock()
+    mock_repository.name = "test/repo"
+    mock_repository.local_path = "/path/to/repo"
+
+    export_health_data([mock_repository], Mock(), "/tmp/test_none_health.json")
+    # Function returns None implicitly

@@ -37,6 +37,47 @@ class Contribution:
     comments_count: int = 0
     reactions_count: int = 0
 
+    def to_dict(self) -> dict:
+        """Convert contribution to dictionary."""
+        return {
+            "repository": self.repository,
+            "issue_number": self.issue_number,
+            "issue_title": self.issue_title,
+            "issue_url": self.issue_url,
+            "contribution_type": self.contribution_type,
+            "status": self.status,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "skills_used": self.skills_used,
+            "impact_score": self.impact_score,
+            "labels": self.labels,
+            "milestone": self.milestone,
+            "assignees": self.assignees,
+            "comments_count": self.comments_count,
+            "reactions_count": self.reactions_count,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Contribution":
+        """Create contribution from dictionary."""
+        return cls(
+            repository=data["repository"],
+            issue_number=data["issue_number"],
+            issue_title=data["issue_title"],
+            issue_url=data["issue_url"],
+            contribution_type=data["contribution_type"],
+            status=data["status"],
+            created_at=data["created_at"],
+            updated_at=data["updated_at"],
+            skills_used=data.get("skills_used", []),
+            impact_score=data.get("impact_score", 0.0),
+            labels=data.get("labels", []),
+            milestone=data.get("milestone"),
+            assignees=data.get("assignees", []),
+            comments_count=data.get("comments_count", 0),
+            reactions_count=data.get("reactions_count", 0),
+        )
+
 
 @dataclass
 class ContributionStats:
@@ -434,8 +475,10 @@ class ContributionTracker:
             score += 0.1  # Base score for issues
 
         # Engagement score
-        score += min(issue.comments_count * 0.02, 0.2)  # Comments
-        score += min(issue.reactions_count * 0.01, 0.1)  # Reactions
+        comments_count = issue.comments_count or 0
+        reactions_count = issue.reactions_count or 0
+        score += min(comments_count * 0.02, 0.2)  # Comments
+        score += min(reactions_count * 0.01, 0.1)  # Reactions
 
         # Label-based scoring
         high_impact_labels = [
@@ -445,10 +488,11 @@ class ContributionTracker:
             "security",
             "performance",
         ]
-        for label in issue.labels:
-            if label.lower() in high_impact_labels:
-                score += 0.1
-                break
+        if issue.labels:
+            for label in issue.labels:
+                if label.lower() in high_impact_labels:
+                    score += 0.1
+                    break
 
         # Status-based scoring
         if issue.state == "closed":

@@ -72,6 +72,7 @@ def test_config_dataclass() -> None:
     )
     settings = Settings()
     config = Config(repositories=[repo], settings=settings)
+    assert config.repositories is not None
     assert len(config.repositories) == 1
     assert config.repositories[0].name == "test"
     assert config.settings.llm_provider == "openai"
@@ -125,6 +126,7 @@ def test_config_manager_load_config(
     manager = ConfigManager(temp_config_file)
     config = manager.load_config()
     assert isinstance(config, Config)
+    assert config.repositories is not None
     assert len(config.repositories) == 2
 
 
@@ -204,6 +206,7 @@ def test_config_manager_add_repository() -> None:
     )
 
     manager.add_repository(repo)
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 1
     assert manager.config.repositories[0].name == "test"
 
@@ -217,11 +220,13 @@ def test_config_manager_remove_repository() -> None:
 
     # Add repository
     manager.add_repository(repo)
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 1
 
     # Remove repository
     result = manager.remove_repository("test")
     assert result is True
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 0
 
 
@@ -243,7 +248,7 @@ def test_config_manager_parse_config_empty() -> None:
     manager = ConfigManager()
     config = manager._parse_config({})
     assert isinstance(config, Config)
-    assert len(config.repositories) == 0
+    assert config.repositories is None
 
 
 def test_config_manager_parse_config_with_repositories() -> None:
@@ -261,6 +266,7 @@ def test_config_manager_parse_config_with_repositories() -> None:
         ]
     }
     config = manager._parse_config(data)
+    assert config.repositories is not None
     assert len(config.repositories) == 1
     assert config.repositories[0].name == "test"
     assert config.repositories[0].skills == ["python"]
@@ -346,7 +352,7 @@ def test_repository_with_defaults() -> None:
         upstream="owner/repo",
         local_path="/path",
     )
-    assert repo.skills == []
+    assert repo.skills is None
     assert repo.analysis_enabled is True
     assert repo.sync_frequency is None
     assert repo.language is None
@@ -453,6 +459,7 @@ def test_config_with_repositories() -> None:
         name="repo2", fork="user/repo2", upstream="owner/repo2", local_path="/path2"
     )
     config = Config(repositories=[repo1, repo2], settings=Settings())
+    assert config.repositories is not None
     assert len(config.repositories) == 2
     assert config.repositories[0].name == "repo1"
     assert config.repositories[1].name == "repo2"
@@ -469,7 +476,7 @@ def test_config_with_custom_settings() -> None:
 def test_config_empty() -> None:
     """Test Config with no repositories."""
     config = Config()
-    assert len(config.repositories) == 0
+    assert config.repositories is None
     assert isinstance(config.settings, Settings)
 
 
@@ -492,6 +499,7 @@ def test_config_with_mixed_repositories() -> None:
         analysis_enabled=False,
     )
     config = Config(repositories=[repo1, repo2], settings=Settings())
+    assert config.repositories is not None
     assert len(config.repositories) == 2
     assert config.repositories[0].analysis_enabled is True
     assert config.repositories[1].analysis_enabled is False
@@ -514,6 +522,7 @@ def test_config_with_skills_repositories() -> None:
         skills=["javascript", "react", "css"],
     )
     config = Config(repositories=[repo1, repo2], settings=Settings())
+    assert config.repositories is not None
     assert len(config.repositories) == 2
     assert "python" in config.repositories[0].skills
     assert "javascript" in config.repositories[1].skills
@@ -535,7 +544,7 @@ def test_config_manager_initial_config() -> None:
     """Test ConfigManager initial configuration."""
     manager = ConfigManager()
     assert isinstance(manager.config, Config)
-    assert len(manager.config.repositories) == 0
+    assert manager.config.repositories is None
     assert isinstance(manager.config.settings, Settings)
 
 
@@ -563,7 +572,7 @@ def test_repository_with_minimal_fields() -> None:
     assert repo.fork == "user/minimal"
     assert repo.upstream == "owner/minimal"
     assert repo.local_path == "/minimal/path"
-    assert repo.skills == []
+    assert repo.skills is None
     assert repo.analysis_enabled is True
 
 
@@ -653,6 +662,7 @@ def test_config_with_custom_settings_and_repositories() -> None:
         max_repos_per_batch=15,
     )
     config = Config(repositories=[repo], settings=settings)
+    assert config.repositories is not None
     assert len(config.repositories) == 1
     assert config.settings.llm_provider == "anthropic"
     assert config.settings.default_path == "~/custom/path"
@@ -663,6 +673,7 @@ def test_config_with_custom_settings_and_repositories() -> None:
 def test_config_with_empty_repositories() -> None:
     """Test Config with empty repositories list."""
     config = Config(repositories=[], settings=Settings())
+    assert config.repositories is not None
     assert len(config.repositories) == 0
     assert isinstance(config.settings, Settings)
 
@@ -709,6 +720,7 @@ def test_config_manager_with_custom_config() -> None:
     settings = Settings(llm_provider="anthropic")
     config = Config(repositories=[repo], settings=settings)
     manager.config = config
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 1
     assert manager.config.settings.llm_provider == "anthropic"
 
@@ -765,10 +777,12 @@ def test_config_manager_remove_repository_by_name() -> None:
         name="test-repo", fork="user/fork", upstream="owner/repo", local_path="/path"
     )
     manager.add_repository(repo)
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 1
 
     result = manager.remove_repository("test-repo")
     assert result is True
+    assert manager.config.repositories is not None
     assert len(manager.config.repositories) == 0
 
 
@@ -1145,3 +1159,74 @@ def test_config_validator_validate_config_comprehensive() -> None:
     assert "warnings" in result
     assert isinstance(result["errors"], list)
     assert isinstance(result["warnings"], list)
+
+
+def test_config_manager_with_none_values() -> None:
+    """Test ConfigManager with None values in config."""
+    # Test with None repositories
+    config = Config(repositories=None, settings=Settings())
+
+    # Should handle None values gracefully
+    assert config.repositories is None
+    assert config.settings is not None
+
+
+def test_repository_with_none_skills() -> None:
+    """Test Repository with None skills field."""
+    repo = Repository(
+        name="test-repo",
+        fork="https://github.com/user/fork",
+        upstream="https://github.com/owner/repo",
+        local_path="/path/to/repo",
+        skills=None,
+    )
+
+    assert repo.name == "test-repo"
+    assert repo.skills is None
+
+
+def test_settings_with_none_values() -> None:
+    """Test Settings with None values."""
+    settings = Settings()
+
+    # Test default values
+    assert settings.llm_provider == "openai"
+    assert settings.github_token_env == "GITHUB_TOKEN"
+    assert settings.max_repos_per_batch == 10
+    assert settings.git_timeout == 300
+
+
+def test_config_validator_with_empty_config() -> None:
+    """Test ConfigValidator with completely empty config."""
+    validator = ConfigValidator()
+
+    # Create minimal config with None values
+    config = Config(repositories=None, settings=Settings())
+
+    result = validator.validate_config(config)
+
+    # Should handle None values gracefully
+    assert "errors" in result
+    assert "warnings" in result
+    assert isinstance(result["errors"], list)
+    assert isinstance(result["warnings"], list)
+
+
+def test_config_manager_serialization_with_none_values() -> None:
+    """Test ConfigManager serialization with None values."""
+    manager = ConfigManager()
+
+    # Create config with None values
+    config = Config(
+        repositories=None,
+        settings=Settings(llm_provider="openai", github_token_env="GITHUB_TOKEN"),
+    )
+
+    # Should serialize without errors
+    serialized = manager._serialize_config(config)
+    assert isinstance(serialized, dict)
+
+    # Should deserialize without errors
+    deserialized = manager._parse_config(serialized)
+    assert deserialized.repositories is None
+    assert deserialized.settings.llm_provider == "openai"

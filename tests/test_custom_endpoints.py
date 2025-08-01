@@ -169,3 +169,76 @@ class TestCustomEndpoints:
             ValueError, match="Unsupported LLM provider: invalid_provider"
         ):
             analyzer.get_analyzer("invalid_provider")
+
+    def test_custom_analyzer_with_none_values(self) -> None:
+        """Test CustomAnalyzer with None values."""
+        analyzer = CustomAnalyzer(
+            api_key=None,
+            endpoint_url="https://api.test.com/v1/chat/completions",
+            provider_name="test_provider",
+        )
+
+        assert analyzer.api_key is None
+        assert analyzer.endpoint_url == "https://api.test.com/v1/chat/completions"
+        assert analyzer.provider_name == "test_provider"
+
+    def test_custom_analyzer_with_empty_response(self) -> None:
+        """Test CustomAnalyzer handles empty response."""
+        mock_response = Mock()
+        mock_response.json.return_value = {}
+        mock_response.raise_for_status.return_value = None
+
+        analyzer = CustomAnalyzer(
+            api_key="test-key",
+            endpoint_url="https://api.test.com/v1/chat/completions",
+            provider_name="test_provider",
+        )
+
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            result = analyzer._call_llm_api("test prompt", "test system")
+            assert result == ""
+
+    def test_custom_analyzer_with_malformed_response(self) -> None:
+        """Test CustomAnalyzer handles malformed response."""
+        mock_response = Mock()
+        mock_response.json.return_value = {"unexpected": "format"}
+        mock_response.raise_for_status.return_value = None
+
+        analyzer = CustomAnalyzer(
+            api_key="test-key",
+            endpoint_url="https://api.test.com/v1/chat/completions",
+            provider_name="test_provider",
+        )
+
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            result = analyzer._call_llm_api("test prompt", "test system")
+            assert result == ""
+
+    def test_custom_analyzer_with_http_error(self) -> None:
+        """Test CustomAnalyzer handles HTTP errors."""
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = Exception("HTTP Error")
+
+        analyzer = CustomAnalyzer(
+            api_key="test-key",
+            endpoint_url="https://api.test.com/v1/chat/completions",
+            provider_name="test_provider",
+        )
+
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            with pytest.raises(Exception, match="HTTP Error"):
+                analyzer._call_llm_api("test prompt", "test system")
+
+    def test_custom_analyzer_with_network_error(self) -> None:
+        """Test CustomAnalyzer handles network errors."""
+        analyzer = CustomAnalyzer(
+            api_key="test-key",
+            endpoint_url="https://api.test.com/v1/chat/completions",
+            provider_name="test_provider",
+        )
+
+        with patch.object(
+            analyzer.session, "post", side_effect=Exception("Network Error")
+        ):
+            with pytest.raises(Exception, match="Network Error"):
+                analyzer._call_llm_api("test prompt", "test system")

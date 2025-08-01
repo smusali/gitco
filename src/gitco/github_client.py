@@ -99,6 +99,7 @@ class GitHubClient(RateLimitedAPIClient):
         self.max_retries = max_retries
         self.connect_timeout = connect_timeout or timeout
         self.read_timeout = read_timeout or timeout
+        self.token = token
 
         # Create session with retry capabilities
         self.session = create_retry_session(
@@ -306,6 +307,9 @@ class GitHubClient(RateLimitedAPIClient):
         Returns:
             Repository information or None if not found
         """
+        if not repo_name:
+            return None
+
         log_operation_start("github repository fetch", repo_name=repo_name)
 
         try:
@@ -370,6 +374,9 @@ class GitHubClient(RateLimitedAPIClient):
         Returns:
             List of GitHub issues
         """
+        if not repo_name:
+            return []
+
         log_operation_start("github issues fetch", repo_name=repo_name)
 
         try:

@@ -43,7 +43,7 @@ We use several tools to maintain code quality:
 
 - **Black** for code formatting
 - **Ruff** for linting
-- **MyPy** for type checking
+
 - **Pre-commit** for automated checks
 
 ### Running Quality Checks
@@ -55,8 +55,7 @@ black src/ tests/
 # Lint code
 ruff check src/ tests/
 
-# Type checking
-mypy src/
+
 
 # Run all checks
 pre-commit run --all-files

@@ -100,6 +100,15 @@ def mock_config(
         }
     }
 
+    # Add repositories list
+    mock_repo = Mock()
+    mock_repo.name = "test-repo"
+    mock_repo.fork = "user/fork"
+    mock_repo.upstream = "upstream/repo"
+    mock_repo.local_path = "/path/to/test-repo"
+    mock_repo.skills = ["python", "javascript"]
+    mock_config.repositories = [mock_repo]
+
     return mock_config
 
 

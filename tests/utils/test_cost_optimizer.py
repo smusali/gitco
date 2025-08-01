@@ -470,3 +470,78 @@ class TestGlobalFunctions:
 
         # Should be different instances
         assert optimizer1 is not optimizer2
+
+
+def test_token_usage_with_none_values() -> None:
+    """Test TokenUsage creation with None values."""
+    usage = TokenUsage(
+        prompt_tokens=0,
+        completion_tokens=0,
+        total_tokens=0,
+        model="gpt-3.5-turbo",
+        provider="openai",
+        cost_usd=0.0,
+        timestamp=time.time(),
+    )
+
+    assert usage.prompt_tokens == 0
+    assert usage.completion_tokens == 0
+    assert usage.total_tokens == 0
+    assert usage.model == "gpt-3.5-turbo"
+    assert usage.provider == "openai"
+    assert usage.cost_usd == 0.0
+    assert usage.timestamp > 0
+
+
+def test_cost_config_with_none_values() -> None:
+    """Test CostConfig creation with None values."""
+    config = CostConfig()
+
+    # Test that default values are set
+    assert hasattr(config, "openai_costs")
+    assert hasattr(config, "anthropic_costs")
+    assert config.openai_costs["gpt-3.5-turbo"] == 0.0015
+
+
+def test_cost_optimizer_with_none_config() -> None:
+    """Test CostOptimizer with None config."""
+    optimizer = CostOptimizer(None)
+
+    # Should handle None config gracefully
+    assert optimizer.config is not None  # Should use default config when None is passed
+    assert optimizer.logger is not None
+    # Note: cost_history may not be empty if there's existing data
+
+
+def test_cost_optimizer_count_tokens_with_none_text() -> None:
+    """Test CostOptimizer count_tokens with None text."""
+    # Create a proper mock config with required attributes
+    mock_config = Mock()
+    mock_config.cost_log_file = "/tmp/test_cost_log.json"
+    mock_config.encoding_model = "cl100k_base"
+    mock_config.fallback_encoding = "gpt2"
+
+    optimizer = CostOptimizer(mock_config)
+
+    # Should handle None text gracefully
+    token_count = optimizer.count_tokens(None)
+    assert token_count == 0
+
+
+def test_cost_optimizer_estimate_cost_with_none_model() -> None:
+    """Test CostOptimizer estimate_cost with None model."""
+    # Create a proper mock config with required attributes
+    mock_config = Mock()
+    mock_config.cost_log_file = "/tmp/test_cost_log.json"
+    mock_config.encoding_model = "cl100k_base"
+    mock_config.fallback_encoding = "gpt2"
+    mock_config.max_tokens_per_request = 4000  # Add this line to fix the Mock issue
+    mock_config.openai_costs = {
+        "gpt-3.5-turbo": 0.0015
+    }  # Add this line to fix the Mock issue
+
+    optimizer = CostOptimizer(mock_config)
+
+    # Should handle None model gracefully
+    cost = optimizer.estimate_cost("test text", None, "openai")
+    assert cost == 0.0

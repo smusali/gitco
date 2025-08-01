@@ -611,3 +611,95 @@ class TestIssueDiscovery:
 
         # Should filter out low confidence matches
         assert len(opportunities) == 0
+
+    def test_skill_match_with_none_values(self) -> None:
+        """Test SkillMatch creation with None values."""
+        skill_match = SkillMatch(
+            skill="python",
+            confidence=0.9,
+            match_type="exact",
+            evidence=[],
+        )
+
+        assert skill_match.skill == "python"
+        assert skill_match.match_type == "exact"
+        assert skill_match.confidence == 0.9
+        assert skill_match.evidence == []
+
+    def test_issue_recommendation_with_none_values(self) -> None:
+        """Test IssueRecommendation creation with None values."""
+        mock_repo = Mock()
+        mock_repo.name = "test-repo"
+
+        recommendation = IssueRecommendation(
+            issue=Mock(spec=GitHubIssue),
+            repository=mock_repo,
+            skill_matches=[],
+            overall_score=0.8,
+            difficulty_level="intermediate",
+            estimated_time="medium",
+            tags=[],
+        )
+
+        assert recommendation.repository == mock_repo
+        assert recommendation.overall_score == 0.8
+        assert recommendation.difficulty_level == "intermediate"
+        assert recommendation.skill_matches == []
+        assert recommendation.estimated_time == "medium"
+        assert recommendation.tags == []
+
+    def test_skill_matcher_with_empty_text(self) -> None:
+        """Test SkillMatcher with empty text."""
+        matcher = SkillMatcher()
+
+        # Test with empty text
+        mock_issue = Mock(spec=GitHubIssue)
+        mock_issue.title = ""
+        mock_issue.body = ""
+        mock_issue.labels = []
+        mock_issue.state = "open"
+        mock_issue.number = 1
+        mock_issue.assignees = []
+        mock_issue.created_at = "2023-01-01T00:00:00Z"
+        mock_issue.updated_at = "2023-01-01T00:00:00Z"
+        mock_issue.html_url = "https://github.com/test/repo/issues/1"
+
+        mock_repo = Mock()
+        mock_repo.name = "test-repo"
+        mock_repo.skills = ["python", "javascript"]
+
+        matches = matcher.match_skills_to_issue(
+            ["python", "javascript"], mock_issue, mock_repo
+        )
+
+        assert isinstance(matches, list)
+        assert len(matches) == 0
+
+    def test_issue_discovery_with_empty_config(self) -> None:
+        """Test IssueDiscovery with empty configuration."""
+        github_client = Mock(spec=GitHubClient)
+        empty_config = Mock()
+        empty_config.repositories = []
+
+        discovery = IssueDiscovery(github_client, empty_config)
+
+        # Should not raise any exceptions
+        assert discovery is not None
+        assert discovery.github_client == github_client
+        assert discovery.config == empty_config
+
+    def test_discovery_with_none_inputs(self) -> None:
+        """Test discovery methods with None inputs."""
+        github_client = Mock(spec=GitHubClient)
+        config = mock_config()
+        discovery = IssueDiscovery(github_client, config)
+
+        # Test with None skill filter and label filter
+        opportunities = discovery.discover_opportunities(
+            skill_filter=None,
+            label_filter=None,
+            limit=10,
+            min_confidence=0.1,
+        )
+
+        assert isinstance(opportunities, list)

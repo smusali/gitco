@@ -115,62 +115,136 @@ TIME_PATTERNS: dict[str, list[str]] = {
     ],
 }
 
+# API patterns
+API_PATTERNS: list[str] = [
+    r"@api",
+    r"@endpoint",
+    r"@route",
+    r"@path",
+    r"@method",
+    r"@get",
+    r"@post",
+    r"@put",
+    r"@delete",
+    r"@patch",
+    r"api/",
+    r"rest/",
+    r"graphql",
+    r"openapi",
+    r"swagger",
+    r"endpoint",
+    r"route",
+    r"controller",
+    r"resource",
+]
+
+# Configuration patterns
+CONFIGURATION_PATTERNS: list[str] = [
+    r"config\.",
+    r"settings\.",
+    r"\.env",
+    r"\.ini",
+    r"\.toml",
+    r"\.yaml",
+    r"\.yml",
+    r"\.json",
+    r"\.xml",
+    r"configuration",
+    r"settings",
+    r"options",
+    r"parameters",
+]
+
+# Database patterns
+DATABASE_PATTERNS: list[str] = [
+    r"database",
+    r"db\.",
+    r"table",
+    r"column",
+    r"index",
+    r"query",
+    r"sql",
+    r"migration",
+    r"schema",
+    r"orm",
+    r"model",
+    r"entity",
+    r"repository",
+]
+
+# Dependency patterns
+DEPENDENCY_PATTERNS: list[str] = [
+    r"requirements\.txt",
+    r"pyproject\.toml",
+    r"setup\.py",
+    r"package\.json",
+    r"Gemfile",
+    r"go\.mod",
+    r"Cargo\.toml",
+    r"pom\.xml",
+    r"build\.gradle",
+    r"dependencies",
+    r"import",
+    r"require",
+    r"include",
+]
+
 # Security update patterns
 SECURITY_PATTERNS: dict[str, list[str]] = {
-    "vulnerability_fix": [
+    "vulnerability": [
         r"CVE-\d{4}-\d+",
-        r"vulnerability",
+        r"vulnerability\b",
         r"security\s+fix",
         r"security\s+patch",
         r"security\s+update",
         r"buffer\s+overflow",
         r"sql\s+injection",
-        r"xss",
+        r"xss\b",
         r"cross-site\s+scripting",
         r"authentication\s+bypass",
         r"privilege\s+escalation",
         r"remote\s+code\s+execution",
-        r"rce",
+        r"rce\b",
         r"denial\s+of\s+service",
-        r"dos",
-        r"ddos",
+        r"dos\b",
+        r"ddos\b",
     ],
     "authentication": [
-        r"auth",
-        r"authentication",
-        r"login",
-        r"password",
-        r"token",
-        r"jwt",
-        r"oauth",
-        r"session",
-        r"csrf",
-        r"csrf\s+token",
+        r"auth\b",
+        r"authentication\b",
+        r"login\b",
+        r"password\b",
+        r"token\b",
+        r"jwt\b",
+        r"oauth\b",
+        r"session\b",
     ],
     "authorization": [
-        r"authorization",
-        r"permission",
-        r"role",
+        r"csrf\b",
+        r"csrf\s+token",
+        r"authorization\b",
+        r"permission\b",
+        r"role\b",
         r"access\s+control",
-        r"rbac",
-        r"acl",
-        r"privilege",
-        r"admin",
+        r"rbac\b",
+        r"acl\b",
+        r"privilege\b",
+        r"admin\b",
         r"user\s+role",
     ],
     "encryption": [
-        r"encrypt",
-        r"decrypt",
-        r"hash",
-        r"sha",
-        r"md5",
-        r"bcrypt",
-        r"pbkdf2",
-        r"aes",
-        r"rsa",
-        r"ssl",
-        r"tls",
-        r"certificate",
+        r"encrypt\b",
+        r"decrypt\b",
+        r"hash\b",
+        r"sha\d*\b",
+        r"md5\b",
+        r"bcrypt\b",
+        r"pbkdf2\b",
+        r"aes\b",
+        r"rsa\b",
+        r"ssl\b",
+        r"tls\b",
+        r"certificate\b",
         r"private\s+key",
         r"public\s+key",
     ],
@@ -188,23 +262,23 @@ SECURITY_PATTERNS: dict[str, list[str]] = {
 # Deprecation patterns
 DEPRECATION_PATTERNS: dict[str, list[str]] = {
     "api_deprecation": [
-        r"@deprecated",
-        r"DeprecationWarning",
-        r"deprecated",
-        r"deprecation",
-        r"obsolete",
-        r"legacy",
+        r"@deprecated\b",
+        r"DeprecationWarning\b",
+        r"deprecated\b",
+        r"deprecation\b",
         r"old\s+api",
-        r"removed",
-        r"will\s+be\s+removed",
-        r"sunset",
     ],
     "feature_deprecation": [
+        r"obsolete\b",
+        r"legacy\b",
         r"feature\s+deprecated",
         r"functionality\s+deprecated",
+    ],
+    "config_deprecation": [
         r"option\s+deprecated",
         r"setting\s+deprecated",
         r"parameter\s+deprecated",
+        r"config\s+deprecated",
     ],
     "dependency_deprecation": [
         r"dependency\s+deprecated",
@@ -212,11 +286,10 @@ DEPRECATION_PATTERNS: dict[str, list[str]] = {
         r"library\s+deprecated",
         r"version\s+deprecated",
     ],
-    "config_deprecation": [
-        r"config\s+deprecated",
-        r"setting\s+deprecated",
-        r"option\s+deprecated",
-        r"parameter\s+deprecated",
+    "removal": [
+        r"removed\b",
+        r"will\s+be\s+removed",
+        r"sunset\b",
     ],
 }
 
@@ -237,34 +310,34 @@ BREAKING_CHANGE_PATTERNS: dict[str, list[str]] = {
         r"\.yml",
     ],
     "database": [
-        r"migration",
-        r"schema",
+        r"migration\b",
+        r"schema\b",
         r"ALTER\s+TABLE",
         r"DROP\s+TABLE",
         r"CREATE\s+TABLE",
-        r"INDEX",
+        r"INDEX\b",
     ],
     "dependencies": [
         r"requirements\.txt",
         r"pyproject\.toml",
         r"setup\.py",
         r"package\.json",
-        r"Gemfile",
+        r"Gemfile\b",
         r"go\.mod",
     ],
     "deprecation": [
-        r"@deprecated",
-        r"DeprecationWarning",
-        r"deprecated",
-        r"removed",
-        r"obsolete",
+        r"@deprecated\b",
+        r"DeprecationWarning\b",
+        r"deprecated\b",
+        r"removed\b",
+        r"obsolete\b",
     ],
     "security": [
-        r"security",
-        r"vulnerability",
-        r"CVE-",
-        r"authentication",
-        r"authorization",
+        r"security\b",
+        r"vulnerability\b",
+        r"CVE-\d+",
+        r"authentication\b",
+        r"authorization\b",
     ],
 }
 
@@ -330,3 +403,74 @@ MEDIUM_DEPRECATION_PATTERNS: list[str] = [
     r"old\s+api",
     r"sunset",
 ]
+
+
+def get_patterns_for_type(pattern_type: str) -> list[str]:
+    """Get patterns for a specific type.
+
+    Args:
+        pattern_type: Type of patterns to retrieve
+
+    Returns:
+        List of patterns for the specified type
+    """
+    if pattern_type == "breaking_change":
+        # Return all patterns from the breaking change dictionary
+        all_patterns = []
+        for patterns in BREAKING_CHANGE_PATTERNS.values():
+            all_patterns.extend(patterns)
+        return all_patterns
+    elif pattern_type == "deprecation":
+        # Return all patterns from the deprecation dictionary
+        all_patterns = []
+        for patterns in DEPRECATION_PATTERNS.values():
+            all_patterns.extend(patterns)
+        return all_patterns
+    elif pattern_type == "security":
+        # Return all patterns from the security dictionary
+        all_patterns = []
+        for patterns in SECURITY_PATTERNS.values():
+            all_patterns.extend(patterns)
+        return all_patterns
+    elif pattern_type == "api":
+        return API_PATTERNS
+    elif pattern_type == "configuration":
+        return CONFIGURATION_PATTERNS
+    elif pattern_type == "database":
+        return DATABASE_PATTERNS
+    elif pattern_type == "dependency":
+        return DEPENDENCY_PATTERNS
+    else:
+        return []
+
+
+def get_all_patterns() -> dict[str, list[str]]:
+    """Get all available patterns.
+
+    Returns:
+        Dictionary mapping pattern types to their patterns
+    """
+    # For breaking_change, flatten the nested dictionary
+    breaking_patterns = []
+    for patterns in BREAKING_CHANGE_PATTERNS.values():
+        breaking_patterns.extend(patterns)
+
+    # For security, flatten the nested dictionary
+    security_patterns = []
+    for patterns in SECURITY_PATTERNS.values():
+        security_patterns.extend(patterns)
+
+    # For deprecation, flatten the nested dictionary
+    deprecation_patterns = []
+    for patterns in DEPRECATION_PATTERNS.values():
+        deprecation_patterns.extend(patterns)
+
+    return {
+        "breaking_change": breaking_patterns,
+        "deprecation": deprecation_patterns,
+        "security": security_patterns,
+        "api": API_PATTERNS,
+        "configuration": CONFIGURATION_PATTERNS,
+        "database": DATABASE_PATTERNS,
+        "dependency": DEPENDENCY_PATTERNS,
+    }

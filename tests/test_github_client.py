@@ -1139,3 +1139,94 @@ def test_github_client_get_rate_limit_info() -> None:
         assert rate_limit_info["search"]["limit"] == 30
         assert rate_limit_info["search"]["remaining"] == 25
         assert rate_limit_info["search"]["reset"] == 1640995200
+
+
+def test_github_issue_with_none_values() -> None:
+    """Test GitHubIssue creation with None values."""
+    issue = GitHubIssue(
+        number=123,
+        title="Test Issue",
+        state="open",
+        labels=[],
+        assignees=[],
+        created_at="2024-01-01T00:00:00Z",
+        updated_at="2024-01-01T00:00:00Z",
+        html_url="https://github.com/test/issue/123",
+        body=None,
+        comments_count=0,
+        reactions_count=0,
+    )
+
+    assert issue.number == 123
+    assert issue.title == "Test Issue"
+    assert issue.state == "open"
+    assert issue.labels == []
+    assert issue.assignees == []
+    assert issue.body is None
+    assert issue.comments_count == 0
+    assert issue.reactions_count == 0
+
+
+def test_github_repository_with_none_values() -> None:
+    """Test GitHubRepository creation with None values."""
+    repo = GitHubRepository(
+        name="test-repo",
+        full_name="owner/test-repo",
+        description=None,
+        language=None,
+        stargazers_count=0,
+        forks_count=0,
+        open_issues_count=0,
+        updated_at="2024-01-01T00:00:00Z",
+        html_url="https://github.com/owner/test-repo",
+        clone_url="https://github.com/owner/test-repo.git",
+        default_branch="main",
+    )
+
+    assert repo.name == "test-repo"
+    assert repo.full_name == "owner/test-repo"
+    assert repo.description is None
+    assert repo.language is None
+    assert repo.stargazers_count == 0
+    assert repo.forks_count == 0
+    assert repo.open_issues_count == 0
+    assert repo.default_branch == "main"
+    assert repo.clone_url == "https://github.com/owner/test-repo.git"
+
+
+def test_github_client_with_none_token() -> None:
+    """Test GitHubClient with None token."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(token=None)
+
+        assert client.token is None
+        assert client.github is not None
+
+
+def test_github_client_get_repository_with_none_name() -> None:
+    """Test GitHubClient get_repository with None repository name."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(token="test_token")
+
+        # Should handle None repository name gracefully
+        result = client.get_repository("")
+        assert result is None
+
+
+def test_github_client_get_issues_with_none_repository() -> None:
+    """Test GitHubClient get_issues with None repository."""
+    with patch("gitco.github_client.Github") as mock_github:
+        mock_github_instance = Mock()
+        mock_github.return_value = mock_github_instance
+
+        client = GitHubClient(token="test_token")
+
+        # Should handle None repository gracefully
+        result = client.get_issues("")
+        assert result == []

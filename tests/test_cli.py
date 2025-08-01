@@ -675,3 +675,38 @@ def test_upstream_merge_command_resolve_without_repo(runner: CliRunner) -> None:
     result = runner.invoke(main, ["upstream", "merge", "--resolve"])
     assert result.exit_code == 2  # Click uses exit code 2 for usage errors
     assert "Error" in result.output
+
+
+def test_cli_with_debug_flag(runner: CliRunner) -> None:
+    """Test CLI with debug flag enabled."""
+    result = runner.invoke(main, ["--debug", "--version"])
+    assert result.exit_code == 0
+    assert "gitco" in result.output
+
+
+def test_cli_with_config_file_flag(runner: CliRunner) -> None:
+    """Test CLI with custom config file flag."""
+    result = runner.invoke(main, ["--config", "/path/to/config.yml", "--version"])
+    assert result.exit_code == 0
+    assert "gitco" in result.output
+
+
+def test_cli_with_log_level_flag(runner: CliRunner) -> None:
+    """Test CLI with custom log level flag."""
+    result = runner.invoke(main, ["--log-level", "DEBUG", "--version"])
+    assert result.exit_code == 0
+    assert "gitco" in result.output
+
+
+def test_cli_with_output_format_flag(runner: CliRunner) -> None:
+    """Test CLI with output format flag."""
+    result = runner.invoke(main, ["--output-format", "json", "--version"])
+    assert result.exit_code == 0
+    assert "gitco" in result.output
+
+
+def test_cli_with_color_flag(runner: CliRunner) -> None:
+    """Test CLI with color flag."""
+    result = runner.invoke(main, ["--no-color", "--version"])
+    assert result.exit_code == 0
+    assert "gitco" in result.output

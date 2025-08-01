@@ -155,3 +155,44 @@ class TestExceptionBehavior:
         for exc in exceptions:
             assert isinstance(exc, GitCoError)
             assert isinstance(exc, Exception)
+
+
+def test_gitco_error_with_none_message() -> None:
+    """Test GitCoError with None message."""
+    error = GitCoError("Test error message")
+
+    # Should handle message correctly
+    assert error.message == "Test error message"
+    assert isinstance(error, Exception)
+
+
+def test_configuration_error_with_none_details() -> None:
+    """Test ConfigurationError with None details."""
+    error = ConfigurationError("Configuration error", details="No details")
+
+    assert error.message == "Configuration error"
+    assert error.details == "No details"
+
+
+def test_validation_error_with_none_field() -> None:
+    """Test ValidationError with None field."""
+    error = ValidationError("Validation failed", field="test_field")
+
+    assert error.message == "Validation failed"
+    assert error.field == "test_field"
+
+
+def test_api_error_with_none_status_code() -> None:
+    """Test APIError with None status code."""
+    error = APIError("API request failed", status_code=500)
+
+    assert error.message == "API request failed"
+    assert error.status_code == 500
+
+
+def test_git_operation_error_with_none_operation_type() -> None:
+    """Test GitOperationError with None operation type."""
+    error = GitOperationError("Git operation failed", operation_type="push")
+
+    assert error.message == "Git operation failed"
+    assert error.operation_type == "push"

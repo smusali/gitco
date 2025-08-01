@@ -440,3 +440,102 @@ class TestActivityDashboard:
         # engagement_score might still be 0.0 due to the calculation logic
         assert metrics.engagement_score >= 0.0
         assert metrics.overall_activity_health in ["excellent", "good", "fair", "poor"]
+
+    def test_activity_metrics_serialization(self) -> None:
+        """Test ActivityMetrics can be properly serialized to dict."""
+        metrics = ActivityMetrics(
+            repository_name="test-repo",
+            repository_path="/path/to/repo",
+            commits_last_24h=5,
+            commits_last_7d=25,
+            active_contributors_7d=3,
+            activity_score=0.8,
+            engagement_score=0.7,
+            overall_activity_health="excellent",
+        )
+
+        # Test that all attributes are accessible and have expected types
+        assert isinstance(metrics.repository_name, str)
+        assert isinstance(metrics.repository_path, str)
+        assert isinstance(metrics.commits_last_24h, int)
+        assert isinstance(metrics.commits_last_7d, int)
+        assert isinstance(metrics.activity_score, float)
+        assert isinstance(metrics.engagement_score, float)
+        assert isinstance(metrics.overall_activity_health, str)
+
+    def test_activity_dashboard_with_empty_config(self) -> None:
+        """Test ActivityDashboard initialization with empty configuration."""
+        empty_config = Mock()
+        empty_config.repositories = []
+
+        mock_github_client = Mock()
+
+        dashboard = ActivityDashboard(empty_config, mock_github_client)
+
+        # Should not raise any exceptions
+        assert dashboard is not None
+        assert dashboard.config == empty_config
+        assert dashboard.github_client == mock_github_client
+
+    def test_calculate_activity_summary_with_single_repository(self) -> None:
+        """Test activity summary calculation with only one repository."""
+        mock_config = Mock()
+        repositories = [
+            {
+                "name": "single-repo",
+                "local_path": "/path/to/single-repo",
+            }
+        ]
+
+        mock_github_client = Mock()
+        mock_github_client.get_repository.return_value = {
+            "open_issues_count": 5,
+            "open_prs_count": 2,
+            "stars_count": 50,
+            "forks_count": 10,
+        }
+
+        with patch("gitco.activity_dashboard.GitRepository") as mock_git_repo_class:
+            mock_git_repo = Mock()
+            mock_git_repo.is_git_repository.return_value = True
+            mock_git_repo.get_commit_count_since.return_value = 3
+            mock_git_repo.get_total_commit_count.return_value = 25
+            mock_git_repo.get_active_contributors_since.return_value = 2
+            mock_git_repo.get_total_contributor_count.return_value = 4
+            mock_git_repo_class.return_value = mock_git_repo
+
+            dashboard = ActivityDashboard(mock_config, mock_github_client)
+            summary = dashboard.calculate_activity_summary(repositories)
+
+            assert summary is not None
+            assert summary.total_repositories == 1
+
+    def test_activity_dashboard_logging_configuration(self) -> None:
+        """Test that ActivityDashboard properly configures logging."""
+        mock_config = Mock()
+        mock_config.repositories = []
+        mock_github_client = Mock()
+
+        dashboard = ActivityDashboard(mock_config, mock_github_client)
+
+        # Verify logger is properly configured
+        assert dashboard.logger is not None
+        assert hasattr(dashboard.logger, "info")
+        assert hasattr(dashboard.logger, "warning")
+        assert hasattr(dashboard.logger, "error")
+
+    def test_activity_metrics_comparison(self) -> None:
+        """Test ActivityMetrics objects can be compared for sorting."""
+        metrics1 = ActivityMetrics("repo1", "/path1", activity_score=0.5)
+        metrics2 = ActivityMetrics("repo2", "/path2", activity_score=0.8)
+        metrics3 = ActivityMetrics("repo3", "/path3", activity_score=0.3)
+
+        # Test sorting by activity_score
+        metrics_list = [metrics1, metrics2, metrics3]
+        sorted_metrics = sorted(
+            metrics_list, key=lambda x: x.activity_score, reverse=True
+        )
+
+        assert sorted_metrics[0].repository_name == "repo2"  # Highest score
+        assert sorted_metrics[1].repository_name == "repo1"  # Middle score
+        assert sorted_metrics[2].repository_name == "repo3"  # Lowest score

@@ -40,6 +40,11 @@ from .utils.common import (
     set_quiet_mode,
     setup_logging,
 )
+from .utils.completion import (
+    generate_completion_script,
+    get_completion_data,
+    install_completion,
+)
 from .utils.cost_optimizer import get_cost_optimizer
 from .utils.exception import ValidationError
 
@@ -188,6 +193,7 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 @click.version_option(version=__version__, prog_name="gitco")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress output")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
 @click.option("--log-file", help="Log to file")
 @click.option(
     "--detailed-log",
@@ -205,16 +211,31 @@ def print_issue_recommendation(recommendation: Any, index: int) -> None:
 @click.option(
     "--config", "-c", help="Path to configuration file (default: ~/.gitco/config.yml)"
 )
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    help="Set log level",
+)
+@click.option(
+    "--output-format",
+    type=click.Choice(["text", "json", "csv"]),
+    help="Output format for commands",
+)
+@click.option("--no-color", is_flag=True, help="Disable colored output")
 @click.pass_context
 def main(
     ctx: click.Context,
     verbose: bool,
     quiet: bool,
+    debug: bool,
     log_file: Optional[str],
     detailed_log: bool,
     max_log_size: Optional[int],
     log_backups: Optional[int],
     config: Optional[str],
+    log_level: Optional[str],
+    output_format: Optional[str],
+    no_color: bool,
 ) -> None:
     """GitCo - A simple CLI tool for intelligent OSS fork management and contribution discovery.
 
@@ -229,11 +250,15 @@ def main(
     # Set global options
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
+    ctx.obj["debug"] = debug
     ctx.obj["log_file"] = log_file
     ctx.obj["detailed_log"] = detailed_log
     ctx.obj["max_log_size"] = max_log_size
     ctx.obj["log_backups"] = log_backups
     ctx.obj["config"] = config
+    ctx.obj["log_level"] = log_level
+    ctx.obj["output_format"] = output_format
+    ctx.obj["no_color"] = no_color
 
     # Set global quiet mode state
     set_quiet_mode(quiet)
@@ -245,12 +270,13 @@ def main(
 
     # Setup logging with enhanced options
     setup_logging(
-        verbose=verbose,
+        verbose=verbose or debug,
         quiet=quiet,
         log_file=log_file,
         detailed=detailed_log,
         max_file_size=max_file_size,
         backup_count=log_backups,
+        log_level=log_level,
     )
 
     logger = get_logger()
@@ -515,16 +541,17 @@ def sync(
             logger.info(f"Syncing specific repository: {repo}")
 
             # Find repository in config
-            repo_config = None
-            for r in config.repositories:
-                if r.name == repo:
-                    repo_config = {
-                        "name": r.name,
-                        "local_path": r.local_path,
-                        "upstream": r.upstream,
-                        "fork": r.fork,
-                    }
-                    break
+            repo_config: Optional[dict[str, Any]] = None
+            if config.repositories is not None:
+                for r in config.repositories:
+                    if r.name == repo:
+                        repo_config = {
+                            "name": r.name,
+                            "local_path": r.local_path,
+                            "upstream": r.upstream,
+                            "fork": r.fork,
+                        }
+                        break
 
             if not repo_config:
                 error_msg = f"Repository '{repo}' not found in configuration"
@@ -586,17 +613,18 @@ def sync(
 
                 # Convert repositories to list of dicts for batch processing
                 repositories = []
-                for r in config.repositories:
-                    repositories.append(
-                        {
-                            "name": r.name,
-                            "local_path": r.local_path,
-                            "upstream": r.upstream,
-                            "fork": r.fork,
-                            "skills": r.skills,
-                            "analysis_enabled": r.analysis_enabled,
-                        }
-                    )
+                if config.repositories is not None:
+                    for r in config.repositories:
+                        repositories.append(
+                            {
+                                "name": r.name,
+                                "local_path": r.local_path,
+                                "upstream": r.upstream,
+                                "fork": r.fork,
+                                "skills": r.skills,
+                                "analysis_enabled": r.analysis_enabled,
+                            }
+                        )
 
                 # Process repositories in batch
                 results = repo_manager.batch_sync_repositories(
@@ -640,7 +668,7 @@ def sync(
                 failed = 0
                 sequential_results = []  # Store individual results for export
 
-                if not quiet:
+                if not quiet and config.repositories is not None:
                     with create_progress_bar(
                         "Syncing repositories", len(config.repositories)
                     ) as progress:
@@ -649,18 +677,80 @@ def sync(
                             total=len(config.repositories),
                         )
 
+                        if config.repositories is not None:
+                            for r in config.repositories:
+                                repo_config_data: dict[str, Any] = {
+                                    "name": r.name,
+                                    "local_path": r.local_path,
+                                    "upstream": r.upstream,
+                                    "fork": r.fork,
+                                }
+
+                                progress.update(
+                                    task, description=f"Syncing {r.name}..."
+                                )
+
+                                result = repo_manager._sync_single_repository(
+                                    r.local_path, repo_config_data
+                                )
+
+                                # Store result for export
+                                sequential_results.append(
+                                    {
+                                        "name": r.name,
+                                        "success": result["success"],
+                                        "message": result.get("message", ""),
+                                        "stashed_changes": result.get(
+                                            "stashed_changes", False
+                                        ),
+                                        "recovery_attempted": result.get(
+                                            "recovery_attempted", False
+                                        ),
+                                        "retry_count": result.get("retry_count", 0),
+                                        "stash_restore_failed": result.get(
+                                            "stash_restore_failed", False
+                                        ),
+                                        "details": result.get("details", {}),
+                                    }
+                                )
+
+                                if result["success"]:
+                                    successful += 1
+                                    message = result.get("message", "Sync completed")
+                                    # Add retry information to progress message
+                                    if result.get("recovery_attempted"):
+                                        retry_count = result.get("retry_count", 0)
+                                        message += f" (retry: {retry_count})"
+                                    progress.update(
+                                        task,
+                                        description=f"✅ {r.name}: {message}",
+                                    )
+                                else:
+                                    failed += 1
+                                    message = result.get("message", "Sync failed")
+                                    # Add retry information to progress message
+                                    if result.get("recovery_attempted"):
+                                        retry_count = result.get("retry_count", 0)
+                                        message += f" (retry: {retry_count})"
+                                    progress.update(
+                                        task,
+                                        description=f"❌ {r.name}: {message}",
+                                    )
+
+                                progress.advance(task)
+                else:
+                    # Quiet mode - no progress bar
+                    if config.repositories is not None:
                         for r in config.repositories:
-                            repo_config = {
+                            repo_config_data = {
                                 "name": r.name,
                                 "local_path": r.local_path,
                                 "upstream": r.upstream,
                                 "fork": r.fork,
                             }
 
-                            progress.update(task, description=f"Syncing {r.name}...")
-
                             result = repo_manager._sync_single_repository(
-                                r.local_path, repo_config
+                                r.local_path, repo_config_data
                             )
 
                             # Store result for export
@@ -685,80 +775,35 @@ def sync(
 
                             if result["success"]:
                                 successful += 1
-                                message = result.get("message", "Sync completed")
-                                # Add retry information to progress message
-                                if result.get("recovery_attempted"):
-                                    retry_count = result.get("retry_count", 0)
-                                    message += f" (retry: {retry_count})"
-                                progress.update(
-                                    task,
-                                    description=f"✅ {r.name}: {message}",
-                                )
                             else:
                                 failed += 1
-                                message = result.get("message", "Sync failed")
-                                # Add retry information to progress message
-                                if result.get("recovery_attempted"):
-                                    retry_count = result.get("retry_count", 0)
-                                    message += f" (retry: {retry_count})"
-                                progress.update(
-                                    task,
-                                    description=f"❌ {r.name}: {message}",
-                                )
-
-                            progress.advance(task)
-                else:
-                    # Quiet mode - no progress bar
-                    for r in config.repositories:
-                        repo_config = {
-                            "name": r.name,
-                            "local_path": r.local_path,
-                            "upstream": r.upstream,
-                            "fork": r.fork,
-                        }
-
-                        result = repo_manager._sync_single_repository(
-                            r.local_path, repo_config
-                        )
-
-                        # Store result for export
-                        sequential_results.append(
-                            {
-                                "name": r.name,
-                                "success": result["success"],
-                                "message": result.get("message", ""),
-                                "stashed_changes": result.get("stashed_changes", False),
-                                "recovery_attempted": result.get(
-                                    "recovery_attempted", False
-                                ),
-                                "retry_count": result.get("retry_count", 0),
-                                "stash_restore_failed": result.get(
-                                    "stash_restore_failed", False
-                                ),
-                                "details": result.get("details", {}),
-                            }
-                        )
-
-                        if result["success"]:
-                            successful += 1
-                        else:
-                            failed += 1
 
                 if failed == 0:
+                    repo_count = (
+                        len(config.repositories)
+                        if config.repositories is not None
+                        else 0
+                    )
                     log_operation_success(
                         "sequential repository synchronization",
-                        total=len(config.repositories),
+                        total=repo_count,
                     )
-                    print_success_panel(
-                        f"Successfully synced all {len(config.repositories)} repositories!",
-                        "All repositories are now up to date with their upstream sources.",
-                    )
+                    if config.repositories is not None:
+                        print_success_panel(
+                            f"Successfully synced all {len(config.repositories)} repositories!",
+                            "All repositories are now up to date with their upstream sources.",
+                        )
                 else:
                     error_msg = f"{failed} repositories failed"
+                    repo_count = (
+                        len(config.repositories)
+                        if config.repositories is not None
+                        else 0
+                    )
                     log_operation_failure(
                         "sequential repository synchronization",
                         Exception(error_msg),
-                        total=len(config.repositories),
+                        total=repo_count,
                         failed=failed,
                     )
                     print_error_panel(
@@ -815,20 +860,21 @@ def sync(
                 analyzer = ChangeAnalyzer(config)
                 analyzed_count = 0
 
-                for r in config.repositories:
-                    try:
-                        git_repo = GitRepository(r.local_path)
-                        if git_repo.is_git_repository():
-                            analysis = analyzer.analyze_repository_changes(
-                                repository=r,
-                                git_repo=git_repo,
-                            )
+                if config.repositories is not None:
+                    for r in config.repositories:
+                        try:
+                            git_repo = GitRepository(r.local_path)
+                            if git_repo.is_git_repository():
+                                analysis = analyzer.analyze_repository_changes(
+                                    repository=r,
+                                    git_repo=git_repo,
+                                )
 
-                            if analysis:
-                                analyzer.display_analysis(analysis, r.name)
-                                analyzed_count += 1
-                    except Exception as e:
-                        logger.error(f"Failed to analyze repository {r.name}: {e}")
+                                if analysis:
+                                    analyzer.display_analysis(analysis, r.name)
+                                    analyzed_count += 1
+                        except Exception as e:
+                            logger.error(f"Failed to analyze repository {r.name}: {e}")
 
                 if analyzed_count > 0:
                     print_success_panel(
@@ -849,8 +895,11 @@ def sync(
             total_duration = time.time() - start_time
 
             # Prepare sync data for export
+            total_repos = (
+                len(config.repositories) if config.repositories is not None else 0
+            )
             sync_data: dict[str, Any] = {
-                "total_repositories": len(config.repositories) if not repo else 1,
+                "total_repositories": total_repos if not repo else 1,
                 "successful": (
                     successful if not repo else (1 if result["success"] else 0)
                 ),
@@ -859,8 +908,8 @@ def sync(
                 "analysis_enabled": analyze,
                 "max_workers": max_workers,
                 "success_rate": (
-                    (successful / len(config.repositories))
-                    if not repo and len(config.repositories) > 0
+                    (successful / total_repos)
+                    if not repo and total_repos > 0
                     else (1.0 if result["success"] else 0.0)
                 ),
                 "total_duration": total_duration,
@@ -969,7 +1018,9 @@ def analyze(
                 "Repository Not Found",
                 f"Repository '{repo}' not found in configuration.\n\n"
                 "Available repositories:\n"
-                + "\n".join([f"  • {r.name}" for r in config.repositories]),
+                + "\n".join([f"  • {r.name}" for r in config.repositories])
+                if config.repositories is not None
+                else "No repositories configured",
             )
             return
 
@@ -1444,10 +1495,11 @@ def status(
         if repo:
             # Show status for specific repository
             repo_config = None
-            for r in config.repositories:
-                if hasattr(r, "get") and r.get("name") == repo:
-                    repo_config = r
-                    break
+            if config.repositories is not None:
+                for r in config.repositories:
+                    if hasattr(r, "get") and r.get("name") == repo:
+                        repo_config = r
+                        break
 
             if not repo_config:
                 print_error_panel(
@@ -1467,12 +1519,18 @@ def status(
 
         else:
             # Show status for all repositories
-            summary = health_calculator.calculate_health_summary(config.repositories)  # type: ignore
+            if config.repositories is not None:
+                summary = health_calculator.calculate_health_summary(config.repositories)  # type: ignore
+            else:
+                summary = None
 
             if activity:
                 # Show activity dashboard for all repositories
                 activity_dashboard = create_activity_dashboard(config, github_client)
-                activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
+                if config.repositories is not None:
+                    activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
+                else:
+                    activity_summary = None
                 _print_activity_summary(activity_summary, detailed)
 
                 if detailed:
@@ -1480,13 +1538,15 @@ def status(
                         "Detailed Repository Activity",
                         "Calculating detailed activity metrics...",
                     )
-                    for repo_config in config.repositories:
-                        activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
-                        _print_repository_activity(activity_metrics, detailed=True)
+                    if config.repositories is not None:
+                        for repo_config in config.repositories:
+                            activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+                            _print_repository_activity(activity_metrics, detailed=True)
             elif overview:
-                _print_repository_overview(
-                    config.repositories, health_calculator, filter, sort
-                )
+                if config.repositories is not None:
+                    _print_repository_overview(
+                        config.repositories, health_calculator, filter, sort
+                    )
             else:
                 _print_health_summary(summary, detailed)
 
@@ -1494,13 +1554,15 @@ def status(
                     print_info_panel(
                         "Detailed Repository Health", "Calculating detailed metrics..."
                     )
-                    for repo_config in config.repositories:
-                        metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
-                        _print_repository_health(metrics, detailed=True)
+                    if config.repositories is not None:
+                        for repo_config in config.repositories:
+                            metrics = health_calculator.calculate_repository_health(repo_config)  # type: ignore
+                            _print_repository_health(metrics, detailed=True)
 
         # Export if requested
         if export:
-            export_health_data(config.repositories, health_calculator, export)
+            if config.repositories is not None:
+                export_health_data(config.repositories, health_calculator, export)
 
         log_operation_success("repository status check")
         print_success_panel(
@@ -1559,10 +1621,11 @@ def activity(
         if repo:
             # Show activity for specific repository
             repo_config = None
-            for r in config.repositories:
-                if hasattr(r, "get") and r.get("name") == repo:
-                    repo_config = r
-                    break
+            if config.repositories is not None:
+                for r in config.repositories:
+                    if hasattr(r, "get") and r.get("name") == repo:
+                        repo_config = r
+                        break
 
             if not repo_config:
                 print_error_panel(
@@ -1576,17 +1639,21 @@ def activity(
 
         else:
             # Show activity for all repositories
-            activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
-            _print_activity_summary(activity_summary, detailed)
+            if config.repositories is not None:
+                activity_summary = activity_dashboard.calculate_activity_summary(config.repositories)  # type: ignore
+                _print_activity_summary(activity_summary, detailed)
 
-            if detailed:
-                print_info_panel(
-                    "Detailed Repository Activity",
-                    "Calculating detailed activity metrics...",
-                )
-                for repo_config in config.repositories:
-                    activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
-                    _print_repository_activity(activity_metrics, detailed=True)
+                if detailed:
+                    print_info_panel(
+                        "Detailed Repository Activity",
+                        "Calculating detailed activity metrics...",
+                    )
+                    for repo_config in config.repositories:
+                        activity_metrics = activity_dashboard.calculate_repository_activity(repo_config)  # type: ignore
+                        _print_repository_activity(activity_metrics, detailed=True)
+            else:
+                activity_summary = None
+                _print_activity_summary(activity_summary, detailed)
 
         # Export if requested
         if export:
@@ -2661,22 +2728,19 @@ def validate(ctx: click.Context) -> None:
         errors = validation_report["errors"]
         warnings = validation_report["warnings"]
 
+        repo_count = len(config.repositories) if config.repositories is not None else 0
         if not errors and not warnings:
-            log_operation_success(
-                "configuration validation", repo_count=len(config.repositories)
-            )
+            log_operation_success("configuration validation", repo_count=repo_count)
             print_success_panel(
                 "Configuration is valid!",
-                f"Found {len(config.repositories)} repositories\n"
+                f"Found {repo_count} repositories\n"
                 f"LLM provider: {config.settings.llm_provider}",
             )
         elif not errors and warnings:
-            log_operation_success(
-                "configuration validation", repo_count=len(config.repositories)
-            )
+            log_operation_success("configuration validation", repo_count=repo_count)
             print_warning_panel(
                 "Configuration is valid with warnings",
-                f"Found {len(config.repositories)} repositories\n"
+                f"Found {repo_count} repositories\n"
                 f"LLM provider: {config.settings.llm_provider}\n\n"
                 f"Warnings ({len(warnings)}):\n"
                 + "\n".join(f"• {warning}" for warning in warnings),
@@ -2725,9 +2789,8 @@ def config_status(ctx: click.Context) -> None:
         config_manager = ConfigManager(ctx.obj.get("config"))
         config = config_manager.load_config()
 
-        log_operation_success(
-            "configuration status", repo_count=len(config.repositories)
-        )
+        repo_count = len(config.repositories) if config.repositories is not None else 0
+        log_operation_success("configuration status", repo_count=repo_count)
         print_success_panel(
             "Configuration Status", "Configuration Status\n===================\n\n"
         )
@@ -2735,7 +2798,7 @@ def config_status(ctx: click.Context) -> None:
         print_info_panel(
             "Configuration File", f"Configuration file: {config_manager.config_path}"
         )
-        print_info_panel("Repositories", f"Repositories: {len(config.repositories)}")
+        print_info_panel("Repositories", f"Repositories: {repo_count}")
         print_info_panel(
             "LLM Provider", f"LLM provider: {config.settings.llm_provider}"
         )
@@ -2747,7 +2810,7 @@ def config_status(ctx: click.Context) -> None:
             f"Max repos per batch: {config.settings.max_repos_per_batch}",
         )
 
-        if config.repositories:
+        if config.repositories is not None and config.repositories:
             print_info_panel("Repositories", "Repositories:\n")
             for repo in config.repositories:
                 print_info_panel(
@@ -2798,7 +2861,9 @@ def validate_detailed(
             export_data = {
                 "timestamp": datetime.now().isoformat(),
                 "config_path": config_manager.config_path,
-                "repository_count": len(config.repositories),
+                "repository_count": len(config.repositories)
+                if config.repositories is not None
+                else 0,
                 "validation_results": {
                     "errors": [
                         {
@@ -2831,12 +2896,13 @@ def validate_detailed(
                 "Validation report exported", f"Report saved to: {export}"
             )
 
+        repo_count = len(config.repositories) if config.repositories is not None else 0
         # Display summary
         if not errors and not warnings:
             print_success_panel(
                 "Configuration is fully valid!",
                 f"✓ No errors or warnings found\n"
-                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ {repo_count} repositories configured\n"
                 f"✓ LLM provider: {config.settings.llm_provider}",
             )
         elif not errors and warnings:
@@ -2844,7 +2910,7 @@ def validate_detailed(
                 "Configuration is valid with warnings",
                 f"✓ No errors found\n"
                 f"⚠ {len(warnings)} warning(s)\n"
-                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ {repo_count} repositories configured\n"
                 f"✓ LLM provider: {config.settings.llm_provider}",
             )
         else:
@@ -2852,7 +2918,7 @@ def validate_detailed(
                 f"Configuration has {len(errors)} error(s)",
                 f"❌ {len(errors)} error(s) found\n"
                 f"⚠ {len(warnings)} warning(s)\n"
-                f"✓ {len(config.repositories)} repositories configured\n"
+                f"✓ {repo_count} repositories configured\n"
                 f"✓ LLM provider: {config.settings.llm_provider}",
             )
 
@@ -4787,7 +4853,10 @@ def create(
             repositories = [r.strip() for r in repos.split(",")]
         else:
             # Use repositories from configuration
-            repositories = [repo.local_path for repo in config_data.repositories]
+            if config_data.repositories is not None:
+                repositories = [repo.local_path for repo in config_data.repositories]
+            else:
+                repositories = []
 
         if not repositories and type != "config-only":
             print_error_panel(
@@ -5242,6 +5311,51 @@ def breakdown(
     except Exception as e:
         print_error_panel(f"Failed to get cost breakdown: {e}")
         sys.exit(1)
+
+
+@main.command()
+@click.option(
+    "--shell",
+    "-s",
+    type=click.Choice(["bash", "zsh"]),
+    required=True,
+    help="Shell type",
+)
+@click.option("--output", "-o", help="Output file path (default: auto-detect)")
+@click.option("--install", "-i", is_flag=True, help="Install completion script")
+@click.pass_context
+def completion(
+    ctx: click.Context, shell: str, output: Optional[str], install: bool
+) -> None:
+    """Generate or install shell completion scripts."""
+    try:
+        if install:
+            install_completion(shell, output)
+        else:
+            script = generate_completion_script(shell)
+            if output:
+                with open(output, "w") as f:
+                    f.write(script)
+                print_success_panel(f"Completion script written to: {output}")
+            else:
+                print(script)
+
+    except Exception as e:
+        print_error_panel(f"Failed to generate completion script: {e}")
+        sys.exit(1)
+
+
+@main.command(hidden=True)
+@click.argument("data_type", type=str)
+@click.pass_context
+def _completion(ctx: click.Context, data_type: str) -> None:
+    """Internal command for shell completion data."""
+    try:
+        data = get_completion_data(data_type)
+        print(" ".join(data))
+    except Exception:
+        # Silently fail for completion
+        pass
 
 
 if __name__ == "__main__":
