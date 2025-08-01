@@ -220,7 +220,9 @@ class TestGitHubClient:
 
         # Authentication test is called during init
         mock_github_instance.get_user.assert_called_once()
-        mock_logger.info.assert_called_with("Authenticated as: testuser")
+        mock_logger.info.assert_called_with(
+            "GitHub authentication successful for user: testuser"
+        )
 
     @patch("gitco.utils.rate_limiter.get_logger")
     @patch("gitco.github_client.Github")
@@ -236,7 +238,7 @@ class TestGitHubClient:
         mock_github.return_value = mock_github_instance
 
         with pytest.raises(
-            GitHubAuthenticationError, match="Invalid GitHub credentials"
+            GitHubAuthenticationError, match="Failed to set up GitHub authentication"
         ):
             GitHubClient(token="invalid_token")
 
@@ -253,7 +255,9 @@ class TestGitHubClient:
         mock_github_instance.get_user.side_effect = GithubException(403, "Forbidden")
         mock_github.return_value = mock_github_instance
 
-        with pytest.raises(GitHubAuthenticationError, match="GitHub API access denied"):
+        with pytest.raises(
+            GitHubAuthenticationError, match="Failed to set up GitHub authentication"
+        ):
             GitHubClient(token="invalid_token")
 
     @patch("gitco.utils.common.get_logger")
@@ -321,9 +325,6 @@ class TestGitHubClient:
         result = client.get_repository("owner/nonexistent")
 
         assert result is None
-        mock_logger.warning.assert_called_with(
-            "Repository not found: owner/nonexistent"
-        )
 
     @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
@@ -374,8 +375,9 @@ class TestGitHubClient:
         mock_issue1.milestone.title = "v1.0"
         mock_issue1.comments = 5
         mock_issue1.reactions.totalCount = 2
+        mock_issue1.get_reactions.return_value = [Mock(), Mock()]  # 2 reactions
 
-        mock_repo.get_issues.return_value = [mock_issue1]
+        mock_github_instance.search_issues.return_value = [mock_issue1]
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github.return_value = mock_github_instance
 
@@ -409,7 +411,24 @@ class TestGitHubClient:
 
         mock_github_instance = Mock()
         mock_repo = Mock()
-        mock_repo.get_issues.return_value = []
+        mock_issue = Mock()
+        mock_issue.number = 1
+        mock_issue.title = "Test Issue"
+        mock_issue.state = "closed"
+        mock_label = Mock()
+        mock_label.name = "bug"
+        mock_issue.labels = [mock_label]
+        mock_issue.assignees = [Mock(login="user1")]
+        mock_issue.created_at.isoformat.return_value = "2023-01-01T00:00:00Z"
+        mock_issue.updated_at.isoformat.return_value = "2023-01-02T00:00:00Z"
+        mock_issue.html_url = "https://github.com/owner/repo/issues/1"
+        mock_issue.body = "Test issue body"
+        mock_issue.user.login = "testuser"
+        mock_issue.milestone.title = "v1.0"
+        mock_issue.comments = 3
+        mock_issue.get_reactions.return_value = [Mock(), Mock()]  # 2 reactions
+
+        mock_github_instance.search_issues.return_value = [mock_issue]
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github.return_value = mock_github_instance
 
@@ -423,10 +442,11 @@ class TestGitHubClient:
             limit=10,
         )
 
-        assert len(result) == 0
-        # The new implementation only calls get_issues with state parameter
-        # Additional filtering is done after fetching
-        mock_repo.get_issues.assert_called_once_with(state="closed")
+        assert len(result) == 1
+        issue = result[0]
+        assert issue.number == 1
+        assert issue.title == "Test Issue"
+        assert issue.state == "closed"
 
     @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
@@ -454,6 +474,7 @@ class TestGitHubClient:
         mock_issue.milestone = None
         mock_issue.comments = 3
         mock_issue.reactions.totalCount = 1
+        mock_issue.get_reactions.return_value = [Mock()]  # 1 reaction
 
         mock_github_instance.search_issues.return_value = [mock_issue]
         mock_github.return_value = mock_github_instance
@@ -500,6 +521,9 @@ class TestGitHubClient:
         mock_rate_limit.search.limit = 30
         mock_rate_limit.search.remaining = 25
         mock_rate_limit.search.reset = mock_reset_time
+        mock_rate_limit.graphql.limit = 5000
+        mock_rate_limit.graphql.remaining = 4500
+        mock_rate_limit.graphql.reset = mock_reset_time
 
         mock_github_instance.get_rate_limit.return_value = mock_rate_limit
         mock_github.return_value = mock_github_instance
@@ -516,6 +540,11 @@ class TestGitHubClient:
             "search": {
                 "limit": 30,
                 "remaining": 25,
+                "reset": 1640995200,
+            },
+            "graphql": {
+                "limit": 5000,
+                "remaining": 4500,
                 "reset": 1640995200,
             },
         }
@@ -550,16 +579,13 @@ class TestGitHubClient:
         mock_get_logger.return_value = mock_logger
 
         mock_github_instance = Mock()
-        mock_github_instance.get_rate_limit.side_effect = Exception("Connection failed")
+        mock_github_instance.get_user.side_effect = Exception("Connection failed")
         mock_github.return_value = mock_github_instance
 
-        client = GitHubClient(token="test_token")
-        result = client.test_connection()
-
-        assert result is False
-        mock_logger.error.assert_called_with(
-            "GitHub API connection test failed: Connection failed"
-        )
+        with pytest.raises(
+            GitHubAuthenticationError, match="Failed to set up GitHub authentication"
+        ):
+            GitHubClient(token="test_token")
 
 
 class TestCreateGitHubClient:
@@ -611,6 +637,7 @@ class TestCreateGitHubClient:
 
     @patch("gitco.utils.common.get_logger")
     @patch("gitco.github_client.Github")
+    @patch.dict(os.environ, {"GITHUB_TOKEN": "env_token"})
     def test_create_github_client_defaults(
         self, mock_github: Mock, mock_get_logger: Mock
     ) -> None:

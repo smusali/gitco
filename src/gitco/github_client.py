@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import requests
 from github import Github, GithubException
 
 from .utils.common import (
@@ -14,10 +15,14 @@ from .utils.common import (
 )
 from .utils.exception import (
     APIError,
+    ConnectionTimeoutError,
     GitHubAuthenticationError,
+    NetworkTimeoutError,
+    ReadTimeoutError,
+    RequestTimeoutError,
 )
 from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
-from .utils.retry import DEFAULT_RETRY_CONFIG, create_retry_session, with_retry
+from .utils.retry import TIMEOUT_AWARE_RETRY_CONFIG, create_retry_session, with_retry
 
 
 @dataclass
@@ -70,6 +75,8 @@ class GitHubClient(RateLimitedAPIClient):
         base_url: str = "https://api.github.com",
         timeout: int = 30,
         max_retries: int = 3,
+        connect_timeout: Optional[int] = None,
+        read_timeout: Optional[int] = None,
     ):
         """Initialize GitHub client.
 
@@ -80,6 +87,8 @@ class GitHubClient(RateLimitedAPIClient):
             base_url: GitHub API base URL
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
+            connect_timeout: Connection timeout in seconds (overrides timeout if set)
+            read_timeout: Read timeout in seconds (overrides timeout if set)
         """
         # Initialize rate limiter
         rate_limiter = get_rate_limiter("github")
@@ -88,6 +97,8 @@ class GitHubClient(RateLimitedAPIClient):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
+        self.connect_timeout = connect_timeout or timeout
+        self.read_timeout = read_timeout or timeout
 
         # Create session with retry capabilities
         self.session = create_retry_session(
@@ -99,61 +110,33 @@ class GitHubClient(RateLimitedAPIClient):
         # Set up authentication
         self._setup_authentication(token, username, password)
 
-        # Initialize PyGithub client
-        self._init_github_client(token, username, password)
-
     def _setup_authentication(
         self,
         token: Optional[str],
         username: Optional[str],
         password: Optional[str],
     ) -> None:
-        """Set up authentication for requests session.
+        """Set up authentication for GitHub API.
 
         Args:
             token: GitHub personal access token
             username: GitHub username
             password: GitHub password
+
+        Raises:
+            GitHubAuthenticationError: If authentication setup fails
         """
-        if token:
-            self.session.headers.update(
-                {
-                    "Authorization": f"token {token}",
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "GitCo/1.0.0",
-                }
-            )
-            self.logger.debug("Using token authentication")
-        elif username and password:
-            self.session.auth = (username, password)
-            self.session.headers.update(
-                {
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "GitCo/1.0.0",
-                }
-            )
-            self.logger.debug("Using basic authentication")
-        else:
-            # Try to get token from environment
-            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_TOKEN")
-            if token:
-                self.session.headers.update(
-                    {
-                        "Authorization": f"token {token}",
-                        "Accept": "application/vnd.github.v3+json",
-                        "User-Agent": "GitCo/1.0.0",
-                    }
-                )
-                self.logger.debug("Using token from environment")
-            else:
-                # Anonymous access (limited)
-                self.session.headers.update(
-                    {
-                        "Accept": "application/vnd.github.v3+json",
-                        "User-Agent": "GitCo/1.0.0",
-                    }
-                )
-                self.logger.warning("No authentication provided - limited API access")
+        try:
+            # Initialize GitHub client
+            self._init_github_client(token, username, password)
+
+            # Test authentication
+            self._test_authentication()
+
+        except Exception as e:
+            raise GitHubAuthenticationError(
+                f"Failed to set up GitHub authentication: {e}"
+            ) from e
 
     def _init_github_client(
         self,
@@ -161,54 +144,57 @@ class GitHubClient(RateLimitedAPIClient):
         username: Optional[str],
         password: Optional[str],
     ) -> None:
-        """Initialize PyGithub client.
+        """Initialize GitHub client with authentication.
 
         Args:
             token: GitHub personal access token
             username: GitHub username
             password: GitHub password
         """
-        try:
+        if token:
+            # Use token authentication (preferred)
+            self.github = Github(token, base_url=self.base_url)
+            self.auth_method = "token"
+        elif username and password:
+            # Use basic authentication
+            self.github = Github(username, password, base_url=self.base_url)
+            self.auth_method = "basic"
+        else:
+            # Try to get token from environment
+            token = os.getenv("GITHUB_TOKEN")
             if token:
                 self.github = Github(token, base_url=self.base_url)
-            elif username and password:
-                self.github = Github(username, password, base_url=self.base_url)
+                self.auth_method = "token"
             else:
-                # Try environment token
-                env_token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_TOKEN")
-                if env_token:
-                    self.github = Github(env_token, base_url=self.base_url)
-                else:
-                    # Anonymous access
-                    self.github = Github(base_url=self.base_url)
-
-            # Test authentication
-            self._test_authentication()
-
-        except Exception as e:
-            self.logger.error(f"Failed to initialize GitHub client: {e}")
-            raise GitHubAuthenticationError(f"GitHub authentication failed: {e}") from e
+                # Anonymous access (limited API access)
+                self.github = Github(base_url=self.base_url)
+                self.auth_method = "anonymous"
 
     def _test_authentication(self) -> None:
-        """Test GitHub authentication."""
+        """Test GitHub authentication.
+
+        Raises:
+            GitHubAuthenticationError: If authentication fails
+        """
         try:
-            user = self.github.get_user()
-            self.logger.info(f"Authenticated as: {user.login}")
-        except GithubException as e:
-            if e.status == 401:
-                raise GitHubAuthenticationError("Invalid GitHub credentials") from e
-            elif e.status == 403:
-                raise GitHubAuthenticationError("GitHub API access denied") from e
+            if self.auth_method == "anonymous":
+                # For anonymous access, just test the connection
+                self.github.get_rate_limit()
+                self.logger.info("GitHub anonymous access successful")
             else:
-                raise GitHubAuthenticationError(
-                    f"GitHub authentication test failed: {e}"
-                ) from e
+                # Test authentication by getting current user
+                user = self.github.get_user()
+                self.logger.info(
+                    f"GitHub authentication successful for user: {user.login}"
+                )
+        except Exception as e:
+            raise GitHubAuthenticationError(f"GitHub authentication failed: {e}") from e
 
     def _rate_limit_request(self) -> None:
-        """Implement rate limiting between requests."""
+        """Check rate limits before making requests."""
         self.rate_limiter.wait_if_needed()
 
-    @with_retry(config=DEFAULT_RETRY_CONFIG)
+    @with_retry(config=TIMEOUT_AWARE_RETRY_CONFIG)
     def _make_request(
         self,
         method: str,
@@ -230,6 +216,7 @@ class GitHubClient(RateLimitedAPIClient):
             API response data
 
         Raises:
+            NetworkTimeoutError: When network operation times out
             GitHubRateLimitExceeded: When rate limit is exceeded
             APIError: When API request fails
         """
@@ -239,14 +226,44 @@ class GitHubClient(RateLimitedAPIClient):
 
         log_api_call("github", endpoint, "started")
 
-        response = self.session.request(
-            method=method,
-            url=url,
-            params=params,
-            json=data,
-            headers=headers,
-            timeout=self.timeout,
-        )
+        try:
+            # Use tuple for timeout (connect_timeout, read_timeout)
+            timeout_tuple = (self.connect_timeout, self.read_timeout)
+
+            response = self.session.request(
+                method=method,
+                url=url,
+                params=params,
+                json=data,
+                headers=headers,
+                timeout=timeout_tuple,
+            )
+
+        except requests.exceptions.ConnectTimeout as e:
+            raise ConnectionTimeoutError(
+                f"Connection to GitHub API timed out: {endpoint}",
+                self.connect_timeout,
+                f"GitHub API {method} {endpoint}",
+            ) from e
+        except requests.exceptions.ReadTimeout as e:
+            raise ReadTimeoutError(
+                f"Read from GitHub API timed out: {endpoint}",
+                self.read_timeout,
+                f"GitHub API {method} {endpoint}",
+            ) from e
+        except requests.exceptions.Timeout as e:
+            raise RequestTimeoutError(
+                f"Request to GitHub API timed out: {endpoint}",
+                self.timeout,
+                f"GitHub API {method} {endpoint}",
+            ) from e
+        except requests.exceptions.RequestException as e:
+            # Convert to our custom exception
+            raise NetworkTimeoutError(
+                f"Network error during GitHub API request: {endpoint}",
+                self.timeout,
+                f"GitHub API {method} {endpoint}",
+            ) from e
 
         # Update rate limiter with response headers
         self.rate_limiter.update_from_response_headers(dict(response.headers))
@@ -316,11 +333,14 @@ class GitHubClient(RateLimitedAPIClient):
 
         except GithubException as e:
             if e.status == 404:
-                self.logger.warning(f"Repository not found: {repo_name}")
+                log_operation_failure("github repository fetch", e, repo_name=repo_name)
                 return None
             else:
                 log_operation_failure("github repository fetch", e, repo_name=repo_name)
                 raise APIError(f"Failed to fetch repository {repo_name}: {e}") from e
+        except Exception as e:
+            log_operation_failure("github repository fetch", e, repo_name=repo_name)
+            raise APIError(f"Failed to fetch repository {repo_name}: {e}") from e
 
     def get_issues(
         self,
@@ -334,78 +354,69 @@ class GitHubClient(RateLimitedAPIClient):
         created_after: Optional[str] = None,
         updated_after: Optional[str] = None,
     ) -> list[GitHubIssue]:
-        """Get issues from repository with advanced filtering.
+        """Get issues for a repository.
 
         Args:
             repo_name: Repository name (owner/repo)
             state: Issue state (open, closed, all)
-            labels: Filter by labels (include)
-            assignee: Filter by assignee
-            milestone: Filter by milestone
+            labels: List of labels to include
+            assignee: Assignee filter
+            milestone: Milestone filter
             limit: Maximum number of issues to return
-            exclude_labels: Filter by labels (exclude)
-            created_after: Filter issues created after this date (ISO format)
-            updated_after: Filter issues updated after this date (ISO format)
+            exclude_labels: List of labels to exclude
+            created_after: Filter issues created after this date
+            updated_after: Filter issues updated after this date
 
         Returns:
-            List of issues
+            List of GitHub issues
         """
-        log_operation_start("github issues fetch", repo_name=repo_name, state=state)
+        log_operation_start("github issues fetch", repo_name=repo_name)
 
         try:
-            repo = self.github.get_repo(repo_name)
+            # Get repository for validation
+            self.github.get_repo(repo_name)
+            issues = []
 
-            # Build query parameters for PyGithub
-            # PyGithub expects specific types, so we need to handle them properly
-            all_issues = repo.get_issues(state=state)
+            # Build query parameters
+            query_parts = [f"repo:{repo_name}", f"state:{state}"]
 
-            # Apply additional filtering after fetching
-            filtered_issues = []
-            for issue in all_issues:
-                # Filter by labels if specified
-                if labels:
-                    issue_labels = [label.name for label in issue.labels]
-                    if not any(label in issue_labels for label in labels):
-                        continue
+            if labels:
+                for label in labels:
+                    query_parts.append(f'label:"{label}"')
 
-                # Filter by assignee if specified
-                if assignee:
-                    issue_assignees = [assignee.login for assignee in issue.assignees]
-                    if assignee not in issue_assignees:
-                        continue
+            if assignee:
+                query_parts.append(f"assignee:{assignee}")
 
-                # Filter by milestone if specified
-                if milestone and issue.milestone:
-                    if issue.milestone.title != milestone:
-                        continue
-                elif milestone and not issue.milestone:
-                    continue
+            if milestone:
+                query_parts.append(f'milestone:"{milestone}"')
 
-                filtered_issues.append(issue)
+            if created_after:
+                query_parts.append(f"created:>={created_after}")
 
-            issues = filtered_issues
+            if updated_after:
+                query_parts.append(f"updated:>={updated_after}")
 
-            # Convert to our data structure with additional filtering
-            github_issues = []
-            count = 0
+            query = " ".join(query_parts)
 
-            for issue in issues:
-                if limit and count >= limit:
-                    break
+            # Search issues
+            search_results: Any = self.github.search_issues(
+                query, sort="updated", order="desc"
+            )
 
-                # Apply additional filters
-                if exclude_labels and any(
-                    label in exclude_labels
-                    for label in [label.name for label in issue.labels]
-                ):
-                    continue
+            # Apply limit
+            if limit:
+                search_results = list(search_results)[:limit]
 
-                if created_after and issue.created_at.isoformat() < created_after:
-                    continue
+            # Filter out excluded labels
+            if exclude_labels:
+                search_results = [
+                    issue
+                    for issue in search_results
+                    if not any(label.name in exclude_labels for label in issue.labels)
+                ]
 
-                if updated_after and issue.updated_at.isoformat() < updated_after:
-                    continue
-
+            # Convert to our data structure
+            for issue in search_results:
                 github_issue = GitHubIssue(
                     number=issue.number,
                     title=issue.title,
@@ -419,20 +430,18 @@ class GitHubClient(RateLimitedAPIClient):
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=getattr(issue.reactions, "totalCount", 0),
+                    reactions_count=len(issue.get_reactions())
+                    if hasattr(issue, "get_reactions")
+                    else 0,
                 )
+                issues.append(github_issue)
 
-                github_issues.append(github_issue)
-                count += 1
+            log_operation_success("github issues fetch", repo_name=repo_name)
+            return issues
 
-            log_operation_success(
-                "github issues fetch", repo_name=repo_name, count=len(github_issues)
-            )
-            return github_issues
-
-        except GithubException as e:
+        except Exception as e:
             log_operation_failure("github issues fetch", e, repo_name=repo_name)
-            raise APIError(f"Failed to fetch issues from {repo_name}: {e}") from e
+            raise APIError(f"Failed to fetch issues for {repo_name}: {e}") from e
 
     def search_issues(
         self,
@@ -445,56 +454,62 @@ class GitHubClient(RateLimitedAPIClient):
         created_after: Optional[str] = None,
         updated_after: Optional[str] = None,
     ) -> list[GitHubIssue]:
-        """Search for issues across repositories with advanced filtering.
+        """Search for issues across repositories.
 
         Args:
             query: Search query
             state: Issue state (open, closed, all)
-            labels: Filter by labels (include)
-            language: Filter by programming language
+            labels: List of labels to include
+            language: Programming language filter
             limit: Maximum number of issues to return
-            exclude_labels: Filter by labels (exclude)
-            created_after: Filter issues created after this date (ISO format)
-            updated_after: Filter issues updated after this date (ISO format)
+            exclude_labels: List of labels to exclude
+            created_after: Filter issues created after this date
+            updated_after: Filter issues updated after this date
 
         Returns:
-            List of matching issues
+            List of GitHub issues
         """
-        log_operation_start("github issues search", query=query, state=state)
+        log_operation_start("github issues search", query=query)
 
         try:
             # Build search query
-            search_query = query
-            if state != "all":
-                search_query += f" state:{state}"
+            search_parts = [query, f"state:{state}"]
+
             if labels:
-                search_query += f" label:{','.join(labels)}"
+                for label in labels:
+                    search_parts.append(f'label:"{label}"')
+
             if language:
-                search_query += f" language:{language}"
+                search_parts.append(f"language:{language}")
 
-            issues = self.github.search_issues(search_query)
+            if created_after:
+                search_parts.append(f"created:>={created_after}")
 
-            # Convert to our data structure with additional filtering
-            github_issues = []
-            count = 0
+            if updated_after:
+                search_parts.append(f"updated:>={updated_after}")
 
-            for issue in issues:
-                if limit and count >= limit:
-                    break
+            search_query = " ".join(search_parts)
 
-                # Apply additional filters
-                if exclude_labels and any(
-                    label in exclude_labels
-                    for label in [label.name for label in issue.labels]
-                ):
-                    continue
+            # Search issues
+            search_results: Any = self.github.search_issues(
+                search_query, sort="updated", order="desc"
+            )
 
-                if created_after and issue.created_at.isoformat() < created_after:
-                    continue
+            # Apply limit
+            if limit:
+                search_results = list(search_results)[:limit]
 
-                if updated_after and issue.updated_at.isoformat() < updated_after:
-                    continue
+            # Filter out excluded labels
+            if exclude_labels:
+                search_results = [
+                    issue
+                    for issue in search_results
+                    if not any(label.name in exclude_labels for label in issue.labels)
+                ]
 
+            # Convert to our data structure
+            issues = []
+            for issue in search_results:
                 github_issue = GitHubIssue(
                     number=issue.number,
                     title=issue.title,
@@ -508,18 +523,16 @@ class GitHubClient(RateLimitedAPIClient):
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=getattr(issue.reactions, "totalCount", 0),
+                    reactions_count=len(issue.get_reactions())
+                    if hasattr(issue, "get_reactions")
+                    else 0,
                 )
+                issues.append(github_issue)
 
-                github_issues.append(github_issue)
-                count += 1
+            log_operation_success("github issues search", query=query)
+            return issues
 
-            log_operation_success(
-                "github issues search", query=query, count=len(github_issues)
-            )
-            return github_issues
-
-        except GithubException as e:
+        except Exception as e:
             log_operation_failure("github issues search", e, query=query)
             raise APIError(f"Failed to search issues: {e}") from e
 
@@ -536,105 +549,119 @@ class GitHubClient(RateLimitedAPIClient):
         created_after: Optional[str] = None,
         updated_after: Optional[str] = None,
     ) -> dict[str, list[GitHubIssue]]:
-        """Get issues from multiple repositories with advanced filtering.
+        """Get issues for multiple repositories.
 
         Args:
-            repositories: List of repository names (owner/repo)
+            repositories: List of repository names
             state: Issue state (open, closed, all)
-            labels: Filter by labels (include)
-            exclude_labels: Filter by labels (exclude)
-            assignee: Filter by assignee
-            milestone: Filter by milestone
-            limit_per_repo: Maximum number of issues per repository
-            total_limit: Maximum total number of issues across all repositories
-            created_after: Filter issues created after this date (ISO format)
-            updated_after: Filter issues updated after this date (ISO format)
+            labels: List of labels to include
+            exclude_labels: List of labels to exclude
+            assignee: Assignee filter
+            milestone: Milestone filter
+            limit_per_repo: Maximum issues per repository
+            total_limit: Maximum total issues across all repositories
+            created_after: Filter issues created after this date
+            updated_after: Filter issues updated after this date
 
         Returns:
             Dictionary mapping repository names to lists of issues
         """
         log_operation_start(
-            "github issues fetch multiple repos",
-            repositories=repositories,
-            state=state,
+            "github multi-repo issues fetch", repo_count=len(repositories)
         )
 
         try:
             all_issues: dict[str, list[GitHubIssue]] = {}
-            total_count = 0
+            total_issues = 0
 
             for repo_name in repositories:
-                if total_limit and total_count >= total_limit:
-                    break
-
                 try:
                     repo_issues = self.get_issues(
                         repo_name=repo_name,
                         state=state,
                         labels=labels,
-                        exclude_labels=exclude_labels,
                         assignee=assignee,
                         milestone=milestone,
                         limit=limit_per_repo,
+                        exclude_labels=exclude_labels,
                         created_after=created_after,
                         updated_after=updated_after,
                     )
 
                     all_issues[repo_name] = repo_issues
-                    total_count += len(repo_issues)
+                    total_issues += len(repo_issues)
+
+                    # Check total limit
+                    if total_limit and total_issues >= total_limit:
+                        break
 
                 except Exception as e:
                     # Log error but continue with other repositories
-                    self.logger.warning(f"Failed to fetch issues from {repo_name}: {e}")
+                    self.logger.warning(f"Failed to fetch issues for {repo_name}: {e}")
                     all_issues[repo_name] = []
 
             log_operation_success(
-                "github issues fetch multiple repos",
-                repositories=repositories,
-                total_count=total_count,
+                "github multi-repo issues fetch", repo_count=len(repositories)
             )
             return all_issues
 
         except Exception as e:
-            log_operation_failure("github issues fetch multiple repos", e)
+            log_operation_failure(
+                "github multi-repo issues fetch", repo_count=len(repositories), error=e
+            )
             raise APIError(
-                f"Failed to fetch issues from multiple repositories: {e}"
+                f"Failed to fetch issues for multiple repositories: {e}"
             ) from e
 
     def get_rate_limit_status(self) -> dict[str, dict[str, int]]:
         """Get current rate limit status.
 
         Returns:
-            Rate limit information
+            Dictionary with rate limit information
         """
         try:
             rate_limit = self.github.get_rate_limit()
+
+            def get_reset_timestamp(reset_value: Any) -> int:
+                """Get reset timestamp, handling both datetime and int."""
+                if hasattr(reset_value, "timestamp"):
+                    return int(reset_value.timestamp())
+                elif isinstance(reset_value, (int, float)):
+                    return int(reset_value)
+                else:
+                    return 0
+
             return {
                 "core": {
-                    "limit": rate_limit.core.limit,  # type: ignore[attr-defined]
-                    "remaining": rate_limit.core.remaining,  # type: ignore[attr-defined]
-                    "reset": int(rate_limit.core.reset.timestamp()),  # type: ignore[attr-defined]
+                    "limit": rate_limit.core.limit,
+                    "remaining": rate_limit.core.remaining,
+                    "reset": get_reset_timestamp(rate_limit.core.reset),
                 },
                 "search": {
-                    "limit": rate_limit.search.limit,  # type: ignore[attr-defined]
-                    "remaining": rate_limit.search.remaining,  # type: ignore[attr-defined]
-                    "reset": int(rate_limit.search.reset.timestamp()),  # type: ignore[attr-defined]
+                    "limit": rate_limit.search.limit,
+                    "remaining": rate_limit.search.remaining,
+                    "reset": get_reset_timestamp(rate_limit.search.reset),
+                },
+                "graphql": {
+                    "limit": rate_limit.graphql.limit,
+                    "remaining": rate_limit.graphql.remaining,
+                    "reset": get_reset_timestamp(rate_limit.graphql.reset),
                 },
             }
-        except GithubException as e:
+        except Exception as e:
             raise APIError(f"Failed to get rate limit status: {e}") from e
 
     def test_connection(self) -> bool:
-        """Test GitHub API connection.
+        """Test connection to GitHub API.
 
         Returns:
             True if connection is successful
         """
         try:
-            self.github.get_rate_limit()
+            # Try to get current user to test connection
+            self.github.get_user()
             return True
-        except Exception as e:
-            self.logger.error(f"GitHub API connection test failed: {e}")
+        except Exception:
             return False
 
     def get_user_info(self) -> dict[str, Any]:
@@ -647,45 +674,57 @@ class GitHubClient(RateLimitedAPIClient):
             user = self.github.get_user()
             return {
                 "login": user.login,
+                "id": user.id,
                 "name": user.name,
                 "email": user.email,
-                "id": user.id,
-                "type": user.type,
+                "public_repos": user.public_repos,
+                "created_at": user.created_at.isoformat(),
+                "updated_at": user.updated_at.isoformat(),
             }
         except Exception as e:
-            self.logger.error(f"Failed to get user info: {e}")
             raise APIError(f"Failed to get user info: {e}") from e
 
     def get_rate_limit_info(self) -> dict[str, Any]:
-        """Get rate limit information.
+        """Get detailed rate limit information.
 
         Returns:
-            Dictionary with rate limit information
+            Dictionary with detailed rate limit information
         """
         try:
             rate_limit = self.github.get_rate_limit()
+
+            def get_reset_time(reset_value: Any) -> Optional[float]:
+                """Get reset time as timestamp, handling both datetime and int."""
+                if hasattr(reset_value, "timestamp"):
+                    timestamp_result: float = reset_value.timestamp()
+                    return timestamp_result
+                elif isinstance(reset_value, (int, float)):
+                    float_result: float = float(reset_value)
+                    return float_result
+                else:
+                    return None
+
             return {
                 "core": {
-                    "limit": rate_limit.core.limit,  # type: ignore[attr-defined]
-                    "remaining": rate_limit.core.remaining,  # type: ignore[attr-defined]
-                    "reset": (
-                        int(rate_limit.core.reset.timestamp())  # type: ignore[attr-defined]
-                        if hasattr(rate_limit.core.reset, "timestamp")  # type: ignore[attr-defined]
-                        else rate_limit.core.reset  # type: ignore[attr-defined]
-                    ),
+                    "limit": rate_limit.core.limit,
+                    "remaining": rate_limit.core.remaining,
+                    "reset": rate_limit.core.reset,
+                    "reset_time": get_reset_time(rate_limit.core.reset),
                 },
                 "search": {
-                    "limit": rate_limit.search.limit,  # type: ignore[attr-defined]
-                    "remaining": rate_limit.search.remaining,  # type: ignore[attr-defined]
-                    "reset": (
-                        int(rate_limit.search.reset.timestamp())  # type: ignore[attr-defined]
-                        if hasattr(rate_limit.search.reset, "timestamp")  # type: ignore[attr-defined]
-                        else rate_limit.search.reset  # type: ignore[attr-defined]
-                    ),
+                    "limit": rate_limit.search.limit,
+                    "remaining": rate_limit.search.remaining,
+                    "reset": rate_limit.search.reset,
+                    "reset_time": get_reset_time(rate_limit.search.reset),
+                },
+                "graphql": {
+                    "limit": rate_limit.graphql.limit,
+                    "remaining": rate_limit.graphql.remaining,
+                    "reset": rate_limit.graphql.reset,
+                    "reset_time": get_reset_time(rate_limit.graphql.reset),
                 },
             }
         except Exception as e:
-            self.logger.error(f"Failed to get rate limit info: {e}")
             raise APIError(f"Failed to get rate limit info: {e}") from e
 
 
@@ -694,6 +733,9 @@ def create_github_client(
     username: Optional[str] = None,
     password: Optional[str] = None,
     base_url: str = "https://api.github.com",
+    timeout: int = 30,
+    connect_timeout: Optional[int] = None,
+    read_timeout: Optional[int] = None,
 ) -> GitHubClient:
     """Create a GitHub client instance.
 
@@ -702,13 +744,19 @@ def create_github_client(
         username: GitHub username
         password: GitHub password
         base_url: GitHub API base URL
+        timeout: Request timeout in seconds
+        connect_timeout: Connection timeout in seconds
+        read_timeout: Read timeout in seconds
 
     Returns:
-        Configured GitHub client
+        Configured GitHub client instance
     """
     return GitHubClient(
         token=token,
         username=username,
         password=password,
         base_url=base_url,
+        timeout=timeout,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
     )

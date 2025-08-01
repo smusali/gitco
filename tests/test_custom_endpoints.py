@@ -1,6 +1,5 @@
 """Tests for custom LLM endpoint functionality."""
 
-from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -42,8 +41,7 @@ class TestCustomEndpoints:
 
         assert analyzer._get_api_name() == "My_Custom_Llm"
 
-    @patch("requests.post")
-    def test_custom_analyzer_openai_format_response(self, mock_post: Any) -> None:
+    def test_custom_analyzer_openai_format_response(self) -> None:
         """Test CustomAnalyzer handles OpenAI-compatible response format."""
         # Mock successful response
         mock_response = Mock()
@@ -51,7 +49,6 @@ class TestCustomEndpoints:
             "choices": [{"message": {"content": "Test analysis result"}}]
         }
         mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
 
         analyzer = CustomAnalyzer(
             api_key="test-key",
@@ -59,11 +56,12 @@ class TestCustomEndpoints:
             provider_name="test_provider",
         )
 
-        result = analyzer._call_llm_api("test prompt", "test system")
-        assert result == "Test analysis result"
+        # Mock the session's post method
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            result = analyzer._call_llm_api("test prompt", "test system")
+            assert result == "Test analysis result"
 
-    @patch("requests.post")
-    def test_custom_analyzer_anthropic_format_response(self, mock_post: Any) -> None:
+    def test_custom_analyzer_anthropic_format_response(self) -> None:
         """Test CustomAnalyzer handles Anthropic-compatible response format."""
         # Mock successful response
         mock_response = Mock()
@@ -71,7 +69,6 @@ class TestCustomEndpoints:
             "content": [{"text": "Test analysis result"}]
         }
         mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
 
         analyzer = CustomAnalyzer(
             api_key="test-key",
@@ -79,17 +76,17 @@ class TestCustomEndpoints:
             provider_name="test_provider",
         )
 
-        result = analyzer._call_llm_api("test prompt", "test system")
-        assert result == "Test analysis result"
+        # Mock the session's post method
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            result = analyzer._call_llm_api("test prompt", "test system")
+            assert result == "Test analysis result"
 
-    @patch("requests.post")
-    def test_custom_analyzer_simple_text_response(self, mock_post: Any) -> None:
+    def test_custom_analyzer_simple_text_response(self) -> None:
         """Test CustomAnalyzer handles simple text response format."""
         # Mock successful response
         mock_response = Mock()
         mock_response.json.return_value = {"text": "Test analysis result"}
         mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
 
         analyzer = CustomAnalyzer(
             api_key="test-key",
@@ -97,8 +94,10 @@ class TestCustomEndpoints:
             provider_name="test_provider",
         )
 
-        result = analyzer._call_llm_api("test prompt", "test system")
-        assert result == "Test analysis result"
+        # Mock the session's post method
+        with patch.object(analyzer.session, "post", return_value=mock_response):
+            result = analyzer._call_llm_api("test prompt", "test system")
+            assert result == "Test analysis result"
 
     def test_settings_custom_endpoints_validation(self) -> None:
         """Test Settings validation for custom endpoints."""
@@ -157,7 +156,7 @@ class TestCustomEndpoints:
 
         with pytest.raises(
             ValueError,
-            match="Custom LLM provider requires custom endpoints configuration",
+            match="Unsupported LLM provider: custom",
         ):
             analyzer.get_analyzer("custom")
 

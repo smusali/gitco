@@ -31,6 +31,42 @@ class APIError(GitCoError):
     pass
 
 
+class NetworkTimeoutError(APIError):
+    """Raised when a network operation times out."""
+
+    def __init__(self, message: str, timeout_seconds: float, operation: str = ""):
+        """Initialize network timeout error.
+
+        Args:
+            message: Error message
+            timeout_seconds: Timeout duration in seconds
+            operation: Name of the operation that timed out
+        """
+        self.timeout_seconds = timeout_seconds
+        self.operation = operation
+        super().__init__(
+            f"{message} (timeout: {timeout_seconds}s, operation: {operation})"
+        )
+
+
+class ConnectionTimeoutError(NetworkTimeoutError):
+    """Raised when connection establishment times out."""
+
+    pass
+
+
+class ReadTimeoutError(NetworkTimeoutError):
+    """Raised when reading from network connection times out."""
+
+    pass
+
+
+class RequestTimeoutError(NetworkTimeoutError):
+    """Raised when HTTP request times out."""
+
+    pass
+
+
 class GitHubRateLimitExceeded(APIError):
     """Raised when GitHub API rate limit is exceeded."""
 
@@ -85,6 +121,10 @@ __all__ = [
     "GitOperationError",
     "ValidationError",
     "APIError",
+    "NetworkTimeoutError",
+    "ConnectionTimeoutError",
+    "ReadTimeoutError",
+    "RequestTimeoutError",
     "GitHubRateLimitExceeded",
     "GitHubAuthenticationError",
     "ContributionTrackerError",

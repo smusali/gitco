@@ -1762,13 +1762,13 @@ class GitRepository:
                 cwd=working_dir,
                 capture_output=capture_output,
                 text=text,
-                timeout=30,  # 30 second timeout
+                timeout=60,  # 60 second timeout for git operations
             )
 
             return result
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             raise GitOperationError(
-                f"Git command timed out: {' '.join(args)}"
+                f"Git command timed out after {e.timeout}s: {' '.join(args)}"
             ) from None
         except Exception as e:
             raise GitOperationError(

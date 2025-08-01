@@ -777,13 +777,16 @@ class TestChangeAnalyzer:
         with patch("gitco.analyzer.OpenAIAnalyzer") as mock_openai_analyzer:
             mock_analyzer_instance = Mock()
             mock_analyzer_instance.analyze_changes.return_value = ChangeAnalysis(
-                summary="Test analysis",
+                summary="Test analysis for commit abc123",
                 breaking_changes=[],
                 new_features=[],
                 bug_fixes=[],
                 security_updates=[],
                 deprecations=[],
-                recommendations=[],
+                recommendations=[
+                    "Review changes in file1.py:10",
+                    "Test the new functionality",
+                ],
                 confidence=0.8,
             )
             mock_openai_analyzer.return_value = mock_analyzer_instance
@@ -842,9 +845,9 @@ class TestChangeAnalyzer:
         assert result["repository"] == "test-repo"
         assert result["total_commits"] == 3
         assert result["has_changes"] is True
-        assert result["commit_types"]["feature"] == 1
-        assert result["commit_types"]["fix"] == 1
-        assert result["commit_types"]["docs"] == 1
+        assert result["categories"]["feature"] == 1
+        assert result["categories"]["fix"] == 1
+        assert result["categories"]["docs"] == 1
 
     def test_categorize_commits(self) -> None:
         """Test commit categorization."""

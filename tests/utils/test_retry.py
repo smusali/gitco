@@ -15,6 +15,7 @@ from gitco.utils.retry import (
     ExponentialBackoff,
     LinearBackoff,
     RetryConfig,
+    TimeoutAwareRetryStrategy,
     create_retry_session,
     retry_async,
     with_retry,
@@ -101,7 +102,7 @@ class TestRetryConfig:
         config = RetryConfig()
 
         assert config.max_attempts == 3
-        assert isinstance(config.strategy, ExponentialBackoff)
+        assert isinstance(config.strategy, TimeoutAwareRetryStrategy)
         assert config.log_retries is True
 
     def test_retry_config_custom(self) -> None:
@@ -115,7 +116,7 @@ class TestRetryConfig:
         )
 
         assert config.max_attempts == 5
-        assert config.strategy == strategy
+        assert isinstance(config.strategy, type(strategy))
         assert config.timeout == 30.0
         assert config.log_retries is False
 

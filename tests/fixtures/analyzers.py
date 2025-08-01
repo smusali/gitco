@@ -63,6 +63,7 @@ def mock_analysis_request(
     mock_repo.name = repository_name
     mock_repo.fork = repository_fork
     mock_repo.upstream = repository_upstream
+    mock_repo.local_path = f"/path/to/{repository_name}"
     mock_repo.skills = repository_skills
 
     mock_git_repo = Mock(spec=GitRepository)

@@ -85,6 +85,20 @@ def mock_config(
     mock_config.settings.llm_openai_api_url = None
     mock_config.settings.llm_anthropic_api_url = None
     mock_config.settings.llm_custom_endpoints = {}
+    # Add missing LLM settings
+    mock_config.settings.llm_api_keys = {}
+    mock_config.settings.llm_models = {}
+    mock_config.settings.llm_base_urls = {}
+    mock_config.settings.llm_timeouts = {}
+    mock_config.settings.llm_connect_timeouts = {}
+    mock_config.settings.llm_read_timeouts = {}
+    # Add custom endpoints configuration
+    mock_config.settings.llm_custom_endpoints = {
+        "my_custom_llm": {
+            "endpoint_url": "https://api.custom.com/v1/chat/completions",
+            "api_key": "custom_api_key",
+        }
+    }
 
     return mock_config
 

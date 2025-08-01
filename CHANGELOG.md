@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Improved error handling for network timeouts with specific timeout exception classes**
+- **Enhanced timeout detection with ConnectionTimeoutError, ReadTimeoutError, and RequestTimeoutError**
+- **Timeout-aware retry strategies with adaptive delay calculations for timeout errors**
+- **Better timeout error messages with operation context and duration information**
+- **Improved GitHub client timeout handling with separate connect and read timeouts**
+- **Enhanced LLM analyzer timeout handling with provider-specific timeout configurations**
+- **Better git operation timeout handling with increased timeout duration and detailed error messages**
+- **Timeout-aware retry configuration with TIMEOUT_AWARE_RETRY_CONFIG**
+- **Improved network error recovery with timeout-specific retry strategies**
+- **Enhanced timeout logging with detailed error type and retry attempt information**
+
 ### Added
 - **Batch processing performance optimizations with system resource monitoring**
 - **Optimal batch size calculation based on available memory and CPU cores**
