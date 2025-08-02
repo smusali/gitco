@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - feat: setup automated PyPI package building and publishing
+- feat: add pre-upload testing and validation pipeline
 - feat: add shell completion for bash and zsh
 - feat: add support for custom LLM endpoints
 - feat: implement cost optimization for LLM usage

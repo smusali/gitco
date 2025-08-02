@@ -17,6 +17,8 @@ include gitco-config.yml
 
 # Include JSON files
 include *.json
+# Exclude generated security reports
+global-exclude *-report.json
 
 # Include CI/CD and development files
 include *.yaml

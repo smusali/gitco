@@ -210,4 +210,7 @@ __marimo__/
 # Detect-secrets baseline file
 .secrets.baseline
 
+# Security scan reports
+*-report.json
+
 .DS_Store
