@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Chore
 - chore: setup automated changelog generation
+- chore: configure automated GitHub releases
 
 ### Fixed
 - fix: improve error handling for network timeouts
@@ -61,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - docs: add comprehensive usage examples and tutorials
 - docs: add CONTRIBUTING.md and CODE_OF_CONDUCT.md
+- docs: add automated releases documentation
 
 ### Testing
 - test: add tests for status and reporting functionality

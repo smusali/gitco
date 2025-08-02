@@ -15,6 +15,9 @@ include pyproject.toml
 include MANIFEST.in
 include gitco-config.yml
 
+# Include JSON files
+include *.json
+
 # Include CI/CD and development files
 include *.yaml
 include *.yml
@@ -27,6 +30,9 @@ recursive-include docs *.md *.rst *.txt
 
 # Include test files
 recursive-include tests *.py *.yml *.yaml *.json
+
+# Include scripts
+recursive-include scripts *.sh
 
 # Include type hints
 recursive-include src *.pyi

@@ -88,6 +88,7 @@ gitco activity
 - [Workflows Guide](docs/workflows.md) - User persona-based workflows
 - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
 - [FAQ](docs/faq.md) - Frequently asked questions
+- [Releases Guide](docs/releases.md) - Automated release process and management
 
 ## 🤝 Contributing
 
