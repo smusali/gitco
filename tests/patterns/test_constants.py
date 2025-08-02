@@ -1,6 +1,5 @@
 """Tests for pattern constants."""
 
-
 from gitco.patterns.constants import (
     API_PATTERNS,
     BREAKING_CHANGE_PATTERNS,

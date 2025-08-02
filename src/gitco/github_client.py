@@ -437,9 +437,11 @@ class GitHubClient(RateLimitedAPIClient):
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=len(issue.get_reactions())
-                    if hasattr(issue, "get_reactions")
-                    else 0,
+                    reactions_count=(
+                        len(issue.get_reactions())
+                        if hasattr(issue, "get_reactions")
+                        else 0
+                    ),
                 )
                 issues.append(github_issue)
 
@@ -530,9 +532,11 @@ class GitHubClient(RateLimitedAPIClient):
                     user=issue.user.login if issue.user else None,
                     milestone=issue.milestone.title if issue.milestone else None,
                     comments_count=issue.comments,
-                    reactions_count=len(issue.get_reactions())
-                    if hasattr(issue, "get_reactions")
-                    else 0,
+                    reactions_count=(
+                        len(issue.get_reactions())
+                        if hasattr(issue, "get_reactions")
+                        else 0
+                    ),
                 )
                 issues.append(github_issue)
 

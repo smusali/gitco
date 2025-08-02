@@ -1,6 +1,5 @@
 """Tests for shell completion utilities."""
 
-
 from gitco.templates.shell_completion import (
     CompletionConfig,
     CompletionTemplate,

@@ -1,0 +1,318 @@
+name: PyPI Package Publishing
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 1.0.0)"
+        required: true
+        type: string
+      publish_to_pypi:
+        description: "Publish to PyPI"
+        required: false
+        default: true
+        type: boolean
+      publish_to_test_pypi:
+        description: "Publish to Test PyPI"
+        required: false
+        default: true
+        type: boolean
+      dry_run:
+        description: "Dry run (build only, no publish)"
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "MANIFEST.in"
+      - "requirements.txt"
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Validate package metadata
+        run: |
+          # Check manifest completeness
+          check-manifest
+
+          # Validate pyproject.toml
+          python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"
+          echo "✅ Package metadata validation passed"
+
+      - name: Check for version conflicts
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from pyproject.toml for automatic builds
+            VERSION=$(python -c "import tomllib; \
+              print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          fi
+
+          echo "📦 Building version: $VERSION"
+
+          # Check if version already exists on PyPI
+          if pip index versions gitco | grep -q "$VERSION"; then
+            echo "⚠️  Version $VERSION already exists on PyPI"
+            if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+              echo "❌ Cannot publish duplicate version"
+              exit 1
+            fi
+          else
+            echo "✅ Version $VERSION is available for publishing"
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine check-manifest pip-audit
+
+      - name: Clean build environment
+        run: |
+          # Clean any existing builds
+          rm -rf dist/ build/ *.egg-info/
+          echo "🧹 Build environment cleaned"
+
+      - name: Build package
+        run: |
+          # Build both wheel and source distribution
+          python -m build --wheel --sdist
+
+          # List build artifacts
+          echo "📦 Build artifacts:"
+          ls -la dist/
+
+          # Show package contents
+          for file in dist/*; do
+            echo "📋 Contents of $file:"
+            if [[ $file == *.whl ]]; then
+              unzip -l "$file" | head -10
+            elif [[ $file == *.tar.gz ]]; then
+              tar -tzf "$file" | head -10
+            fi
+            echo ""
+          done
+
+      - name: Validate package security
+        run: |
+          # Check for security issues
+          pip-audit --format json --output pip-audit.json || true
+
+          # Validate package with twine
+          twine check dist/*
+
+          # Check package size
+          for file in dist/*; do
+            size=$(du -h "$file" | cut -f1)
+            echo "📦 $file: $size"
+          done
+
+      - name: Test package installation
+        run: |
+          # Test installation in clean environment
+          python -m venv test-env
+          source test-env/bin/activate
+
+          # Install from wheel
+          echo "🔧 Testing wheel installation..."
+          pip install dist/*.whl
+          python -c "import gitco; print(f'✅ Wheel installation successful: {gitco.__version__}')"
+
+          # Test CLI command
+          gitco --help
+
+          # Test source distribution
+          echo "🔧 Testing source distribution installation..."
+          pip uninstall gitco -y
+          pip install dist/*.tar.gz
+          python -c "import gitco; print(f'✅ Source distribution installation successful: {gitco.__version__}')"
+
+          # Test CLI functionality
+          gitco --help
+
+          deactivate
+          rm -rf test-env
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.dry_run != 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        if: github.event.inputs.publish_to_pypi == 'true'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
+        run: |
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "⚠️  Skipping PyPI publishing - PYPI_API_TOKEN not configured"
+            echo "To enable PyPI publishing, add PYPI_API_TOKEN secret"
+            echo "Get your token from: https://pypi.org/manage/account/token/"
+            exit 0
+          fi
+
+          echo "🚀 Publishing to PyPI..."
+
+          # Upload with retry mechanism
+          for attempt in {1..3}; do
+            echo "📤 Upload attempt $attempt/3"
+
+            if twine upload --verbose dist/*; then
+              echo "✅ Successfully published to PyPI"
+              echo "📦 Package URL: https://pypi.org/project/gitco/"
+              break
+            else
+              echo "⚠️  Upload attempt $attempt failed"
+              if [ $attempt -lt 3 ]; then
+                echo "⏳ Waiting 30 seconds before retry..."
+                sleep 30
+              else
+                echo "❌ All upload attempts failed"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Publish to Test PyPI
+        if: github.event.inputs.publish_to_test_pypi == 'true'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+        run: |
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "⚠️  Skipping Test PyPI publishing - TEST_PYPI_API_TOKEN not configured"
+            echo "To enable Test PyPI publishing, add TEST_PYPI_API_TOKEN secret"
+            echo "Get your token from: https://test.pypi.org/manage/account/token/"
+            exit 0
+          fi
+
+          echo "🧪 Publishing to Test PyPI..."
+
+          # Upload to Test PyPI with retry mechanism
+          for attempt in {1..3}; do
+            echo "📤 Test PyPI upload attempt $attempt/3"
+
+            if twine upload --repository testpypi --verbose dist/*; then
+              echo "✅ Successfully published to Test PyPI"
+              echo "🧪 Test Package URL: https://test.pypi.org/project/gitco/"
+              break
+            else
+              echo "⚠️  Test PyPI upload attempt $attempt failed"
+              if [ $attempt -lt 3 ]; then
+                echo "⏳ Waiting 30 seconds before retry..."
+                sleep 30
+              else
+                echo "❌ All Test PyPI upload attempts failed"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Verify PyPI availability
+        if: |
+          github.event.inputs.publish_to_pypi == 'true' &&
+          env.TWINE_PASSWORD != ''
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(python -c "import tomllib; \
+              print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          fi
+
+          echo "⏳ Waiting for PyPI to process upload..."
+          sleep 60
+
+          echo "🔍 Verifying package availability on PyPI..."
+
+          # Test package installation from PyPI
+          python -m venv verify-env
+          source verify-env/bin/activate
+
+          if pip install gitco==$VERSION; then
+            echo "✅ Package successfully installed from PyPI"
+            python -c "import gitco; print(f'✅ Package version {gitco.__version__} imported successfully')"
+            gitco --help
+          else
+            echo "❌ Failed to install package from PyPI"
+            exit 1
+          fi
+
+          deactivate
+          rm -rf verify-env
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [build, publish]
+    if: always()
+    steps:
+      - name: Handle success
+        if: needs.publish.result == 'success' || (needs.publish.result == 'skipped' && needs.build.result == 'success')
+        run: |
+          echo "✅ Package build and publish completed successfully"
+          echo "📦 PyPI: https://pypi.org/project/gitco/"
+          echo "🧪 Test PyPI: https://test.pypi.org/project/gitco/"
+          echo "📖 Documentation: https://github.com/41technologies/gitco#readme"
+
+      - name: Handle failure
+        if: needs.publish.result == 'failure' || needs.build.result == 'failure'
+        run: |
+          echo "❌ Package build or publish failed"
+          echo "🔍 Check the workflow logs for details"
+          echo "📧 Notify maintainers of the failure"
+
+      - name: Handle dry run
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🧪 Dry run completed - package built but not published"
+          echo "📦 Build artifacts are available for download"

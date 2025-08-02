@@ -1,6 +1,5 @@
 """Tests for prompt utilities."""
 
-
 from gitco.utils.prompts import (
     PromptConfig,
     PromptManager,

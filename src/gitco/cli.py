@@ -1016,11 +1016,13 @@ def analyze(
         if not repository:
             print_error_panel(
                 "Repository Not Found",
-                f"Repository '{repo}' not found in configuration.\n\n"
-                "Available repositories:\n"
-                + "\n".join([f"  • {r.name}" for r in config.repositories])
-                if config.repositories is not None
-                else "No repositories configured",
+                (
+                    f"Repository '{repo}' not found in configuration.\n\n"
+                    "Available repositories:\n"
+                    + "\n".join([f"  • {r.name}" for r in config.repositories])
+                    if config.repositories is not None
+                    else "No repositories configured"
+                ),
             )
             return
 
@@ -2861,9 +2863,9 @@ def validate_detailed(
             export_data = {
                 "timestamp": datetime.now().isoformat(),
                 "config_path": config_manager.config_path,
-                "repository_count": len(config.repositories)
-                if config.repositories is not None
-                else 0,
+                "repository_count": (
+                    len(config.repositories) if config.repositories is not None else 0
+                ),
                 "validation_results": {
                     "errors": [
                         {

@@ -48,7 +48,7 @@ global-exclude .git*
 global-exclude .coverage
 global-exclude htmlcov
 global-exclude .pytest_cache
-global-exclude .mypy_cache
+
 global-exclude .ruff_cache
 global-exclude build
 global-exclude dist

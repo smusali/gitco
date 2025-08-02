@@ -170,19 +170,55 @@ jobs:
           echo "✅ Package metadata validation passed"
 
       - name: Build package
-        run: python -m build
-
-      - name: Check package
         run: |
-          # Validate built package
+          # Clean any existing builds
+          rm -rf dist/ build/ *.egg-info/
+
+          # Build both wheel and source distribution
+          python -m build --wheel --sdist
+
+          # Verify build artifacts
+          ls -la dist/
+          echo "✅ Package build completed"
+
+      - name: Validate package security
+        run: |
+          # Check for security issues in the package
+          pip-audit --format json --output pip-audit.json || true
+
+          # Validate package with twine
           twine check dist/*
 
-          # Test package installation in clean environment
+          # Check package size and contents
+          for file in dist/*; do
+            echo "📦 Package: $file"
+            if [[ $file == *.whl ]]; then
+              unzip -l "$file" | head -20
+            elif [[ $file == *.tar.gz ]]; then
+              tar -tzf "$file" | head -20
+            fi
+          done
+
+      - name: Test package installation
+        run: |
+          # Test installation in clean environment
           python -m venv test-env
           source test-env/bin/activate
+
+          # Install from wheel
           pip install dist/*.whl
-          python -c "import gitco; print('✅ Package imports successfully')"
+          python -c "import gitco; print('✅ Wheel installation successful')"
+
+          # Test CLI command
+          gitco --help
+
+          # Test source distribution
+          pip uninstall gitco -y
+          pip install dist/*.tar.gz
+          python -c "import gitco; print('✅ Source distribution installation successful')"
+
           deactivate
+          rm -rf test-env
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -233,60 +269,99 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
         run: |
           if [ -z "$TWINE_PASSWORD" ]; then
             echo "⚠️  Skipping PyPI publishing - PYPI_API_TOKEN not configured"
             echo "To enable PyPI publishing, add PYPI_API_TOKEN secret"
+            echo "Get your token from: https://pypi.org/manage/account/token/"
             exit 0
           fi
 
-          # Upload to PyPI with retry mechanism
-          for i in {1..3}; do
-            if twine upload dist/*; then
+          echo "🚀 Publishing to PyPI..."
+
+          # Upload with retry mechanism and better error handling
+          for attempt in {1..3}; do
+            echo "📤 Upload attempt $attempt/3"
+
+            if twine upload --verbose dist/*; then
               echo "✅ Successfully published to PyPI"
+              echo "📦 Package URL: https://pypi.org/project/gitco/"
               break
             else
-              echo "⚠️  Upload attempt $i failed, retrying..."
-              sleep 10
+              echo "⚠️  Upload attempt $attempt failed"
+              if [ $attempt -lt 3 ]; then
+                echo "⏳ Waiting 30 seconds before retry..."
+                sleep 30
+              else
+                echo "❌ All upload attempts failed"
+                exit 1
+              fi
             fi
           done
-        continue-on-error: true
 
       - name: Publish to Test PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         run: |
           if [ -z "$TWINE_PASSWORD" ]; then
             echo "⚠️  Skipping Test PyPI publishing - TEST_PYPI_API_TOKEN not configured"
             echo "To enable Test PyPI publishing, add TEST_PYPI_API_TOKEN secret"
+            echo "Get your token from: https://test.pypi.org/manage/account/token/"
             exit 0
           fi
 
+          echo "🧪 Publishing to Test PyPI..."
+
           # Upload to Test PyPI with retry mechanism
-          for i in {1..3}; do
-            if twine upload --repository testpypi dist/*; then
+          for attempt in {1..3}; do
+            echo "📤 Test PyPI upload attempt $attempt/3"
+
+            if twine upload --repository testpypi --verbose dist/*; then
               echo "✅ Successfully published to Test PyPI"
+              echo "🧪 Test Package URL: https://test.pypi.org/project/gitco/"
               break
             else
-              echo "⚠️  Upload attempt $i failed, retrying..."
-              sleep 10
+              echo "⚠️  Test PyPI upload attempt $attempt failed"
+              if [ $attempt -lt 3 ]; then
+                echo "⏳ Waiting 30 seconds before retry..."
+                sleep 30
+              else
+                echo "❌ All Test PyPI upload attempts failed"
+                exit 1
+              fi
             fi
           done
-        continue-on-error: true
 
       - name: Verify PyPI availability
         if: env.TWINE_PASSWORD != ''
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          sleep 30  # Wait for PyPI to process upload
+          echo "⏳ Waiting for PyPI to process upload..."
+          sleep 60  # Increased wait time for PyPI processing
+
+          echo "🔍 Verifying package availability on PyPI..."
 
           # Test package installation from PyPI
           python -m venv verify-env
           source verify-env/bin/activate
-          pip install gitco==$VERSION
-          python -c "import gitco; print('✅ Package available on PyPI')"
+
+          # Try to install from PyPI
+          if pip install gitco==$VERSION; then
+            echo "✅ Package successfully installed from PyPI"
+            python -c "import gitco; print(f'✅ Package version {gitco.__version__} imported successfully')"
+          else
+            echo "❌ Failed to install package from PyPI"
+            exit 1
+          fi
+
+          # Test CLI functionality
+          gitco --help
+
           deactivate
+          rm -rf verify-env
 
       - name: Update documentation
         run: |

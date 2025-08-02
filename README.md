@@ -89,6 +89,7 @@ gitco activity
 - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
 - [FAQ](docs/faq.md) - Frequently asked questions
 - [Releases Guide](docs/releases.md) - Automated release process and management
+- [PyPI Publishing Guide](docs/pypi-publishing.md) - Automated package building and publishing
 
 ## 🤝 Contributing
 

@@ -1,6 +1,5 @@
 """Tests for completion utilities."""
 
-
 from gitco.utils.completion import (
     CompletionConfig,
     CompletionManager,
