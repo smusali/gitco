@@ -1,738 +1,905 @@
-# Usage Guide
+# GitCo Usage Guide
 
-This guide covers how to use GitCo effectively for managing your OSS forks and discovering contribution opportunities.
+This guide provides comprehensive usage examples and workflows for GitCo, covering all major features and common use cases.
 
-## Basic Commands
+## Table of Contents
 
-### Initialize Configuration
+1. [Getting Started](#getting-started)
+2. [Basic Workflows](#basic-workflows)
+3. [Repository Management](#repository-management)
+4. [Analysis and Discovery](#analysis-and-discovery)
+5. [Health Monitoring](#health-monitoring)
+6. [Contribution Tracking](#contribution-tracking)
+7. [Backup and Recovery](#backup-and-recovery)
+8. [Cost Management](#cost-management)
+9. [Automation](#automation)
+10. [Advanced Workflows](#advanced-workflows)
+11. [Troubleshooting](#troubleshooting)
 
-Start by creating a configuration file with interactive guided setup:
+---
 
-```bash
-# Interactive guided setup (recommended)
-gitco init --interactive
+## Getting Started
 
-# Non-interactive setup with defaults
-gitco init
+### Initial Setup
 
-# Force overwrite existing configuration
-gitco init --force
+1. **Install GitCo:**
+   ```bash
+   pip install gitco
+   ```
 
-# Use custom template
-gitco init --template custom.yml
+2. **Initialize Configuration:**
+   ```bash
+   gitco init --interactive
+   ```
+
+3. **Set Environment Variables:**
+   ```bash
+   export OPENAI_API_KEY="your-openai-api-key"
+   export GITHUB_TOKEN="your-github-token"
+   ```
+
+4. **Verify Setup:**
+   ```bash
+   gitco config validate
+   gitco github test-connection
+   ```
+
+### Basic Configuration
+
+Create a minimal configuration file at `~/.gitco/config.yml`:
+
+```yaml
+repositories:
+  - name: django
+    fork: username/django
+    upstream: django/django
+    local_path: ~/code/django
+    skills: [python, web, orm]
+
+settings:
+  llm_provider: openai
+  default_path: ~/code
+  analysis_enabled: true
 ```
 
-This creates a `~/.gitco/config.yml` file in your home directory with guided setup options.
+---
 
-**Interactive Setup Features:**
-- **Repository Configuration**: Add repositories with validation and skill matching
-- **LLM Provider Setup**: Configure OpenAI, Anthropic integration
-- **GitHub Integration**: Set up authentication with tokens or username/password
-- **General Settings**: Configure default paths and batch processing options
-- **Configuration Summary**: Review all settings before saving
-- **Validation**: Automatic validation of repository formats and paths
+## Basic Workflows
 
-### Sync Repositories
+### Daily Repository Sync
 
-Synchronize your repositories with upstream changes:
-
+**Sync all repositories:**
 ```bash
-# Sync all repositories
 gitco sync
+```
 
-# Sync specific repository
+**Sync specific repository:**
+```bash
 gitco sync --repo django
+```
 
-# Sync with detailed analysis
+**Sync with analysis:**
+```bash
 gitco sync --analyze
-
-# Sync with export report
-gitco sync --export report.json
 ```
 
-**Error Recovery Features:**
-
-GitCo includes comprehensive retry mechanisms for network operations:
-
-- **Automatic Retry**: Network operations are automatically retried with configurable strategies
-- **Exponential Backoff**: Smart retry delays that increase exponentially to prevent overwhelming servers
-- **Jitter Support**: Random delay variations to prevent thundering herd problems
-- **Recoverable Errors**: Detects and retries on timeouts, rate limits, connection issues, and server errors
-- **Progress Tracking**: Shows retry attempts in progress bars and final summaries
-- **Enhanced Reporting**: Displays retry information in success/failure messages
-
-**Retry Strategies:**
-- **Default**: 3 attempts with exponential backoff (1s, 2s, 4s)
-- **Aggressive**: 5 attempts with faster backoff (0.5s, 1s, 2s, 4s, 8s)
-- **Conservative**: 2 attempts with linear backoff (2s, 4s)
-
-Example output with retry information:
-```
-✅ django: Sync completed (retry: 2)
-❌ fastapi: Failed to fetch upstream (retry: 3)
-```
-
-**Recoverable Error Types:**
-- Network timeouts and connection failures
-- Rate limiting and "too many requests" errors
-- Server errors (5xx status codes)
-- Temporary network issues
-- Connection timeouts and DNS failures
-
-### Analyze Changes
-
-Get AI-powered analysis of upstream changes:
-
+**Batch sync with export:**
 ```bash
-# Analyze specific repository
-gitco analyze --repo fastapi
-
-# Analyze with custom prompt
-gitco analyze --repo django --prompt "Focus on security changes"
-
-# Analyze with specific LLM provider
-gitco analyze --repo django --provider anthropic
-
-# Analyze multiple repositories
-gitco analyze --repos django,fastapi,requests
+gitco sync --batch --export sync-report.json
 ```
 
-### Discover Opportunities
+### Repository Health Check
 
-### Shell Completion
-
-GitCo provides comprehensive shell completion support for both bash and zsh, making command-line usage more efficient and user-friendly.
-
-#### Installation
-
-**Generate Completion Scripts:**
-
+**Check all repositories:**
 ```bash
-# Generate bash completion script
-gitco completion --shell bash --output ~/.bash_completion.d/gitco
-
-# Generate zsh completion script
-gitco completion --shell zsh --output ~/.zsh/completions/_gitco
-
-# Install completion scripts automatically
-gitco completion --shell bash --install
-gitco completion --shell zsh --install
-```
-
-**Shell Setup:**
-
-**Bash:** Add this line to your `~/.bashrc`:
-```bash
-source ~/.bash_completion.d/gitco
-```
-
-**Zsh:** Add these lines to your `~/.zshrc`:
-```bash
-autoload -U compinit
-compinit
-```
-
-#### Completion Features
-
-**Command Completion:**
-- All GitCo commands and subcommands
-- All command-line flags and options
-- Context-aware completion based on current command
-
-**Dynamic Data Completion:**
-- **Repository names** for `--repo` options (loaded from configuration)
-- **Skill names** for `--skill` options (extracted from repository skills)
-- **Label names** for `--label` options (common GitHub labels)
-- **Provider names** for `--provider` options (openai, anthropic)
-- **Format names** for `--format` options (json, csv)
-- **Backup types** for `--type` options (full, incremental, config-only)
-- **Strategy names** for `--strategy` options (ours, theirs, manual)
-- **State names** for `--state` options (open, closed, all)
-- **Filter names** for `--filter` options (healthy, needs_attention, critical)
-- **Sort names** for `--sort` options (health, activity, stars, forks, engagement, commits, contributors)
-- **Activity levels** for activity filtering (high, moderate, low)
-
-#### Example Usage
-
-```bash
-# Tab completion for commands
-gitco <TAB>
-# Shows: init sync analyze discover status activity logs performance help config upstream validate-repo github contributions backup cost completion
-
-# Tab completion for subcommands
-gitco config <TAB>
-# Shows: validate config-status validate-detailed
-
-# Tab completion for repository names
-gitco sync --repo <TAB>
-# Shows repository names from your configuration
-
-# Tab completion for skills
-gitco discover --skill <TAB>
-# Shows skill names from your configuration
-
-# Tab completion for labels
-gitco discover --label <TAB>
-# Shows common GitHub labels
-
-# Tab completion for providers
-gitco analyze --provider <TAB>
-# Shows: openai anthropic
-```
-
-#### Cross-Platform Support
-
-- **Bash completion** works on Linux, macOS, and Windows (with bash)
-- **Zsh completion** works on macOS and Linux with zsh
-- **Automatic installation** to standard shell directories
-- **Error handling** for completion script generation and installation
-
-Find contribution opportunities across your repositories:
-
-```bash
-# Find all opportunities
-gitco discover
-
-# Find by skill
-gitco discover --skill python
-
-# Find by label
-gitco discover --label "good first issue"
-
-# Find by skill and label
-gitco discover --skill python --label "help wanted"
-```
-
-### Check Status
-
-View the status of your repositories:
-
-```bash
-# Show all repository statuses
 gitco status
+```
 
-# Show repository overview dashboard
+**Detailed health report:**
+```bash
+gitco status --detailed
+```
+
+**Overview dashboard:**
+```bash
 gitco status --overview
-
-# Filter repositories by health status
-gitco status --overview --filter healthy
-gitco status --overview --filter needs_attention
-gitco status --overview --filter critical
-
-# Sort repositories by metrics
-gitco status --overview --sort health
-gitco status --overview --sort activity
-gitco status --overview --sort stars
-gitco status --overview --sort forks
-gitco status --overview --sort engagement
-
-# Show detailed status information
-gitco status --detailed
-
-# Export status data
-gitco status --export status.json
 ```
 
-**Status Features:**
-
-- **Overview Dashboard**: Comprehensive table view with health, sync, activity, and engagement metrics
-- **Health Filtering**: Filter repositories by health status (healthy, needs_attention, critical)
-- **Metric Sorting**: Sort by health score, activity, stars, forks, or engagement
-- **Visual Indicators**: Emoji-based status indicators for quick visual assessment
-- **Activity Bars**: Visual representation of recent commit activity
-- **Summary Panels**: Key metrics displayed in organized panels
-- **Alert System**: Automatic alerts for repositories needing attention
-
-### Rate Limiting
-
-GitCo includes comprehensive rate limiting for all API calls to prevent hitting API limits:
-
+**Filter by health status:**
 ```bash
-# Check rate limiting status for all providers
-gitco github rate-limit-status
-
-# Check status for specific provider
-gitco github rate-limit-status --provider github
-gitco github rate-limit-status --provider openai
-gitco github rate-limit-status --provider anthropic
-
-# Show detailed rate limiting information
-gitco github rate-limit-status --detailed
+gitco status --filter healthy
+gitco status --filter needs_attention
+gitco status --filter critical
 ```
 
-**Rate Limiting Features:**
+### Activity Monitoring
 
-- **Automatic Rate Limiting**: Built-in rate limiting for GitHub, OpenAI, and Anthropic APIs
-- **Provider-Specific Limits**: Different rate limits for each API provider
-- **Smart Retry Logic**: Automatic retry with exponential backoff for rate limit errors
-- **Real-time Monitoring**: Track requests per minute and hour
-- **Header Parsing**: Parse rate limit headers from API responses
-- **Graceful Handling**: Wait for rate limit resets when exceeded
-
-**Rate Limits by Provider:**
-
-- **GitHub**: 30 requests/minute, 5000 requests/hour
-- **OpenAI**: 60 requests/minute, 1000 requests/hour
-- **Anthropic**: 60 requests/minute, 1000 requests/hour
-- **Default**: 60 requests/minute, 1000 requests/hour
-
-# Show specific repository
-gitco status --repo django
-
-# Show detailed status
-gitco status --detailed
-
-### Activity Dashboard
-
-View detailed activity metrics for your repositories:
-
+**View activity dashboard:**
 ```bash
-# Show activity dashboard for all repositories
 gitco activity
+```
 
-# Show activity for specific repository
-gitco activity --repo django
+**Detailed activity for specific repository:**
+```bash
+gitco activity --repo django --detailed
+```
 
-# Show detailed activity information
-gitco activity --detailed
-
-# Filter repositories by activity level
+**Filter by activity level:**
+```bash
 gitco activity --filter high
 gitco activity --filter moderate
 gitco activity --filter low
-
-# Sort repositories by activity metrics
-gitco activity --sort activity
-gitco activity --sort engagement
-gitco activity --sort commits
-gitco activity --sort contributors
-
-# Show activity dashboard via status command
-gitco status --activity
-gitco status --activity --detailed
 ```
 
-**Activity Dashboard Features:**
+---
 
-- **Commit Activity**: Track commits across different time periods (24h, 7d, 30d, 90d)
-- **Contributor Analysis**: Monitor active contributors and total contributor counts
-- **Issue & PR Tracking**: Track new and closed issues, open PRs, and engagement metrics
-- **Activity Health**: Overall activity health assessment with scoring
-- **Engagement Metrics**: Activity and engagement scoring with trend analysis
-- **Activity Patterns**: Most active hours and days with temporal analysis
-- **Trending Metrics**: Stars, forks, and views growth tracking
-- **Activity Levels**: Classification of repositories by activity level (high, moderate, low)
-- **Engagement Levels**: Distribution of repositories by engagement level
-- **Trending Repositories**: Identification and display of trending repositories
-- **Most Active Repositories**: Display of repositories with highest activity
-- **Rich Visualization**: Comprehensive tables with detailed metrics and health panels
+## Repository Management
 
-### Validate Repositories
+### Adding New Repositories
 
-Validate Git repositories and check their status:
+**Manual addition to config:**
+```yaml
+repositories:
+  - name: new-project
+    fork: username/new-project
+    upstream: owner/new-project
+    local_path: ~/code/new-project
+    skills: [python, api, testing]
+    analysis_enabled: true
+    sync_frequency: daily
+    language: python
+```
 
+**Validate new repository:**
 ```bash
-# Validate current directory
+gitco validate-repo --path ~/code/new-project
+```
+
+### Upstream Management
+
+**Add upstream remote:**
+```bash
+gitco upstream add --repo django --url https://github.com/django/django.git
+```
+
+**Fetch from upstream:**
+```bash
+gitco upstream fetch --repo django
+```
+
+**Merge upstream changes:**
+```bash
+gitco upstream merge --repo django
+```
+
+**Resolve conflicts:**
+```bash
+gitco upstream merge --repo django --resolve --strategy ours
+```
+
+**Validate upstream configuration:**
+```bash
+gitco upstream validate --repo django
+```
+
+### Repository Validation
+
+**Validate current directory:**
+```bash
 gitco validate-repo
+```
 
-# Validate specific path
+**Validate specific path:**
+```bash
 gitco validate-repo --path ~/code/django
+```
 
-# Find all repositories recursively
-gitco validate-repo --recursive
+**Recursive validation:**
+```bash
+gitco validate-repo --path ~/code --recursive
+```
 
-# Get detailed repository information
+**Detailed validation:**
+```bash
 gitco validate-repo --detailed
-
-# Combine recursive search with detailed info
-gitco validate-repo --recursive --detailed
 ```
 
-### Safe Stashing and Change Management
+---
 
-GitCo provides comprehensive stashing functionality to safely handle local changes during operations. This ensures your work is never lost during sync operations.
+## Analysis and Discovery
 
-#### Automatic Stashing
+### Change Analysis
 
-GitCo automatically detects and handles uncommitted changes:
-
+**Analyze repository changes:**
 ```bash
-# GitCo automatically stashes changes before sync operations
-gitco sync --repo django
-
-# Check if a repository has uncommitted changes
-gitco validate-repo --path ~/code/django
+gitco analyze --repo django
 ```
 
-#### How Automatic Stashing Works
-
-1. **Detection**: Before any sync operation, GitCo checks for uncommitted changes
-2. **Stashing**: If changes exist, they are automatically stashed with a descriptive message
-3. **Operation**: The sync operation proceeds with a clean working directory
-4. **Restoration**: After successful completion, stashed changes are automatically restored
-5. **Recovery**: If the operation fails, GitCo attempts to restore the stash
-
-#### Stash Management
-
-While GitCo handles stashing automatically, you can manage stashes manually if needed:
-
+**Analyze with custom prompt:**
 ```bash
-# The system provides stash management through the GitRepository class
-# Stashes are created with descriptive messages like "GitCo: Auto-stash before sync"
-# Stash references are tracked and restored automatically
+gitco analyze --repo django --prompt "Focus on security implications"
 ```
 
-#### Key Features
-
-- **Automatic Detection**: Detects uncommitted changes before any operation
-- **Safe Stashing**: Creates stashes with descriptive messages for easy identification
-- **Automatic Restoration**: Restores stashed changes after successful operations
-- **Error Recovery**: Attempts to restore stashes even if operations fail
-- **Stash Management**: Provides tools to list, apply, and drop stashes when needed
-
-#### Best Practices
-
-1. **Trust the automation**: GitCo's stashing is designed to be safe and reliable
-2. **Check before operations**: Use `gitco validate-repo` to see repository status
-3. **Review stashes**: If needed, use standard git commands to review stashes
-4. **Backup important work**: Always commit important changes before major operations
-
-## Advanced Usage
-
-### Batch Operations
-
-Process multiple repositories efficiently:
-
+**Analyze with specific provider:**
 ```bash
-# Sync all repositories in batch
-gitco sync --batch
+gitco analyze --repo django --provider anthropic
+```
 
-# Analyze all repositories
-gitco analyze --batch
+**Analyze multiple repositories:**
+```bash
+gitco analyze --repos "django,fastapi,requests"
+```
 
-# Discover across all repositories
-gitco discover --batch
-
-# Filter by skill
-gitco discover --skill python
-
-# Filter by label
-gitco discover --label "good first issue"
-
-# Set minimum confidence score
-gitco discover --min-confidence 0.5
-
-# Limit results
-gitco discover --limit 10
-
-# Export discovery results
-gitco discover --export opportunities.json
+**Export analysis results:**
+```bash
+gitco analyze --repo django --export analysis.json
 ```
 
 ### Contribution Discovery
 
-GitCo provides intelligent contribution opportunity discovery using skill-based matching algorithms. The discovery system analyzes GitHub issues across your configured repositories and matches them to your skills and interests.
+**Discover all opportunities:**
+```bash
+gitco discover
+```
 
-#### Skill-Based Matching
-
-The discovery engine uses multiple matching strategies:
-
-**Exact Matches**: Direct skill matches in issue content
-- Example: "python" matches issues containing "python", "django", "flask"
-- Confidence: 1.0 (highest)
-
-**Partial Matches**: Skill-related terms and synonyms
-- Example: "javascript" matches "react", "vue", "node.js"
-- Confidence: 0.6-0.8
-
-**Related Matches**: Related technologies and frameworks
-- Example: "api" matches "rest", "graphql", "openapi"
-- Confidence: 0.4
-
-**Language Matches**: Repository language alignment
-- Example: Python skill matches Python repository
-- Confidence: 0.2-0.3
-
-#### Difficulty Detection
-
-Issues are automatically categorized by difficulty:
-
-**Beginner**: Good for newcomers
-- Labels: "good first issue", "beginner-friendly", "help wanted"
-- Content: Documentation, tutorials, simple fixes
-- Time: Quick to medium
-
-**Intermediate**: Requires some experience
-- Labels: "enhancement", "feature", "improvement"
-- Content: New features, refactoring, moderate complexity
-- Time: Medium
-
-**Advanced**: Complex changes
-- Labels: "architecture", "performance", "security"
-- Content: Major refactoring, optimization, security fixes
-- Time: Long
-
-#### Time Estimation
-
-Issues are estimated by time commitment:
-
-**Quick**: 1-2 hours
-- Typo fixes, documentation updates, simple formatting
-- Labels: "typo", "documentation", "style"
-
-**Medium**: 1-2 days
-- Feature additions, bug fixes, moderate refactoring
-- Labels: "feature", "bug", "enhancement"
-
-**Long**: 1-2 weeks
-- Major features, architecture changes, complex refactoring
-- Labels: "architecture", "major", "rewrite"
-
-#### Confidence Scoring
-
-Each recommendation includes a confidence score (0.0-1.0):
-
-- **0.9-1.0**: Perfect match with your skills
-- **0.7-0.8**: Strong match with multiple skill alignments
-- **0.5-0.6**: Good match with some skill overlap
-- **0.3-0.4**: Moderate match with related skills
-- **0.1-0.2**: Weak match, mostly language-based
-
-#### Filtering Options
-
-**Skill Filtering**: Focus on specific skills
+**Filter by skill:**
 ```bash
 gitco discover --skill python
-gitco discover --skill javascript --skill react
+gitco discover --skill javascript
 ```
 
-**Label Filtering**: Focus on specific issue types
+**Filter by label:**
 ```bash
 gitco discover --label "good first issue"
-gitco discover --label "help wanted" --label "bug"
+gitco discover --label "bug"
 ```
 
-**Confidence Threshold**: Set minimum confidence
+**Set confidence threshold:**
 ```bash
-gitco discover --min-confidence 0.7
+gitco discover --min-confidence 0.5
 ```
 
-**Result Limiting**: Control output size
+**Limit results:**
 ```bash
-gitco discover --limit 5
+gitco discover --limit 10
 ```
 
-#### Export Functionality
-
-Export discovery results for external analysis:
-
+**Personalized recommendations:**
 ```bash
-# Export to JSON
+gitco discover --personalized --show-history
+```
+
+**Export discovery results:**
+```bash
 gitco discover --export opportunities.json
-
-# Export with filtering
-gitco discover --skill python --export python-opportunities.json
 ```
 
-The exported JSON includes:
-- Issue details (title, URL, labels, description)
-- Repository information
-- Skill matches with confidence scores
-- Difficulty and time estimates
-- Overall recommendation score
+---
 
-#### Best Practices
+## Health Monitoring
 
-1. **Start Broad**: Run `gitco discover` without filters to see all opportunities
-2. **Use Skill Filters**: Focus on your strongest skills first
-3. **Check Confidence**: Higher confidence scores indicate better matches
-4. **Consider Difficulty**: Start with beginner issues if you're new to a project
-5. **Export Results**: Save interesting opportunities for later review
-6. **Combine Filters**: Use multiple filters for targeted discovery
+### Repository Health
 
-### Export and Reporting
-
-Export data for external analysis:
-
+**Basic health check:**
 ```bash
-# Export sync report
-gitco sync --export sync-report.json
-
-# Export discovery results
-gitco discover --export opportunities.csv
-
-# Export status report
-gitco status --export status-report.json
+gitco status
 ```
 
-### Automation and Quiet Mode
-
-GitCo supports automated workflows with comprehensive quiet mode functionality:
-
-**Automation Options:**
-- **Cron Jobs**: Simple scheduled execution (recommended)
-- **GitHub Actions**: Cloud-based automation
-- **Manual Systemd**: Advanced users can create service files manually
-- **Custom Scripts**: Integration with existing automation tools
-
-**Note**: GitCo does not provide built-in service installation. For automation, use cron jobs (simplest) or create systemd service files manually.
-
-#### Quiet Mode Usage
-
+**Detailed health metrics:**
 ```bash
-# Basic quiet mode - suppresses all user-facing output
-gitco sync --quiet
-
-# Quiet mode with logging to file
-gitco sync --quiet --log sync.log
-
-# Quiet mode for other commands
-gitco analyze --repo django --quiet
-gitco discover --skill python --quiet
-gitco status --quiet
-gitco contributions stats --quiet
-
-# Cron job example (sync every 6 hours)
-0 */6 * * * gitco sync --quiet --log /var/log/gitco-sync.log
+gitco status --detailed
 ```
 
-#### Quiet Mode Features
-
-**What's Suppressed:**
-- Progress bars and spinners
-- Success, error, info, and warning panels
-- Console messages and status updates
-- Repository operation details
-
-**What's Preserved:**
-- Logging functionality (when `--log` is specified)
-- Error reporting for critical issues
-- Exit codes for script integration
-- File exports and data output
-
-**Use Cases:**
-- **Cron jobs**: Automated repository synchronization
-- **CI/CD pipelines**: Integration with build systems
-- **Scripts**: Programmatic usage without user interaction
-- **Monitoring**: Background operations with log-based monitoring
-
-#### Automation Examples
-
-**Cron Job Setup:**
+**Health overview dashboard:**
 ```bash
-# Add to crontab for daily sync
-0 2 * * * gitco sync --quiet --log /var/log/gitco/daily-sync.log
-
-# Add to crontab for hourly discovery
-0 * * * * gitco discover --skill python --quiet --export /tmp/opportunities.json
+gitco status --overview
 ```
 
-**Script Integration:**
+**Filter by health status:**
 ```bash
-#!/bin/bash
-# Sync repositories and check for failures
-if gitco sync --quiet --log sync.log; then
-    echo "Sync completed successfully"
-else
-    echo "Sync failed - check sync.log for details"
-    exit 1
-fi
+gitco status --filter healthy
+gitco status --filter needs_attention
+gitco status --filter critical
 ```
 
-**CI/CD Pipeline:**
+**Sort by metrics:**
+```bash
+gitco status --sort health
+gitco status --sort activity
+gitco status --sort stars
+gitco status --sort forks
+```
+
+**Export health data:**
+```bash
+gitco status --export health-report.json
+```
+
+### Activity Monitoring
+
+**Activity dashboard:**
+```bash
+gitco activity
+```
+
+**Detailed activity metrics:**
+```bash
+gitco activity --detailed
+```
+
+**Activity for specific repository:**
+```bash
+gitco activity --repo django --detailed
+```
+
+**Filter by activity level:**
+```bash
+gitco activity --filter high
+gitco activity --filter moderate
+gitco activity --filter low
+```
+
+**Sort by activity metrics:**
+```bash
+gitco activity --sort activity
+gitco activity --sort engagement
+gitco activity --sort commits
+gitco activity --sort contributors
+```
+
+**Export activity data:**
+```bash
+gitco activity --export activity-report.json
+```
+
+---
+
+## Contribution Tracking
+
+### Sync Contribution History
+
+**Sync from GitHub:**
+```bash
+gitco contributions sync-history --username yourusername
+```
+
+**Force sync (even if recent):**
+```bash
+gitco contributions sync-history --username yourusername --force
+```
+
+### View Contribution Statistics
+
+**Basic stats:**
+```bash
+gitco contributions stats
+```
+
+**Stats for specific period:**
+```bash
+gitco contributions stats --days 30
+```
+
+**Export stats:**
+```bash
+gitco contributions stats --export stats.json
+```
+
+### Get Recommendations
+
+**Personalized recommendations:**
+```bash
+gitco contributions recommendations
+```
+
+**Filter by skill:**
+```bash
+gitco contributions recommendations --skill python
+```
+
+**Filter by repository:**
+```bash
+gitco contributions recommendations --repository django
+```
+
+**Limit recommendations:**
+```bash
+gitco contributions recommendations --limit 5
+```
+
+### Export Contribution Data
+
+**Export all contributions:**
+```bash
+gitco contributions export --output contributions.json
+```
+
+**Export recent contributions:**
+```bash
+gitco contributions export --days 30 --output recent-contributions.json
+```
+
+**Include summary statistics:**
+```bash
+gitco contributions export --output contributions.json --include-stats
+```
+
+### Trending Analysis
+
+**View trending analysis:**
+```bash
+gitco contributions trending
+```
+
+**Custom analysis period:**
+```bash
+gitco contributions trending --days 60
+```
+
+**Export trending data:**
+```bash
+gitco contributions trending --export trending.json
+```
+
+---
+
+## Backup and Recovery
+
+### Create Backups
+
+**Full backup:**
+```bash
+gitco backup create --type full --description "Monthly backup"
+```
+
+**Incremental backup:**
+```bash
+gitco backup create --type incremental --description "Daily backup"
+```
+
+**Config-only backup:**
+```bash
+gitco backup create --type config-only --description "Configuration backup"
+```
+
+**Backup specific repositories:**
+```bash
+gitco backup create --repos "django,fastapi" --description "Python repos backup"
+```
+
+**Exclude git history (smaller backup):**
+```bash
+gitco backup create --no-git-history --compression 9
+```
+
+### Manage Backups
+
+**List all backups:**
+```bash
+gitco backup list
+```
+
+**Detailed backup information:**
+```bash
+gitco backup list --detailed
+```
+
+**Validate backup:**
+```bash
+gitco backup validate --backup-id backup-2024-01-15
+```
+
+**Delete backup:**
+```bash
+gitco backup delete --backup-id backup-2024-01-15
+```
+
+**Force delete:**
+```bash
+gitco backup delete --backup-id backup-2024-01-15 --force
+```
+
+### Restore Backups
+
+**Restore from backup:**
+```bash
+gitco backup restore --backup-id backup-2024-01-15
+```
+
+**Restore to specific directory:**
+```bash
+gitco backup restore --backup-id backup-2024-01-15 --target-dir ~/restored
+```
+
+**Skip configuration restoration:**
+```bash
+gitco backup restore --backup-id backup-2024-01-15 --no-config
+```
+
+**Overwrite existing files:**
+```bash
+gitco backup restore --backup-id backup-2024-01-15 --overwrite
+```
+
+### Cleanup Old Backups
+
+**Cleanup old backups:**
+```bash
+gitco backup cleanup
+```
+
+**Keep more backups:**
+```bash
+gitco backup cleanup --keep 10
+```
+
+---
+
+## Cost Management
+
+### View Cost Summary
+
+**Basic cost summary:**
+```bash
+gitco cost summary
+```
+
+**Detailed cost breakdown:**
+```bash
+gitco cost summary --detailed
+```
+
+**Cost for specific period:**
+```bash
+gitco cost summary --days 30
+gitco cost summary --months 3
+```
+
+**Export cost data:**
+```bash
+gitco cost summary --export costs.json
+```
+
+### Configure Cost Settings
+
+**Set cost limits:**
+```bash
+gitco cost configure --daily-limit 5.0 --monthly-limit 50.0
+```
+
+**Set per-request limit:**
+```bash
+gitco cost configure --per-request-limit 0.10
+```
+
+**Set token limits:**
+```bash
+gitco cost configure --max-tokens 4000
+```
+
+**Enable/disable tracking:**
+```bash
+gitco cost configure --enable-tracking
+gitco cost configure --disable-tracking
+```
+
+**Enable/disable optimization:**
+```bash
+gitco cost configure --enable-optimization
+gitco cost configure --disable-optimization
+```
+
+### Cost Breakdown
+
+**Breakdown by model:**
+```bash
+gitco cost breakdown --model gpt-3.5-turbo
+```
+
+**Breakdown by provider:**
+```bash
+gitco cost breakdown --provider openai
+```
+
+**Custom time period:**
+```bash
+gitco cost breakdown --days 60
+```
+
+### Reset Cost History
+
+**Reset cost tracking:**
+```bash
+gitco cost reset
+```
+
+**Force reset:**
+```bash
+gitco cost reset --force
+```
+
+---
+
+## Automation
+
+### Quiet Mode Operations
+
+**Quiet sync for automation:**
+```bash
+gitco --quiet sync --batch
+```
+
+**Quiet analysis:**
+```bash
+gitco --quiet analyze --repo django
+```
+
+**Quiet status check:**
+```bash
+gitco --quiet status --filter critical
+```
+
+### Export for External Tools
+
+**Export status for monitoring:**
+```bash
+gitco status --export status.json --output-format json
+```
+
+**Export health data:**
+```bash
+gitco status --export health.csv --output-format csv
+```
+
+**Export activity data:**
+```bash
+gitco activity --export activity.json
+```
+
+### Logging for Automation
+
+**Enable detailed logging:**
+```bash
+gitco --log-file gitco.log --detailed-log sync
+```
+
+**Set log level:**
+```bash
+gitco --log-level DEBUG sync
+```
+
+**Log rotation:**
+```bash
+gitco --max-log-size 50 --log-backups 10 sync
+```
+
+### CI/CD Integration
+
+**GitHub Actions workflow:**
 ```yaml
-# GitHub Actions example
-- name: Sync repositories
-  run: |
-    gitco sync --quiet --log sync.log
-    if [ $? -ne 0 ]; then
-      echo "Sync failed - uploading logs"
-      # Upload logs for debugging
-    fi
+name: GitCo Sync
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GitCo
+        run: pip install gitco
+      - name: Sync repositories
+        run: |
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          gitco --quiet sync --batch --export sync-report.json
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-report
+          path: sync-report.json
 ```
 
-### Getting Help
+---
 
-GitCo provides comprehensive help with contextual examples and organized documentation:
+## Advanced Workflows
 
+### Multi-Repository Analysis
+
+**Analyze multiple repositories:**
 ```bash
-# Get comprehensive help with contextual examples
-gitco help
+gitco analyze --repos "django,fastapi,requests" --export analysis.json
 ```
 
-**Help Features:**
-
-**Organized Command Categories:**
-- **Setup & Configuration**: init, config validate, config status
-- **Repository Management**: sync, status, activity, validate-repo
-- **AI-Powered Analysis**: analyze, discover
-- **Contribution Tracking**: contributions sync-history, stats, recommendations, export, trending
-- **GitHub Integration**: github test-connection, get-repo, get-issues, get-issues-multi
-- **Upstream Management**: upstream add, remove, update, validate, fetch, merge
-- **Backup & Recovery**: backup create, list-backups, restore, validate-backup, delete, cleanup
-- **Cost Management**: cost summary, configure, reset, breakdown
-- **Utilities**: logs, help
-
-**Contextual Examples:**
-- **For New Users**: Guided setup, configuration validation, basic sync
-- **For Regular Maintenance**: Sync with analysis, status checks, activity monitoring
-- **For Contribution Discovery**: Skill-based filtering, label filtering, personalized recommendations
-- **For Advanced Users**: Parallel sync, specific LLM providers, trend analysis
-- **For Automation**: Quiet mode, logging, export functionality
-
-**Configuration Examples:**
-- YAML configuration file examples with syntax highlighting
-- Environment variable setup examples
-- Repository configuration with skills and settings
-
-**Common Workflows:**
-- **Daily Maintenance**: Sync with analysis, status overview, discovery
-- **Weekly Review**: Detailed activity, contribution stats, incremental backup
-- **Monthly Analysis**: Trending analysis, data export, backup cleanup
-
-**Tips and Best Practices:**
-- Start with 2-3 repositories
-- Use skills for better discovery
-- Set up automated syncs
-- Regular backups
-- Monitor repository health
-- Export data for analysis
-- Use quiet mode for automation
-- Check logs for debugging
-
-**Troubleshooting:**
-- Configuration validation
-- Git conflict resolution
-- API rate limit handling
-- LLM error resolution
-- Command-specific help
-- Configuration status checks
-- GitHub connectivity testing
-- Repository validation
-
-**Comprehensive Documentation:**
-- [Tutorials Guide](tutorials.md) - Step-by-step tutorials and examples
-- [Examples Guide](examples.md) - Real-world scenarios and code snippets
-- [Workflows Guide](workflows.md) - User persona-based workflows
-- [Configuration Guide](configuration.md) - Detailed configuration options
-- [Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
-
-**Note**: GitCo is a CLI tool that provides repository management, AI analysis, and contribution discovery. It does not include built-in service installation or enterprise features. The documentation includes examples of how to integrate GitCo with external automation tools.
-
-## Command Reference
-
-### `gitco init`
-
-Initialize a new GitCo configuration.
-
-**Options:**
-- `--force`: Overwrite existing configuration
-- `--template`: Use custom template
-
-**Examples:**
+**Batch sync with analysis:**
 ```bash
-gitco init
-gitco init --force
+gitco sync --batch --analyze --export batch-analysis.json
 ```
 
-### `gitco sync`
+### Advanced Discovery
+
+**High-confidence opportunities:**
+```bash
+gitco discover --min-confidence 0.8 --limit 5
+```
+
+**Skill-specific discovery:**
+```bash
+gitco discover --skill python --label "good first issue" --limit 10
+```
+
+**Personalized recommendations:**
+```bash
+gitco discover --personalized --show-history --limit 10
+```
+
+### Health Monitoring Workflow
+
+**Daily health check:**
+```bash
+gitco status --overview --filter needs_attention
+```
+
+**Weekly detailed health report:**
+```bash
+gitco status --detailed --export weekly-health.json
+```
+
+**Activity monitoring:**
+```bash
+gitco activity --filter high --sort activity
+```
+
+### Backup Strategy
+
+**Daily incremental backups:**
+```bash
+gitco backup create --type incremental --description "Daily backup $(date)"
+```
+
+**Weekly full backups:**
+```bash
+gitco backup create --type full --description "Weekly backup $(date)"
+```
+
+**Monthly cleanup:**
+```bash
+gitco backup cleanup --keep 30
+```
+
+### Cost Optimization Workflow
+
+**Monitor costs:**
+```bash
+gitco cost summary --detailed
+```
+
+**Set conservative limits:**
+```bash
+gitco cost configure --daily-limit 2.0 --monthly-limit 20.0
+```
+
+**Track usage patterns:**
+```bash
+gitco cost breakdown --days 30
+```
+
+### GitHub Integration Workflow
+
+**Check rate limits:**
+```bash
+gitco github rate-limit-status --detailed
+```
+
+**Test connection:**
+```bash
+gitco github test-connection
+```
+
+**Get repository info:**
+```bash
+gitco github get-repo --repo django/django
+```
+
+**Get issues from multiple repos:**
+```bash
+gitco github get-issues-multi --repos "django/django,fastapi/fastapi" --labels "good first issue"
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Configuration validation:**
+```bash
+gitco config validate
+gitco config validate-detailed --detailed
+```
+
+**GitHub connection test:**
+```bash
+gitco github test-connection
+```
+
+**Repository validation:**
+```bash
+gitco validate-repo --detailed
+```
+
+**Rate limit check:**
+```bash
+gitco github rate-limit-status
+```
+
+### Debug Mode
+
+**Enable debug logging:**
+```bash
+gitco --debug --detailed-log sync
+```
+
+**Debug specific command:**
+```bash
+gitco --debug analyze --repo django
+```
+
+**Export debug logs:**
+```bash
+gitco --debug --log-file debug.log sync
+```
+
+### Performance Issues
+
+**Check performance metrics:**
+```bash
+gitco performance --detailed
+```
+
+**View logs:**
+```bash
+gitco logs --export logs.json
+```
+
+**Monitor resource usage:**
+```bash
+gitco performance --export performance.json
+```
+
+### Cost Issues
+
+**Check cost usage:**
+```bash
+gitco cost summary --detailed
+```
+
+**Reset cost tracking:**
+```bash
+gitco cost reset --force
+```
+
+**Configure cost limits:**
+```bash
+gitco cost configure --daily-limit 1.0 --monthly-limit 10.0
+```
+
+### Backup Issues
+
+**Validate backup:**
+```bash
+gitco backup validate --backup-id backup-id
+```
+
+**List backups:**
+```bash
+gitco backup list --detailed
+```
+
+**Test restore:**
+```bash
+gitco backup restore --backup-id backup-id --target-dir ~/test-restore
+```
+
+This comprehensive usage guide covers all major GitCo workflows and provides practical examples for common use cases. The guide is designed to help users effectively utilize GitCo's features for intelligent OSS fork management and contribution discovery.

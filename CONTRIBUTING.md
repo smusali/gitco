@@ -127,6 +127,10 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 - `refactor`: Code refactoring
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks
+- `perf`: Performance improvements
+- `ci`: Continuous integration changes
+- `build`: Build system changes
+- `deps`: Dependency updates
 
 ### Scopes
 
@@ -150,6 +154,58 @@ test(analyzer): add unit tests for LLM integration
 chore(ci): update GitHub Actions workflow
 feat(github): add issue discovery functionality
 feat(llm): integrate OpenAI API for change analysis
+perf(sync): optimize batch processing performance
+ci(deps): bump actions/setup-python from 4 to 5
+```
+
+## Changelog Generation
+
+We use automated changelog generation based on conventional commits. The changelog is automatically updated during releases.
+
+### Local Changelog Generation
+
+For development and testing, you can generate changelogs locally:
+
+```bash
+# Generate a preview changelog
+./scripts/generate-changelog.sh preview
+
+# Update the main CHANGELOG.md file
+./scripts/generate-changelog.sh update
+
+# Prepare release changelog for a specific version
+./scripts/generate-changelog.sh release 1.0.0
+```
+
+### Prerequisites for Local Generation
+
+- Node.js (for conventional-changelog-cli)
+- Git repository with conventional commits
+
+The script will automatically install `conventional-changelog-cli` if not present.
+
+### Automated Release Process
+
+During releases, the GitHub Actions workflow automatically:
+
+1. Parses conventional commits since the last release
+2. Generates changelog entries grouped by type
+3. Updates `CHANGELOG.md` with new version
+4. Creates release notes for GitHub releases
+5. Publishes to PyPI with updated changelog
+
+### Commit Message Requirements
+
+For proper changelog generation, ensure your commits follow the conventional format:
+
+```bash
+# ✅ Good - will appear in changelog
+git commit -m "feat(cli): add new sync command"
+git commit -m "fix(config): resolve YAML parsing error"
+
+# ❌ Bad - won't appear in changelog
+git commit -m "add new feature"
+git commit -m "fix bug"
 ```
 
 ## Pull Request Guidelines

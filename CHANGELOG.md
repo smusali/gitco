@@ -5,590 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2024-07-27
 
 ### Added
-- **Shell completion support for bash and zsh with comprehensive command and option completion**
-- **Dynamic completion data from configuration (repositories, skills, labels)**
-- **Completion script generation with `completion` command**
-- **Automatic completion script installation with `--install` flag**
-- **Bash completion script with command and subcommand completion**
-- **Zsh completion script with detailed command descriptions and argument completion**
-- **Repository name completion for `--repo` options**
-- **Skill name completion for `--skill` options**
-- **Label name completion for `--label` options**
-- **Provider name completion for `--provider` options**
-- **Format name completion for `--format` options**
-- **Backup type completion for `--type` options**
-- **Strategy name completion for `--strategy` options**
-- **State name completion for `--state` options**
-- **Filter name completion for `--filter` options**
-- **Sort name completion for `--sort` options**
-- **Activity level completion for activity filtering**
-- **Internal `_completion` command for shell completion data**
-- **Completion script installation to standard shell directories**
-- **Bash completion integration with `~/.bash_completion.d/`**
-- **Zsh completion integration with `~/.zsh/completions/`**
-- **Completion script validation and error handling**
-- **Cross-platform completion script generation**
+- feat: add shell completion for bash and zsh
+- feat: add support for custom LLM endpoints
+- feat: implement cost optimization for LLM usage
+- feat: add retry mechanisms for network operations
+- feat: implement rate limiting for API calls
+- feat: add configuration validation and error reporting
+- feat: implement help command with contextual examples
+- feat: add init command for guided configuration setup
+- feat: implement backup and recovery mechanisms
+- feat: add repository activity dashboard in CLI
+- feat: implement detailed logging with file output
+- feat: add quiet mode for automated/cron usage
+- feat: implement CSV export for contribution data
+- feat: add JSON export functionality for sync reports
+- feat: implement status command with repository overview
+- feat: add contribution impact metrics and trending analysis
+- feat: implement discover command with personalized recommendations
+- feat: add repository health metrics calculation
+- feat: implement contribution history tracking
+- feat: add skill-based issue matching algorithm
+- feat: implement issue fetching with label filtering
+- feat: add GitHub API client with authentication
+- feat: add security update and deprecation highlighting
+- feat: implement analyze command with LLM provider selection
+- feat: add breaking change detection in commits
+- feat: implement commit diff analysis and summarization
+- feat: add local LLM support with Ollama integration
+- feat: implement Anthropic Claude API support
+- feat: add OpenAI API integration for change analysis
+- feat: implement sync command with basic error recovery
+- feat: add progress indicators and colored CLI output
+- feat: implement batch processing for multiple repositories
+- feat: add git fetch and merge operations with conflict detection
+- feat: implement safe stashing and unstashing of local changes
+- feat: add upstream remote management functionality
+- feat: implement git repository detection and validation
+- feat: add configuration management with YAML support
+- feat: implement CLI framework with Click and basic command structure
+- feat: add MIT license and basic documentation structure
+- feat: initialize Python project with pyproject.toml
+
+### Chore
+- chore: setup automated changelog generation
 
 ### Fixed
-- **Improved error handling for network timeouts with specific timeout exception classes**
-- **Enhanced timeout detection with ConnectionTimeoutError, ReadTimeoutError, and RequestTimeoutError**
-- **Timeout-aware retry strategies with adaptive delay calculations for timeout errors**
-- **Better timeout error messages with operation context and duration information**
-- **Improved GitHub client timeout handling with separate connect and read timeouts**
-- **Enhanced LLM analyzer timeout handling with provider-specific timeout configurations**
-- **Better git operation timeout handling with increased timeout duration and detailed error messages**
-- **Timeout-aware retry configuration with TIMEOUT_AWARE_RETRY_CONFIG**
-- **Improved network error recovery with timeout-specific retry strategies**
-- **Enhanced timeout logging with detailed error type and retry attempt information**
-
-### Added
-- **Batch processing performance optimizations with system resource monitoring**
-- **Optimal batch size calculation based on available memory and CPU cores**
-- **Thread pool reuse and connection pooling for improved efficiency**
-- **Memory-efficient processing with automatic cache management**
-- **Performance metrics tracking with throughput and resource usage**
-- **New `performance` command for system resource monitoring**
-- **Batch processing performance dashboard with detailed metrics**
-- **Automatic garbage collection between batch operations**
-- **System resource-based batch size optimization**
-- **Performance monitoring integration with existing batch operations**
-- **Custom LLM endpoint support for enterprise deployments and self-hosted models**
-- **CustomAnalyzer class for handling custom LLM API endpoints**
-- **Support for custom OpenAI and Anthropic API URLs**
-- **Configuration options for custom LLM endpoints (llm_custom_endpoints)**
-- **Environment variable support for custom endpoint API keys**
-- **Multiple response format support (OpenAI, Anthropic, simple text)**
-- **Custom endpoint validation with URL format checking**
-- **Integration with existing rate limiting and retry mechanisms**
-- **Documentation for custom endpoint configuration and usage**
-- **Example configurations for common custom endpoint scenarios**
-- **Cost optimization for LLM usage with comprehensive cost tracking and management**
-- **CostOptimizer class with token counting and cost estimation capabilities**
-- **TokenUsage dataclass for tracking individual API call costs**
-- **CostConfig class for configurable cost optimization settings**
-- **Real-time cost estimation before API calls with limit checking**
-- **Token optimization with intelligent prompt truncation**
-- **Cost tracking with daily and monthly limits**
-- **Cost summary reporting with provider and model breakdowns**
-- **Cost history persistence with JSON file storage**
-- **Cost management CLI commands (cost summary, configure, reset, breakdown)**
-- **Cost limit enforcement with per-request, daily, and monthly limits**
-- **Token counting with tiktoken integration and fallback estimation**
-- **Cost calculation for OpenAI and Anthropic models with accurate pricing**
-- **Cost optimization integration with existing analyzer classes**
-- **Cost tracking in OpenAI and Anthropic API calls**
-- **Cost configuration validation with comprehensive error checking**
-- **Cost export functionality in JSON and CSV formats**
-- **Cost breakdown by model and provider with detailed statistics**
-- **Cost reset functionality with confirmation prompts**
-- **Cost optimization settings in configuration file**
-- **Cost tracking file management with automatic directory creation**
-- **Cost optimization tests with comprehensive coverage**
-- **Cost management integration with existing CLI patterns**
-- **Comprehensive retry mechanisms for network operations**
-- **RetryStrategy abstract base class with configurable retry strategies**
-- **ExponentialBackoff strategy with jitter support for thundering herd prevention**
-- **LinearBackoff strategy for predictable retry delays**
-- **RetryConfig class for flexible retry configuration**
-- **with_retry decorator for easy retry functionality integration**
-- **retry_async decorator for async function retry support**
-- **create_retry_session function for requests session with retry capabilities**
-- **Pre-configured retry configurations (DEFAULT, AGGRESSIVE, CONSERVATIVE)**
-- **Enhanced GitHub client with automatic retry session creation**
-- **Improved LLM API calls with aggressive retry configuration**
-- **Rate limiter integration with retry mechanisms**
-- **Comprehensive retry testing with unit and integration tests**
-- **Retry mechanism logging with detailed attempt tracking**
-- **Network error handling with automatic retry on connection failures**
-- **HTTP 5xx error retry with exponential backoff**
-- **Rate limit error handling with intelligent retry logic**
-- **Timeout support for retry operations**
-- **Jitter support to prevent thundering herd problems**
-- **Type-safe retry implementation**
-- **Comprehensive configuration validation and error reporting**
-- **ConfigValidator class with detailed validation capabilities**
-- **ValidationError dataclass with context and suggestion support**
-- **Enhanced validation for repository URLs, paths, and settings**
-- **Cross-reference validation for configuration dependencies**
-- **Warning system for configuration quality improvements**
-- **Detailed validation reporting with errors and warnings**
-- **New `validate_detailed` command for comprehensive validation**
-- **Validation report export functionality in JSON format**
-- **URL validation for GitHub repositories and API endpoints**
-- **Path validation for local repository directories**
-- **Skills validation with format and content checking**
-- **Sync frequency validation with cron-like format support**
-- **Language validation with common programming language recognition**
-- **Settings validation for LLM providers, timeouts, and batch sizes**
-- **GitHub settings validation for API URLs and authentication**
-- **Duplicate repository name detection and reporting**
-- **Empty repository list warnings with helpful suggestions**
-- **Invalid field format detection and correction suggestions**
-- **Configuration quality warnings for performance optimization**
-- **Enhanced error messages with actionable suggestions**
-- **Validation integration with existing CLI commands**
-- **Type-safe validation implementation**
-- **Rich validation output with detailed error and warning panels**
-- **Validation logging with comprehensive result tracking**
-- **Backward compatibility with existing validation methods**
-- **Enhanced help command with contextual examples and comprehensive documentation**
-- **Rich help interface with organized command categories and usage examples**
-- **Contextual examples for different user types (new users, regular maintenance, contribution discovery, advanced users, automation)**
-- **Configuration examples with YAML syntax highlighting**
-- **Environment setup examples with bash syntax highlighting**
-- **Common workflows section with daily, weekly, and monthly maintenance examples**
-- **Tips and best practices section with actionable recommendations**
-- **Troubleshooting section with common issues and solutions**
-- **Command categorization by functionality (Setup & Configuration, Repository Management, AI-Powered Analysis, etc.)**
-- **Interactive help display with rich panels, tables, and syntax highlighting**
-- **Comprehensive command reference with descriptions for all available commands**
-- **Comprehensive tutorials guide with step-by-step examples and real-world scenarios**
-- **Detailed examples guide with code snippets and practical use cases**
-- **User persona-based workflows guide for different use cases**
-- **Enhanced documentation structure with cross-references between guides**
-- **Usage examples organized by use case and user experience level**
-- **Integration of help command with existing CLI patterns and styling**
-- **Type-safe implementation**
-- **Interactive guided configuration setup for init command**
-- **Enhanced init command with --interactive flag for guided setup**
-- **Interactive prompts for repository configuration with validation**
-- **LLM provider configuration with OpenAI, Anthropic support**
-- **GitHub integration configuration with token and username/password options**
-- **General settings configuration with default paths and batch processing**
-- **Repository information prompts with skill matching and analysis settings**
-- **Configuration summary display with comprehensive settings overview**
-- **Template loading support for custom configuration templates**
-- **Enhanced error handling for configuration initialization**
-- **Type-safe interactive prompts**
-- **Rich console interface for guided configuration setup**
-- **Path validation and directory creation for repository paths**
-- **Repository format validation with owner/repo pattern checking**
-- **Skill-based repository configuration with comma-separated skill lists**
-- **Analysis enablement per repository with individual settings**
-- **Environment variable configuration for API keys and credentials**
-- **Default configuration fallback for non-interactive setup**
-- **Configuration file overwrite protection with force flag support**
-- **Repository activity dashboard in CLI**
-- **New `activity` command for detailed repository activity analysis**
-- **ActivityMetrics dataclass for structured activity data**
-- **ActivitySummary dataclass for activity summaries across repositories**
-- **ActivityDashboard class for activity metrics calculation**
-- **Detailed commit activity tracking (24h, 7d, 30d, 90d periods)**
-- **Contributor activity analysis with active contributor tracking**
-- **Issue and PR activity metrics with creation and closure tracking**
-- **Engagement metrics with activity and engagement scoring**
-- **Trending metrics with stars, forks, and views growth tracking**
-- **Activity patterns analysis with most active hours and days**
-- **Activity health indicators with overall activity health assessment**
-- **Enhanced status command with --activity flag for activity dashboard**
-- **Activity dashboard integration with existing status command**
-- **Rich activity dashboard display with comprehensive metrics tables**
-- **Activity level panels showing high, moderate, and low activity repositories**
-- **Engagement level panels showing engagement distribution**
-- **Trending repositories identification and display**
-- **Most active repositories identification and display**
-- **Activity statistics panels with detailed metrics**
-- **Activity health panels with health status and scoring**
-- **Activity patterns display with temporal analysis**
-- **Trending metrics display with growth indicators**
-- **Filtering capabilities for repositories by activity level**
-- **Sorting capabilities for repositories by activity metrics**
-- **Integration of activity dashboard with existing CLI patterns**
-- **Comprehensive error handling for activity dashboard features**
-- **Type-safe implementation**
-- **Enhanced detailed logging with file output**
-- **Structured logging with context and performance tracking**
-- **Log rotation with configurable file size and backup count**
-- **Rate limiting system for API calls** with provider-specific configurations
-- **Rate limiting status command** to monitor API usage
-- **Automatic retry logic** with exponential backoff for rate limit errors
-- **Real-time rate limit monitoring** for GitHub, OpenAI, and Anthropic APIs
-- **Detailed log format with function names and line numbers**
-- **Performance metrics tracking for all operations**
-- **API interaction logging with timing and status codes**
-- **Repository operation logging with detailed status tracking**
-- **Validation result logging with comprehensive details**
-- **Configuration change logging with structured data**
-- **Error logging with full stack traces and context**
-- **Performance summary display with rich formatting**
-- **Log export functionality in JSON and CSV formats**
-- **New `logs` command for viewing and exporting log data**
-- **Enhanced logging configuration options in CLI commands**
-- **Log file rotation with automatic backup management**
-- **Structured log entries with timestamp, level, and context**
-- **Performance tracking for sync, analyze, discover, and status operations**
-- **Integration of enhanced logging with existing CLI commands**
-- **Comprehensive error handling for logging operations**
-- **Type-safe implementation**
-- **Enhanced quiet mode for automated/cron usage**
-- **Global quiet mode state management across all CLI commands**
-- **Quiet mode support for sync, analyze, discover, status, and contribution commands**
-- **Suppressed output for progress bars, panels, and console messages in quiet mode**
-- **Maintained logging functionality while suppressing user-facing output**
-- **Cron-friendly operation with minimal output for automated workflows**
-- **JSON export functionality for sync reports**
-- **Comprehensive sync report export with detailed repository results**
-- **Export support for single repository and batch sync operations**
-- **Timing information included in sync export reports**
-- **Detailed sync metadata including success rates and error tracking**
-- **Export functionality for sequential processing results**
-- **Structured JSON export with repository-specific sync details**
-- **Integration of sync export with existing CLI export patterns**
-- **Enhanced status command with repository overview dashboard**
-- **Repository overview dashboard with comprehensive metrics display**
-- **Filtering capabilities for repositories by health status (healthy, needs_attention, critical)**
-- **Sorting capabilities for repositories by metrics (health, activity, stars, forks, engagement)**
-- **Visual health status indicators with emoji-based status display**
-- **Sync status tracking with color-coded status indicators**
-- **Activity bars showing recent commit activity with visual indicators**
-- **Summary statistics panels showing key metrics at a glance**
-- **Alert system for repositories needing attention (health issues, sync problems)**
-- **Enhanced status command with --overview flag for dashboard view**
-- **Enhanced status command with --filter and --sort options**
-- **Rich table display with comprehensive repository metrics**
-- **Summary panels showing health status, sync status, popularity, and community engagement**
-- **Integration of overview dashboard with existing health metrics**
-- **Enhanced contribution impact metrics and trending analysis**
-- **Advanced impact score calculation with trend analysis over 30d and 7d periods**
-- **High-impact and critical contribution identification and tracking**
-- **Skill-based impact scoring with per-skill impact analysis**
-- **Repository-based impact scoring with per-repository impact analysis**
-- **Contribution velocity tracking (contributions per day over 30 days)**
-- **Skill growth rate analysis with trending and declining skill identification**
-- **Repository engagement trend analysis with engagement scoring**
-- **Advanced metrics including collaboration, recognition, influence, and sustainability scores**
-- **Enhanced discover command with detailed impact metrics display**
-- **Enhanced stats command with comprehensive trending analysis**
-- **New trending command for detailed contribution trend analysis**
-- **Export functionality for enhanced metrics and trending data**
-- **Integration of enhanced metrics with existing CLI commands**
-- **Comprehensive error handling for advanced metrics calculation**
-- **Type-safe implementation**
-- **Enhanced discover command with personalized recommendations**
-- **Personalized scoring based on contribution history and patterns**
-- **Repository familiarity bonus in recommendation scoring**
-- **Skill development pattern analysis for personalized recommendations**
-- **Issue type preference analysis (PRs vs Issues)**
-- **Difficulty preference analysis based on past successful contributions**
-- **Repository activity pattern analysis for engagement scoring**
-- **Enhanced CLI output with confidence indicators and categorized recommendations**
-- **New --personalized flag for discover command to enable personalized scoring**
-- **New --show-history flag for discover command to display contribution analysis**
-- **Grouped recommendation display (High Confidence, Good Matches, Exploration)**
-- **Personalized insights and tips based on contribution history**
-- **Enhanced skill matching with evidence display for high-confidence matches**
-- **Categorized tag display (Skills, Level, Time, Special Tags)**
-- **Dynamic panel styling based on recommendation confidence scores**
-- **Integration of contribution tracker with discovery engine for personalized scoring**
-- **Comprehensive error handling for personalization features**
-- **Type-safe implementation**
-- Repository health metrics calculation with comprehensive health analysis
-- RepositoryHealthMetrics dataclass for structured health data
-- HealthSummary dataclass for repository health summaries
-- RepositoryHealthCalculator class for health metrics calculation
-- Activity metrics including commit counts and contributor statistics
-- GitHub metrics integration (stars, forks, issues, language, topics)
-- Sync health tracking with status and last sync information
-- Engagement metrics with contributor engagement scoring
-- Trending metrics for repository growth analysis
-- Overall health scoring with weighted factors (activity, sync, engagement, GitHub, stability)
-- Health status classification (excellent, good, fair, poor, critical)
-- Trending repository identification based on growth metrics
-- Declining repository identification based on activity metrics
-- Enhanced status command with health metrics display
-- Health summary display with repository statistics
-- Detailed repository health information with rich formatting
-- Export functionality for health data in JSON format
-- Integration of health metrics with existing CLI commands
-- Comprehensive testing for health metrics functionality
-- Contribution history tracking with persistent storage
-- Contribution dataclass for structured contribution data
-- ContributionStats dataclass for comprehensive statistics
-- ContributionTracker class for managing contribution history
-- GitHub contribution synchronization with automatic skill extraction
-- Impact score calculation based on engagement and contribution type
-- Skill development tracking across repositories
-- Personalized contribution recommendations based on history
-- Contribution timeline analysis for activity patterns
-- Recent activity tracking with detailed contribution information
-- CLI commands for contribution management (contributions group)
-- Sync contribution history from GitHub (contributions sync-history)
-- View contribution statistics with filtering options (contributions stats)
-- Get personalized recommendations based on history (contributions recommendations)
-- Export functionality for contribution statistics in JSON format
-- **CSV export functionality for contribution data**
-- **Comprehensive CSV export with detailed contribution information**
-- **CSV export support for stats and trending commands**
-- **Automatic CSV format detection based on file extension**
-- **Separate statistics CSV file generation with summary metrics**
-- **Enhanced export command for direct contribution data export**
-- **Filtering capabilities for CSV export by time period**
-- **Structured CSV output with all contribution fields**
-- **Integration of CSV export with existing CLI export patterns**
-- Integration of contribution history with discovery engine
-- History-based scoring for issue recommendations
-- Repository familiarity bonus in recommendation scoring
-- Skill development bonus in recommendation scoring
-- High-impact contribution bonus in recommendation scoring
-- Skill-based issue matching algorithm for contribution discovery
-- IssueRecommendation dataclass for structured recommendation data
-- SkillMatch dataclass for skill matching with confidence scores
-- SkillMatcher class for intelligent skill-to-issue matching
-- IssueDiscovery class for comprehensive opportunity discovery
-- Support for exact, partial, related, and language-based skill matching
-- Difficulty level detection (beginner, intermediate, advanced)
-- Time estimation for issues (quick, medium, long)
-- Confidence scoring system for issue recommendations
-- Skill synonyms and related terms mapping
-- Enhanced discover command with skill-based filtering
-- Support for skill filtering and label filtering in discover command
-- Minimum confidence threshold for recommendations
-- Export functionality for discovery results in JSON format
-- Rich CLI output for issue recommendations with detailed information
-- Integration of discovery engine with GitHub client
-- Comprehensive testing for discovery functionality
+- fix: improve error handling for network timeouts
 
 ### Changed
-- Refactored discovery constants to `patterns/constants.py` for better maintainability
-- Moved skill synonyms, difficulty indicators, and time patterns to centralized constants
-- Improved code organization and reusability of discovery patterns
-- Enhanced issue fetching with advanced label filtering capabilities
-- New `get_issues_for_repositories` method for batch issue fetching across multiple repositories
-- Advanced filtering options for GitHub issues (exclude_labels, created_after, updated_after)
-- Enhanced CLI commands with detailed issue information display
-- New `get_issues_multi` command for fetching issues from multiple repositories
-- Export functionality for issue results in JSON format
-- Improved type safety
-- Enhanced error handling for GitHub API operations with graceful degradation
-- GitHub API client with authentication and rate limiting
-- GitHubClient class for comprehensive GitHub API integration
-- Support for multiple authentication methods (token, username/password, environment variables)
-- GitHubIssue and GitHubRepository dataclasses for structured data handling
-- Rate limiting with automatic retry and exponential backoff
-- Comprehensive error handling for GitHub API operations
-- GitHub CLI commands for testing connection and fetching data
-- Repository information fetching with detailed metadata
-- Issue fetching with filtering by state, labels, assignee, and milestone
-- Issue search functionality across repositories
-- Rate limit status monitoring and reporting
-- GitHub credentials management through configuration
-- Environment variable support for GitHub authentication
-- Comprehensive testing for GitHub client functionality
-- Integration of GitHub client into CLI with new github command group
-- GitHub connection testing with authentication validation
-- Repository information display with rich formatting
-- Issue listing with detailed information and filtering
-- Support for custom GitHub API endpoints and timeouts
-- Enhanced security update and deprecation highlighting
-- Enhanced security update and deprecation highlighting
-- SecurityDeprecationDetector class for advanced security and deprecation detection
-- SecurityUpdate dataclass for structured security update information
-- Deprecation dataclass for structured deprecation information
-- CVE reference detection and highlighting in security updates
-- Security severity classification (critical, high, medium, low)
-- Deprecation severity classification (high, medium, low)
-- Security pattern detection for vulnerability fixes, authentication, authorization, encryption
-- Deprecation pattern detection for API, feature, dependency, and configuration deprecations
-- Enhanced system prompts with detailed security and deprecation guidance
-- Color-coded security update display with severity indicators
-- Color-coded deprecation display with severity indicators
-- Detailed security update reporting with CVE IDs and remediation guidance
-- Detailed deprecation reporting with replacement suggestions and migration paths
-- Integration of security and deprecation detection into all LLM analyzers
-- Enhanced analysis prompts with security and deprecation context
-- Support for multiple security update types and patterns
-- Support for multiple deprecation types and patterns
-- Comprehensive testing for security and deprecation detection functionality
-- Enhanced analyze command with LLM provider selection
-- New --provider option for analyze command to override default LLM provider
-- Support for specifying openai or anthropic providers in analyze command
-- Provider validation with helpful error messages for invalid providers
-- Provider information display showing which provider is being used
-- Enhanced export functionality to include LLM provider information
-- Improved logging with provider information for analysis operations
-- Enhanced breaking change detection with pattern-based analysis
-- BreakingChangeDetector class for sophisticated breaking change identification
-- API signature change detection with function and class definition analysis
-- Configuration file change detection with filename and content pattern matching
-- Database schema change detection for migration and schema files
-- Dependency change detection for package management files
-- Commit message analysis for explicit breaking change indicators
-- Severity-based breaking change categorization (high, medium, low)
-- Migration guidance generation for detected breaking changes
-- Detailed breaking change reporting with affected components
-- Integration of breaking change detection into all LLM analyzers
-- Enhanced analysis prompts with breaking change context
-- Color-coded breaking change display with severity indicators
-- Support for multiple breaking change types and patterns
-- Comprehensive testing for breaking change detection functionality
-- Enhanced commit diff analysis and summarization functionality
-- Detailed diff content analysis with file type and line count statistics
-- Intelligent diff pattern recognition for test, documentation, and configuration changes
-- Enhanced get_recent_changes method with detailed diff content
-- New _get_detailed_diff method for comprehensive diff analysis
-- New _get_detailed_commit_diff method for multi-commit analysis
-- New get_commit_diff_analysis method for specific commit analysis
-- New _get_commit_info method for detailed commit metadata extraction
-- Enhanced prompt engineering with diff content analysis
-- Improved AI analysis with better context and pattern recognition
-- Commit categorization by type (feature, fix, docs, refactor, test, chore)
-- New analyze_specific_commit method for targeted commit analysis
-- New get_commit_summary method for non-AI commit analysis
-- Enhanced _analyze_diff_content method with intelligent pattern detection
-- Comprehensive testing for all new diff analysis functionality
-- Integration of detailed diff analysis into AI analysis pipeline
-- Support for large diff content with intelligent truncation
-- Enhanced error handling for diff analysis operations
-- Type-safe implementation
+- perf: optimize batch processing performance
 
-- Anthropic Claude API integration for intelligent change analysis
-- AnthropicAnalyzer class for Claude API integration
-- Support for provider-specific API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY)
-- Enhanced API key priority system with fallback support
-- Improved response parsing for Anthropic Claude API responses
-- Comprehensive testing for Anthropic Claude integration
-- OpenAI API integration for intelligent change analysis
-- ChangeAnalyzer class for coordinating analysis operations
-- OpenAIAnalyzer class for OpenAI API integration
-- ChangeAnalysis dataclass for structured analysis results
-- AnalysisRequest dataclass for analysis request handling
-- Intelligent prompt building for code change analysis
-- JSON and text-based response parsing for OpenAI responses
-- Breaking change detection and categorization
-- New feature identification and reporting
-- Bug fix detection and categorization
-- Security update identification and highlighting
-- Deprecation detection and reporting
-- Contribution recommendation generation
-- Confidence scoring for analysis results
-- Rich console output for analysis results with color coding
-- Integration of analysis into sync command with --analyze flag
-- Analysis export functionality with JSON format
-- Custom prompt support for analysis requests
-- Analysis result display with categorized sections
-- Support for multiple repositories in batch analysis
-- Error handling and fallback for analysis failures
-- Comprehensive testing for all analysis functionality
-- Type-safe implementation
-- Initial project structure and configuration
-- Python package setup with pyproject.toml
-- Development environment configuration
-- Basic documentation structure
-- CLI framework with Click and basic command structure
-- Command-line interface with init, sync, analyze, discover, status, and help commands
-- Comprehensive CLI testing with pytest
-- Global options for verbose and quiet output
-- Configuration management with YAML support
-- ConfigManager class for handling configuration files
-- Repository and Settings dataclasses for type-safe configuration
-- Configuration validation with detailed error reporting
-- Configuration status and validation commands
-- Sample configuration generation with example repositories
-- Comprehensive logging system with configurable levels
-- Custom exception hierarchy for GitCo errors
-- Error handling utilities with safe execution patterns
-- Progress tracking and operation logging
-- File and directory validation utilities
-- Validation error handling with detailed reporting
-- API call logging and monitoring
-- Configuration operation logging with detailed context
-- GitHub Actions CI pipeline with Python testing
-- Multi-Python version testing (3.9, 3.10, 3.11, 3.12)
-- Automated linting with ruff and black
+### Documentation
+- docs: add comprehensive usage examples and tutorials
+- docs: add CONTRIBUTING.md and CODE_OF_CONDUCT.md
 
-- Security scanning with pip-audit and bandit
-- Package building and validation
-- Code coverage reporting with Codecov integration
-- PR validation with conventional commit checks
-- Issue templates for bug reports, feature requests, and questions
-- Pull request template with comprehensive checklist
-- Dependabot configuration for automated dependency updates
-- Security policy with vulnerability reporting guidelines
-- Pre-commit hooks configuration with ruff and black linting
-- End-of-file fixing with ruff W292 rule
-- Conventional commit message validation
-- YAML syntax validation and formatting
-- Merge conflict detection and prevention
-- CONTRIBUTING.md with GitCo-specific guidelines
-- CODE_OF_CONDUCT.md with community values
-- Git repository detection and validation functionality
-- GitRepository class for repository status and validation
-- GitRepositoryManager for batch repository operations
-- Repository sync status checking with upstream comparison
-- Recursive repository discovery in directory trees
-- Comprehensive repository validation with detailed error reporting
-- Git command execution with timeout and error handling
-- Remote URL detection and default branch identification
-- Repository status reporting with uncommitted changes detection
-- New validate-repo CLI command for repository validation
-- Integration of git validation into configuration validation
-- Upstream remote management functionality
-- Add, remove, update, and validate upstream remotes
-- Fetch latest changes from upstream repositories
-- Upstream remote accessibility testing and validation
-- CLI commands for upstream remote management (upstream add, remove, update, validate-upstream, fetch)
-- Comprehensive testing for upstream remote operations
-- Integration of upstream status into repository status reporting
-- Safe stashing and unstashing of local changes
-- Automatic detection of uncommitted changes before operations
-- Stash creation with custom messages and reference tracking
-- Stash application and restoration with error handling
-- Stash management (list, drop) with comprehensive validation
-- Safe stash-and-restore pattern for atomic operations
-- Integration of stashing into repository sync operations
-- Comprehensive testing for all stashing functionality
-- Git fetch and merge operations with conflict detection
-- Merge upstream branch functionality with automatic conflict detection
-- Conflict resolution strategies (ours, theirs, manual)
-- Merge abort functionality for failed merge operations
-- Merge status detection and reporting
-- Comprehensive merge result reporting with commit information
-- Integration of fetch and merge into unified sync operations
-- CLI merge command with conflict resolution options
-- Merge conflict detection and detailed conflict reporting
-- Automatic merge commit tracking and reporting
-- Comprehensive testing for all merge functionality
-- Batch processing for multiple repositories with concurrent execution
-- BatchProcessor class for efficient multi-repository operations
-- ThreadPoolExecutor-based concurrent processing with configurable workers
-- Batch sync, fetch, and validate operations with progress tracking
-- Colored output and progress indicators for batch operations
-- Batch result tracking with detailed success/failure reporting
-- Rate limiting and error handling for batch operations
-- Batch summary reporting with timing and statistics
-- Integration of batch processing into sync command with --batch flag
-- Configurable max workers for batch processing performance tuning
-- Sequential fallback for batch processing when concurrent processing fails
-- Rich console output with colored status messages and progress indicators
-- **Enhanced sync command with basic error recovery**
-- **Retry mechanism for network operations with configurable max retries**
-- **Recoverable error detection for network timeouts and rate limits**
-- **Automatic retry with exponential backoff for transient failures**
-- **Enhanced error reporting with retry attempt information**
-- **Improved stash restoration with failure handling**
-- **Better progress tracking with retry status in CLI output**
-- **Comprehensive logging of recovery attempts and retry counts**
+### Testing
+- test: add tests for status and reporting functionality
+- test: add tests for GitHub integration and discovery features
+- test: add tests for LLM integration and analysis features
+- test: add unit tests for git operations and sync functionality
 
-### Fixed
-- Updated deprecated GitHub Actions to latest versions (actions/upload-artifact@v4, actions/download-artifact@v4, actions/cache@v4, codecov/codecov-action@v4)
-- Fixed import sorting issues in test files (test_cli.py, test_config.py, test_utils.py)
-- Fixed YAML linting issues in .codecov.yml (truthy values)
-- Fixed trailing whitespace and end-of-file issues in .yamllint
-- Updated pre-commit ruff version to v0.12.5 to match local ruff version and ensure consistency
+### CI/CD
+- ci(deps): bump codecov/codecov-action from 3 to 5
+- ci(deps): bump actions/setup-python from 4 to 5
 
-## [0.1.0] - 2025-01-XX
+### Chore
+- chore: add ruff and black linting configuration and checks
+- chore: setup GitHub Actions CI pipeline with Python testing
 
-### Added
-- Initial project foundation
-- Python package configuration with comprehensive metadata
-- Development dependencies and tooling setup
-- Package distribution configuration
-- Type checking and linting configuration
-- Testing framework setup
-- Documentation structure
+### Merges
+- Merge pull request #5 from 41technologies/dependabot/github_actions/codecov/codecov-action-5
+- Merge pull request #2 from 41technologies/dependabot/github_actions/actions/setup-python-5
 
-[Unreleased]: https://github.com/41technologies/gitco/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/41technologies/gitco/releases/tag/v0.1.0

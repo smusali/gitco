@@ -1,356 +1,799 @@
-# Troubleshooting Guide
+# GitCo Troubleshooting Guide
 
-This guide helps you resolve common issues with GitCo.
+This guide helps you resolve common issues with GitCo and provides diagnostic commands for troubleshooting.
 
-## Common Issues
+## Table of Contents
 
-### Installation Problems
+1. [Quick Diagnostic Commands](#quick-diagnostic-commands)
+2. [Installation Problems](#installation-problems)
+3. [Configuration Issues](#configuration-issues)
+4. [Git Operations Issues](#git-operations-issues)
+5. [API and Network Issues](#api-and-network-issues)
+6. [Analysis and Discovery Issues](#analysis-and-discovery-issues)
+7. [Performance Issues](#performance-issues)
+8. [Cost Management Issues](#cost-management-issues)
+9. [Backup and Recovery Issues](#backup-and-recovery-issues)
+10. [Advanced Troubleshooting](#advanced-troubleshooting)
 
-#### Command Not Found
-**Problem:** `gitco` command is not recognized
+---
 
-**Solutions:**
-1. Verify installation:
-   ```bash
-   pip list | grep gitco
-   ```
+## Quick Diagnostic Commands
 
-2. Check PATH:
-   ```bash
-   which gitco
-   ```
-
-3. Reinstall in development mode:
-   ```bash
-   pip install -e .
-   ```
-
-#### Import Errors
-**Problem:** Module import errors when running GitCo
-
-**Solutions:**
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Check Python version:
-   ```bash
-   python --version
-   ```
-   GitCo requires Python 3.9+
-
-3. Use virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -e .
-   ```
-
-### Configuration Issues
-
-#### Invalid YAML Syntax
-**Problem:** Configuration file has syntax errors
-
-**Solutions:**
-1. Validate YAML syntax:
-   ```bash
-   python -c "import yaml; yaml.safe_load(open('gitco-config.yml'))"
-   ```
-
-2. Check indentation (use spaces, not tabs)
-
-3. Verify quotes around strings with special characters
-
-#### Repository Not Found
-**Problem:** GitCo can't find specified repositories
-
-**Solutions:**
-1. Check local paths exist:
-   ```bash
-   ls -la ~/code/django
-   ```
-
-2. Verify repository permissions:
-   ```bash
-   ls -la ~/code/django/.git
-   ```
-
-3. Use absolute paths in configuration
-
-#### Missing API Key
-**Problem:** AI features fail due to missing API key
-
-**Solutions:**
-1. Set environment variable for your chosen provider:
-   ```bash
-   # For OpenAI
-   export OPENAI_API_KEY="your-openai-api-key"
-
-   # For Anthropic
-   export ANTHROPIC_API_KEY="your-anthropic-api-key"
-   ```
-
-2. Verify key is set:
-   ```bash
-   # For OpenAI
-   echo $OPENAI_API_KEY
-
-   # For Anthropic
-   echo $ANTHROPIC_API_KEY
-   ```
-
-3. Check API key permissions and validity
-
-### Git Operations Issues
-
-#### Permission Denied
-**Problem:** Git operations fail with permission errors
-
-**Solutions:**
-1. Check repository ownership:
-   ```bash
-   ls -la ~/code/django
-   ```
-
-2. Fix permissions:
-   ```bash
-   chmod -R 755 ~/code/django
-   ```
-
-3. Use SSH keys for GitHub access
-
-#### Merge Conflicts
-**Problem:** Sync fails due to merge conflicts
-
-**Solutions:**
-1. Stash local changes:
-   ```bash
-   cd ~/code/django
-   git stash
-   ```
-
-2. Reset to upstream:
-   ```bash
-   git reset --hard upstream/main
-   ```
-
-3. Reapply local changes:
-   ```bash
-   git stash pop
-   ```
-
-#### Network Issues
-**Problem:** Git operations timeout or fail
-
-**Solutions:**
-1. Check internet connectivity:
-   ```bash
-   ping github.com
-   ```
-
-2. Increase timeout in configuration:
-   ```yaml
-   settings:
-     git_timeout: 300
-   ```
-
-3. Use SSH instead of HTTPS for better reliability
-
-### AI Analysis Issues
-
-#### API Rate Limits
-**Problem:** Analysis fails due to rate limits
-
-**Solutions:**
-1. Implement rate limiting in configuration:
-   ```yaml
-   settings:
-     rate_limit_delay: 1.0
-   ```
-
-2. Use batch processing with delays
-
-3. Upgrade API plan if needed
-
-#### Invalid API Key
-**Problem:** API key is rejected
-
-**Solutions:**
-1. Verify key format and permissions
-2. Check API provider settings
-3. Generate new API key if necessary
-
-#### Analysis Timeout
-**Problem:** Analysis takes too long or times out
-
-**Solutions:**
-1. Increase timeout in configuration:
-   ```yaml
-   settings:
-     analysis_timeout: 300
-   ```
-
-2. Use smaller batch sizes
-3. Check network connectivity
-
-### Discovery Issues
-
-#### No Issues Found
-**Problem:** Discovery returns no results
-
-**Solutions:**
-1. Check repository accessibility
-2. Verify labels exist in repositories
-3. Expand search criteria
-
-#### GitHub API Limits
-**Problem:** GitHub API rate limit exceeded
-
-**Solutions:**
-1. Use GitHub token for higher limits:
-   ```bash
-   export GITHUB_TOKEN="your-github-token"
-   ```
-
-2. Implement rate limiting
-3. Use authenticated requests
-
-## Debugging
-
-### Enable Verbose Logging
+### Basic System Checks
 
 ```bash
-# Set log level
-export GITCO_LOG_LEVEL=DEBUG
+# Check GitCo installation
+gitco --version
+gitco --help
 
-# Run with verbose output
-gitco sync --verbose
+# Check Python environment
+python --version
+pip list | grep gitco
+
+# Check Git configuration
+git --version
+git config --list
+
+# Check environment variables
+echo $OPENAI_API_KEY
+echo $ANTHROPIC_API_KEY
+echo $GITHUB_TOKEN
+
+# Check configuration file
+ls -la ~/.gitco/
+cat ~/.gitco/config.yml
 ```
 
-### Check Configuration
+### GitCo-Specific Diagnostics
 
 ```bash
 # Validate configuration
 gitco config validate
 
-# Show configuration status
-gitco config status
+# Test GitHub connection
+gitco github test-connection
+
+# Check rate limits
+gitco github rate-limit-status
+
+# Validate repositories
+gitco validate-repo --detailed
+
+# Check performance
+gitco performance --detailed
+
+# View logs
+gitco logs --export logs.json
 ```
 
-### Test Individual Components
+---
+
+## Installation Problems
+
+### Command Not Found
+
+**Symptoms:** `gitco: command not found`
+
+**Solutions:**
 
 ```bash
-# Test Git operations
-gitco sync --repo django --dry-run
+# Reinstall GitCo
+pip install --force-reinstall gitco
+
+# Add pip user bin to PATH
+export PATH="$HOME/.local/bin:$PATH"
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
+# Use pipx for isolated installation
+pipx install gitco
+
+# Check installation location
+which gitco
+pip show gitco
+```
+
+### Import Errors
+
+**Symptoms:** `ModuleNotFoundError` or `ImportError`
+
+**Solutions:**
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Check Python version (requires 3.9+)
+python --version
+
+# Use virtual environment
+python -m venv venv
+source venv/bin/activate
+pip install gitco
+
+# Upgrade pip
+pip install --upgrade pip
+pip install --force-reinstall gitco
+```
+
+### Permission Errors
+
+**Symptoms:** Permission denied errors during installation
+
+**Solutions:**
+
+```bash
+# Install for current user only
+pip install --user gitco
+
+# Fix permissions
+sudo chown -R $USER:$USER ~/.local/bin
+chmod +x ~/.local/bin/gitco
+
+# Use virtual environment
+python -m venv ~/gitco-env
+source ~/gitco-env/bin/activate
+pip install gitco
+```
+
+---
+
+## Configuration Issues
+
+### Invalid YAML Syntax
+
+**Symptoms:** YAML parsing errors
+
+**Solutions:**
+
+```bash
+# Validate YAML syntax
+python -c "import yaml; yaml.safe_load(open('~/.gitco/config.yml'))"
+
+# Convert tabs to spaces
+expand -t 2 ~/.gitco/config.yml > ~/.gitco/config.yml.tmp
+mv ~/.gitco/config.yml.tmp ~/.gitco/config.yml
+
+# Check for hidden characters
+cat -A ~/.gitco/config.yml
+
+# Use GitCo validation
+gitco config validate
+```
+
+### Missing Required Fields
+
+**Symptoms:** Configuration validation errors
+
+**Solutions:**
+
+```bash
+# Run detailed validation
+gitco config validate-detailed --detailed
+
+# Check required fields
+gitco config validate-detailed --export validation-report.json
+
+# Recreate configuration
+gitco init --force
+```
+
+### Repository Not Found
+
+**Symptoms:** Repository path errors or missing repositories
+
+**Solutions:**
+
+```bash
+# Check if paths exist
+ls -la ~/code/django
+
+# Check repository status
+cd ~/code/django && git status
+
+# Clone missing repositories
+git clone https://github.com/username/django.git ~/code/django
+
+# Validate repository
+gitco validate-repo --path ~/code/django
+```
+
+### Invalid URLs
+
+**Symptoms:** URL validation errors
+
+**Solutions:**
+
+```bash
+# Check URL format
+gitco config validate
+
+# Use proper URL format
+# ✅ Correct: https://github.com/username/repo
+# ❌ Incorrect: github.com/username/repo
+
+# Test URL accessibility
+curl -I https://github.com/username/repo
+```
+
+---
+
+## Git Operations Issues
+
+### Permission Denied
+
+**Symptoms:** Permission errors during Git operations
+
+**Solutions:**
+
+```bash
+# Fix repository permissions
+chmod -R 755 ~/code/django
+
+# Check Git configuration
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# Fix SSH keys
+ssh-add ~/.ssh/id_rsa
+ssh -T git@github.com
+```
+
+### Merge Conflicts
+
+**Symptoms:** Merge conflict errors during sync
+
+**Solutions:**
+
+```bash
+# Abort current merge
+gitco upstream merge --repo django --abort
+
+# Resolve conflicts manually
+cd ~/code/django
+git status
+# Edit conflicted files
+git add .
+git commit -m "Resolve merge conflicts"
+
+# Use automatic resolution
+gitco upstream merge --repo django --resolve --strategy ours
+```
+
+### Upstream Remote Issues
+
+**Symptoms:** Upstream remote not found or invalid
+
+**Solutions:**
+
+```bash
+# Check upstream configuration
+gitco upstream validate --repo django
+
+# Add upstream remote
+gitco upstream add --repo django --url https://github.com/django/django.git
+
+# Update upstream URL
+gitco upstream update --repo django --url https://github.com/new/django.git
+
+# Remove and re-add upstream
+gitco upstream remove --repo django
+gitco upstream add --repo django --url https://github.com/django/django.git
+```
+
+### Stash Issues
+
+**Symptoms:** Stash conflicts or failed stash operations
+
+**Solutions:**
+
+```bash
+# Check stash status
+cd ~/code/django
+git stash list
+
+# Apply specific stash
+git stash apply stash@{0}
+
+# Drop problematic stash
+git stash drop stash@{0}
+
+# Clear all stashes
+git stash clear
+```
+
+---
+
+## API and Network Issues
+
+### Missing API Keys
+
+**Symptoms:** API authentication errors
+
+**Solutions:**
+
+```bash
+# Set environment variables
+export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+export GITHUB_TOKEN="your-github-token"
 
 # Test API connectivity
-gitco analyze --repo django --test-api
+curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
+curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user
 
-# Test discovery
-gitco discover --test
+# Check environment variables
+env | grep -E "(OPENAI|ANTHROPIC|GITHUB)_API_KEY"
 ```
+
+### Rate Limit Exceeded
+
+**Symptoms:** Rate limit errors from APIs
+
+**Solutions:**
+
+```bash
+# Check rate limit status
+gitco github rate-limit-status --detailed
+
+# Wait for rate limit reset
+gitco github rate-limit-status
+
+# Reduce request frequency
+# Edit config.yml to increase delays
+rate_limit_delay: 2.0
+min_request_interval: 0.5
+```
+
+### Network Timeout
+
+**Symptoms:** Connection timeout errors
+
+**Solutions:**
+
+```bash
+# Increase timeout values
+# Edit config.yml
+github_timeout: 60
+git_timeout: 600
+
+# Check network connectivity
+ping api.github.com
+ping api.openai.com
+
+# Use proxy if needed
+export HTTP_PROXY="http://proxy.company.com:8080"
+export HTTPS_PROXY="http://proxy.company.com:8080"
+```
+
+### GitHub API Issues
+
+**Symptoms:** GitHub API errors or authentication failures
+
+**Solutions:**
+
+```bash
+# Test GitHub connection
+gitco github test-connection
+
+# Check token permissions
+curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user
+
+# Regenerate token with proper permissions
+# Go to GitHub Settings > Developer settings > Personal access tokens
+
+# Test specific repository access
+gitco github get-repo --repo django/django
+```
+
+---
+
+## Analysis and Discovery Issues
+
+### LLM API Errors
+
+**Symptoms:** Analysis failures or LLM API errors
+
+**Solutions:**
+
+```bash
+# Test LLM provider
+gitco analyze --repo django --provider openai
+
+# Check API key
+echo $OPENAI_API_KEY
+
+# Test API directly
+curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"test"}]}' \
+     https://api.openai.com/v1/chat/completions
+
+# Switch providers
+gitco analyze --repo django --provider anthropic
+```
+
+### Discovery Failures
+
+**Symptoms:** Discovery command fails or returns no results
+
+**Solutions:**
+
+```bash
+# Check GitHub connection
+gitco github test-connection
+
+# Test discovery with different filters
+gitco discover --skill python
+gitco discover --label "good first issue"
+gitco discover --min-confidence 0.1
+
+# Check rate limits
+gitco github rate-limit-status
+
+# Enable debug mode
+gitco --debug discover
+```
+
+### Cost Limit Exceeded
+
+**Symptoms:** Cost limit errors during analysis
+
+**Solutions:**
+
+```bash
+# Check cost usage
+gitco cost summary --detailed
+
+# Reset cost limits
+gitco cost configure --daily-limit 10.0 --monthly-limit 100.0
+
+# Disable cost tracking temporarily
+gitco cost configure --disable-tracking
+
+# Reset cost history
+gitco cost reset --force
+```
+
+---
 
 ## Performance Issues
 
-### Slow Sync Operations
+### Slow Operations
+
+**Symptoms:** Commands take too long to complete
 
 **Solutions:**
-1. Reduce batch size:
-   ```yaml
-   settings:
-     max_repos_per_batch: 5
-   ```
 
-2. Use parallel processing:
-   ```yaml
-   settings:
-     parallel_sync: true
-   ```
+```bash
+# Check performance metrics
+gitco performance --detailed
 
-3. Optimize network settings
+# Reduce batch size
+# Edit config.yml
+max_repos_per_batch: 2
+
+# Increase timeouts
+git_timeout: 600
+github_timeout: 60
+
+# Use quiet mode for automation
+gitco --quiet sync --batch
+```
 
 ### Memory Issues
 
+**Symptoms:** Out of memory errors or high memory usage
+
 **Solutions:**
-1. Reduce concurrent operations
-2. Use streaming for large repositories
-3. Implement memory limits
+
+```bash
+# Check system resources
+free -h
+top
+
+# Reduce concurrent operations
+max_repos_per_batch: 1
+
+# Clear caches
+gitco cost reset --force
+
+# Use smaller models
+# Edit config.yml to use smaller LLM models
+```
+
+### High CPU Usage
+
+**Symptoms:** Excessive CPU usage during operations
+
+**Solutions:**
+
+```bash
+# Monitor CPU usage
+htop
+
+# Reduce concurrent workers
+max_repos_per_batch: 1
+
+# Use quiet mode
+gitco --quiet sync
+
+# Check for background processes
+ps aux | grep gitco
+```
+
+---
+
+## Cost Management Issues
+
+### Unexpected Costs
+
+**Symptoms:** Higher than expected API costs
+
+**Solutions:**
+
+```bash
+# Check cost breakdown
+gitco cost breakdown --detailed
+
+# Set stricter limits
+gitco cost configure --daily-limit 2.0 --monthly-limit 20.0
+
+# Enable token optimization
+gitco cost configure --enable-optimization
+
+# Reduce token limits
+gitco cost configure --max-tokens 2000
+```
+
+### Cost Tracking Disabled
+
+**Symptoms:** Cost tracking not working
+
+**Solutions:**
+
+```bash
+# Enable cost tracking
+gitco cost configure --enable-tracking
+
+# Check cost log file
+ls -la ~/.gitco/cost_log.json
+
+# Reset cost tracking
+gitco cost reset --force
+
+# Check configuration
+gitco config validate
+```
+
+### Cost Export Issues
+
+**Symptoms:** Cost export fails or returns empty data
+
+**Solutions:**
+
+```bash
+# Export cost data
+gitco cost summary --export costs.json
+
+# Check export format
+gitco cost summary --export costs.csv
+
+# Verify file permissions
+ls -la costs.json
+
+# Check file content
+cat costs.json
+```
+
+---
+
+## Backup and Recovery Issues
+
+### Backup Creation Fails
+
+**Symptoms:** Backup creation errors
+
+**Solutions:**
+
+```bash
+# Check disk space
+df -h
+
+# Use smaller backup type
+gitco backup create --type config-only
+
+# Exclude git history
+gitco backup create --no-git-history
+
+# Check permissions
+ls -la ~/.gitco/
+
+# Use different compression
+gitco backup create --compression 1
+```
+
+### Backup Restoration Fails
+
+**Symptoms:** Backup restoration errors
+
+**Solutions:**
+
+```bash
+# Validate backup
+gitco backup validate --backup-id backup-id
+
+# List available backups
+gitco backup list --detailed
+
+# Restore to different location
+gitco backup restore --backup-id backup-id --target-dir ~/restored
+
+# Overwrite existing files
+gitco backup restore --backup-id backup-id --overwrite
+```
+
+### Backup Corruption
+
+**Symptoms:** Backup validation fails
+
+**Solutions:**
+
+```bash
+# Validate backup integrity
+gitco backup validate --backup-id backup-id
+
+# Delete corrupted backup
+gitco backup delete --backup-id backup-id --force
+
+# Create new backup
+gitco backup create --type full --description "Replacement backup"
+```
+
+---
+
+## Advanced Troubleshooting
+
+### Debug Mode
+
+Enable debug mode for detailed error information:
+
+```bash
+# Enable debug logging
+gitco --debug --detailed-log sync
+
+# Debug specific command
+gitco --debug analyze --repo django
+
+# Export debug logs
+gitco --debug --log-file debug.log sync
+```
+
+### Verbose Output
+
+Get detailed output for troubleshooting:
+
+```bash
+# Verbose mode
+gitco --verbose sync
+
+# Detailed validation
+gitco config validate-detailed --detailed
+
+# Detailed status
+gitco status --detailed
+```
+
+### Log Analysis
+
+Analyze logs for issues:
+
+```bash
+# View logs
+gitco logs --export logs.json
+
+# Check log file
+tail -f ~/.gitco/gitco.log
+
+# Analyze performance logs
+gitco performance --export performance.json
+```
+
+### Network Diagnostics
+
+Diagnose network connectivity issues:
+
+```bash
+# Test API endpoints
+curl -I https://api.github.com
+curl -I https://api.openai.com
+
+# Check DNS resolution
+nslookup api.github.com
+nslookup api.openai.com
+
+# Test with different network
+# Try from different network or VPN
+```
+
+### Configuration Reset
+
+Reset configuration to defaults:
+
+```bash
+# Backup current config
+cp ~/.gitco/config.yml ~/.gitco/config.yml.backup
+
+# Reinitialize configuration
+gitco init --force
+
+# Restore specific settings
+# Manually edit ~/.gitco/config.yml
+```
+
+### Environment Issues
+
+Resolve environment-related issues:
+
+```bash
+# Check Python environment
+which python
+python --version
+pip list
+
+# Use virtual environment
+python -m venv gitco-env
+source gitco-env/bin/activate
+pip install gitco
+
+# Check system dependencies
+git --version
+curl --version
+```
+
+---
 
 ## Getting Help
 
-### Before Asking for Help
+### Self-Service Resources
 
-1. **Check this guide** for your specific issue
-2. **Search existing issues** on GitHub
-3. **Gather information:**
-   - GitCo version: `gitco --version`
-   - Python version: `python --version`
-   - Operating system: `uname -a`
-   - Error messages and logs
+```bash
+# Comprehensive help
+gitco help
 
-### Creating an Issue
+# Command-specific help
+gitco sync --help
+gitco analyze --help
+gitco discover --help
 
-When creating a GitHub issue, include:
-
-1. **Clear description** of the problem
-2. **Steps to reproduce** the issue
-3. **Expected vs actual behavior**
-4. **Environment information**
-5. **Relevant logs and error messages**
-6. **Configuration file** (with sensitive data removed)
-
-### Example Issue Template
-
-```markdown
-## Problem Description
-Brief description of the issue
-
-## Steps to Reproduce
-1. Run `gitco init`
-2. Configure repository
-3. Run `gitco sync`
-4. See error
-
-## Expected Behavior
-What should happen
-
-## Actual Behavior
-What actually happens
-
-## Environment
-- GitCo version: 0.1.0
-- Python version: 3.9.0
-- OS: macOS 12.0
-- Configuration: [attached]
-
-## Error Messages
-[Paste error messages here]
-
-## Additional Information
-Any other relevant details
+# Configuration help
+gitco config --help
 ```
 
-## Prevention
+### Diagnostic Information
 
-### Best Practices
+When reporting issues, include:
 
-1. **Backup configuration** before major changes
-2. **Test in isolated environment** first
-3. **Use version control** for configuration
-4. **Monitor logs** regularly
-5. **Keep dependencies updated**
+```bash
+# System information
+gitco --version
+python --version
+git --version
 
-### Regular Maintenance
+# Configuration summary
+gitco config status
 
-1. **Update GitCo** regularly
-2. **Clean up old repositories** periodically
-3. **Review and update skills** in configuration
-4. **Monitor API usage** and limits
-5. **Backup important data** regularly
+# Recent logs
+tail -n 100 ~/.gitco/gitco.log
 
-## Next Steps
+# Performance metrics
+gitco performance --export performance.json
+```
 
-- Check [Configuration Guide](configuration.md) for advanced settings
-- Review [Usage Guide](usage.md) for best practices
-- Contribute fixes via [Contributing Guide](../CONTRIBUTING.md)
+### Community Support
+
+- **GitHub Issues:** Report bugs and feature requests
+- **Documentation:** Check the [CLI Reference](cli.md) and [FAQ](faq.md)
+- **Configuration Guide:** Review [Configuration Guide](configuration.md)
+- **Usage Examples:** See [Usage Guide](usage.md)
+
+This comprehensive troubleshooting guide covers the most common issues and provides practical solutions for resolving GitCo problems. For additional help, refer to the specific documentation sections or report issues through the appropriate channels.
