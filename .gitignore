@@ -206,4 +206,8 @@ __marimo__/
 
 # GitCo configuration directory (local)
 .gitco/
+
+# Detect-secrets baseline file
+.secrets.baseline
+
 .DS_Store

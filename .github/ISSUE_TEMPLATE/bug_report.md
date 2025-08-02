@@ -7,45 +7,40 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+Brief description of the issue.
 
 **To Reproduce**
-Steps to reproduce the behavior:
+Steps to reproduce:
 1. Run command '...'
 2. See error
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What you expected to happen.
 
 **Actual behavior**
-A clear and concise description of what actually happened.
+What actually happened.
 
-**Environment:**
- - OS: [e.g. macOS, Ubuntu, Windows]
- - Python version: [e.g. 3.9, 3.10, 3.11, 3.12]
- - GitCo version: [e.g. 0.1.0]
- - Git version: [e.g. 2.35.1]
+**Environment**
+- OS: [e.g. macOS, Ubuntu, Windows]
+- Python: [e.g. 3.9, 3.10, 3.11, 3.12]
+- GitCo: [e.g. 0.1.0]
 
-**Configuration:**
+**Configuration**
 ```yaml
-# Your gitco-config.yml (remove sensitive information)
+# Your gitco-config.yml (remove sensitive info)
 repositories:
   - name: example
     fork: username/repo
     upstream: owner/repo
-    local_path: ~/code/repo
 ```
 
-**Logs:**
+**Logs**
 ```
-# Add relevant log output here
+# Add relevant log output
 ```
 
-**Additional context**
-Add any other context about the problem here.
-
-**Checklist:**
-- [ ] I have searched existing issues to avoid duplicates
-- [ ] I have provided all the information requested above
-- [ ] I can reproduce this issue consistently
-- [ ] This is a bug in GitCo (not a configuration issue)
+**Checklist**
+- [ ] Searched existing issues
+- [ ] Provided all requested information
+- [ ] Can reproduce consistently
+- [ ] This is a GitCo bug (not configuration)

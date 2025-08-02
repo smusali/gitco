@@ -67,6 +67,9 @@ GitCo implements several security measures:
 - **Secure API key handling**: API keys are managed securely through environment variables
 - **Input validation**: All user inputs are validated to prevent injection attacks
 - **Dependency scanning**: Regular security scans of dependencies
+- **PyPI authentication security**: Secure token validation and management
+- **Package security validation**: Comprehensive package scanning before publishing
+- **Secret detection**: Automated scanning for hardcoded secrets and credentials
 
 ## Security Tools
 
@@ -76,6 +79,9 @@ Our CI pipeline includes several security tools:
 - **bandit**: Static analysis tool for security issues
 - **ruff**: Includes security-focused linting rules
 - **Dependabot**: Automated dependency updates with security patches
+- **detect-secrets**: Detects secrets and credentials in code
+- **safety**: Additional dependency vulnerability scanning
+- **Token validation**: Ensures proper PyPI token format and scope
 
 ## Contact
 

@@ -58,7 +58,7 @@ Releases must follow semantic versioning:
 
 - **Vulnerability Scanning**: Uses `pip-audit` to check dependencies
 - **Code Security**: Uses `bandit` to scan for security issues
-- **Secret Detection**: Uses `trufflehog` to find exposed secrets
+- **Secret Detection**: Uses `detect-secrets` to find exposed secrets
 - **Report Generation**: Creates security reports for review
 
 ### 4. Build Stage

@@ -96,7 +96,7 @@ jobs:
           bandit -r src/ -f json -o bandit-report.json || true
 
           # Check for secrets in code
-          trufflehog --json . > trufflehog-report.json || true
+          detect-secrets scan --baseline .secrets.baseline . > detect-secrets-report.json || true
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -105,7 +105,7 @@ jobs:
           path: |
             pip-audit.json
             bandit-report.json
-            trufflehog-report.json
+            detect-secrets-report.json
 
   build:
     runs-on: ubuntu-latest
@@ -265,41 +265,6 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
 
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-          TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
-        run: |
-          if [ -z "$TWINE_PASSWORD" ]; then
-            echo "⚠️  Skipping PyPI publishing - PYPI_API_TOKEN not configured"
-            echo "To enable PyPI publishing, add PYPI_API_TOKEN secret"
-            echo "Get your token from: https://pypi.org/manage/account/token/"
-            exit 0
-          fi
-
-          echo "🚀 Publishing to PyPI..."
-
-          # Upload with retry mechanism and better error handling
-          for attempt in {1..3}; do
-            echo "📤 Upload attempt $attempt/3"
-
-            if twine upload --verbose dist/*; then
-              echo "✅ Successfully published to PyPI"
-              echo "📦 Package URL: https://pypi.org/project/gitco/"
-              break
-            else
-              echo "⚠️  Upload attempt $attempt failed"
-              if [ $attempt -lt 3 ]; then
-                echo "⏳ Waiting 30 seconds before retry..."
-                sleep 30
-              else
-                echo "❌ All upload attempts failed"
-                exit 1
-              fi
-            fi
-          done
-
       - name: Publish to Test PyPI
         env:
           TWINE_USERNAME: __token__
@@ -335,25 +300,31 @@ jobs:
             fi
           done
 
-      - name: Verify PyPI availability
-        if: env.TWINE_PASSWORD != ''
+      - name: Verify Test PyPI availability
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          echo "⏳ Waiting for PyPI to process upload..."
-          sleep 60  # Increased wait time for PyPI processing
 
-          echo "🔍 Verifying package availability on PyPI..."
+          # Check if Test PyPI token is available
+          if [ -z "$TEST_PYPI_API_TOKEN" ]; then
+            echo "⚠️  Skipping Test PyPI verification - TEST_PYPI_API_TOKEN not configured"
+            exit 0
+          fi
 
-          # Test package installation from PyPI
+          echo "⏳ Waiting for Test PyPI to process upload..."
+          sleep 30
+
+          echo "🔍 Verifying package availability on Test PyPI..."
+
+          # Test package installation from Test PyPI
           python -m venv verify-env
           source verify-env/bin/activate
 
-          # Try to install from PyPI
-          if pip install gitco==$VERSION; then
-            echo "✅ Package successfully installed from PyPI"
+          # Try to install from Test PyPI
+          if pip install --index-url https://test.pypi.org/simple/ gitco==$VERSION; then
+            echo "✅ Package successfully installed from Test PyPI"
             python -c "import gitco; print(f'✅ Package version {gitco.__version__} imported successfully')"
           else
-            echo "❌ Failed to install package from PyPI"
+            echo "❌ Failed to install package from Test PyPI"
             exit 1
           fi
 
@@ -363,6 +334,12 @@ jobs:
           deactivate
           rm -rf verify-env
 
+      - name: Note about PyPI publishing
+        run: |
+          echo "📝 Note: PyPI publishing is handled by the separate pypi-publish.yml workflow"
+          echo "📦 The package will be published to PyPI after Test PyPI verification"
+          echo "🔗 PyPI publishing workflow: https://github.com/41technologies/gitco/actions/workflows/pypi-publish.yml"
+
       - name: Update documentation
         run: |
           # Update installation instructions if needed
@@ -371,8 +348,9 @@ jobs:
       - name: Notify community
         run: |
           echo "🎉 Release ${{ github.ref }} published successfully!"
-          echo "📦 PyPI: https://pypi.org/project/gitco/"
-          echo "📋 Release: ${{ steps.create_release.outputs.url }}"
+          echo "📋 GitHub Release: ${{ steps.create_release.outputs.upload_url }}"
+          echo "🧪 Test PyPI: https://test.pypi.org/project/gitco/"
+          echo "📦 PyPI: https://pypi.org/project/gitco/ (handled by separate workflow)"
           echo "📖 Documentation: https://github.com/41technologies/gitco#readme"
 
   post-release:

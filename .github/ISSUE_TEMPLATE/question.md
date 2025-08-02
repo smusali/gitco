@@ -6,34 +6,27 @@ labels: ['question']
 assignees: ''
 ---
 
-**What is your question?**
-A clear and concise description of your question.
+**Question**
+Brief description of your question.
 
 **Context**
-Provide any relevant context about your question:
-- What are you trying to accomplish?
-- What have you tried so far?
-- What documentation have you consulted?
+What are you trying to accomplish? What have you tried?
 
-**Environment:**
- - OS: [e.g. macOS, Ubuntu, Windows]
- - Python version: [e.g. 3.9, 3.10, 3.11, 3.12]
- - GitCo version: [e.g. 0.1.0]
+**Environment**
+- OS: [e.g. macOS, Ubuntu, Windows]
+- Python: [e.g. 3.9, 3.10, 3.11, 3.12]
+- GitCo: [e.g. 0.1.0]
 
-**Configuration:**
+**Configuration**
 ```yaml
-# Your gitco-config.yml (remove sensitive information)
+# Your gitco-config.yml (remove sensitive info)
 repositories:
   - name: example
     fork: username/repo
     upstream: owner/repo
-    local_path: ~/code/repo
 ```
 
-**Additional context**
-Add any other context or screenshots about your question here.
-
-**Checklist:**
-- [ ] I have searched existing issues and documentation
-- [ ] I have provided clear context about my question
-- [ ] This is a genuine question about GitCo usage or development
+**Checklist**
+- [ ] Searched existing issues and documentation
+- [ ] Provided clear context
+- [ ] Genuine question about GitCo

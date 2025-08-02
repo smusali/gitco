@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Chore
 - chore: add ruff and black linting configuration and checks
 - chore: setup GitHub Actions CI pipeline with Python testing
+- chore: configure PyPI authentication and security measures
 
 ### Merges
 - Merge pull request #5 from 41technologies/dependabot/github_actions/codecov/codecov-action-5

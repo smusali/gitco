@@ -6,7 +6,7 @@
 
 GitCo transforms the tedious process of managing multiple OSS forks into an intelligent, context-aware workflow. It combines automated synchronization with AI-powered insights to help developers stay current with upstream changes and discover meaningful contribution opportunities.
 
-## 🚀 Features
+## 🚀 Key Features
 
 - **🔄 Intelligent Fork Synchronization** - Automated sync with safe stashing and error recovery
 - **🧠 AI-Powered Change Analysis** - OpenAI/Anthropic integration for intelligent change analysis
@@ -15,20 +15,11 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - **💾 Backup & Recovery** - Robust backup system with multiple backup types
 - **🤖 Automation Support** - Quiet mode and export functionality for CI/CD integration
 - **💰 Cost Optimization** - Token usage tracking and cost management for LLM APIs
-- **📈 Contribution Tracking** - Personal contribution history and impact analysis
-- **🔍 Advanced Discovery** - Personalized recommendations based on contribution history
-- **📋 Health Dashboards** - Repository activity and health monitoring
 
 ## 📦 Installation
 
 ```bash
-# Install from PyPI
 pip install gitco
-
-# Or install from source
-git clone https://github.com/41technologies/gitco.git
-cd gitco
-pip install -e .
 ```
 
 ## 🛠️ Quick Start
@@ -59,7 +50,7 @@ settings:
   default_path: ~/code
 ```
 
-### 4. Sync and Analyze
+### 4. Start Using GitCo
 ```bash
 # Sync repositories
 gitco sync
@@ -72,9 +63,6 @@ gitco discover --skill python
 
 # Check repository health
 gitco status
-
-# View activity dashboard
-gitco activity
 ```
 
 ## 📖 Documentation
@@ -84,32 +72,17 @@ gitco activity
 - [Usage Guide](docs/usage.md) - Complete command reference and examples
 - [CLI Reference](docs/cli.md) - Comprehensive CLI command reference
 - [Features Guide](docs/features.md) - Detailed feature overview
-- [Tutorials Guide](docs/tutorials.md) - Step-by-step tutorials and examples
-- [Workflows Guide](docs/workflows.md) - User persona-based workflows
-- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
+- [Tutorials](docs/tutorials.md) - Step-by-step tutorials and examples
+- [Workflows](docs/workflows.md) - User persona-based workflows
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 - [FAQ](docs/faq.md) - Frequently asked questions
-- [Releases Guide](docs/releases.md) - Automated release process and management
-- [PyPI Publishing Guide](docs/pypi-publishing.md) - Automated package building and publishing
+- [Releases](docs/releases.md) - Release process and management
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 This project adheres to our [Code of Conduct](CODE_OF_CONDUCT.md).
-
-### Development
-
-For developers, we provide automated changelog generation:
-
-```bash
-# Generate changelog preview
-./scripts/generate-changelog.sh preview
-
-# Update main changelog
-./scripts/generate-changelog.sh update
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md#changelog-generation) for detailed information.
 
 ## 📄 License
 
