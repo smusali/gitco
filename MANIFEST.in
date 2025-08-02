@@ -1,57 +1,51 @@
-# Include README and license files
+# Core package files
 include README.md
 include LICENSE
 include CHANGELOG.md
-include CODE_OF_CONDUCT.md
-include CONTRIBUTING.md
-include SECURITY.md
 
-# Include requirements files
-include requirements.txt
-include requirements-dev.txt
-
-# Include configuration files
+# Essential configuration files for users
 include pyproject.toml
-include MANIFEST.in
-include gitco-config.yml
 
-# Include JSON files
-include *.json
-# Exclude generated security reports
-global-exclude *-report.json
-
-# Include CI/CD and development files
-include *.yaml
-include *.yml
-include .codecov.yml
-include .pre-commit-config.yaml
-include .yamllint
-
-# Include documentation
-recursive-include docs *.md *.rst *.txt
-
-# Include test files
-recursive-include tests *.py *.yml *.yaml *.json
-
-# Include scripts
-recursive-include scripts *.sh
-
-# Include type hints
+# Include type hints for better IDE support (when available)
 recursive-include src *.pyi
 
-# Exclude development artifacts
+# Include documentation for users
+recursive-include docs *.md
+
+# Exclude all development and build artifacts
 global-exclude *.pyc
 global-exclude *.pyo
 global-exclude *.pyd
 global-exclude __pycache__
 global-exclude *.so
+global-exclude *.c
+global-exclude *.egg-info
 global-exclude .DS_Store
 global-exclude .git*
 global-exclude .coverage
 global-exclude htmlcov
 global-exclude .pytest_cache
-
 global-exclude .ruff_cache
+global-exclude .mypy_cache
 global-exclude build
 global-exclude dist
-global-exclude *.egg-info
+
+# Exclude development configuration files
+global-exclude .pre-commit-config.yaml
+global-exclude .codecov.yml
+global-exclude .yamllint
+global-exclude .github
+global-exclude requirements-dev.txt
+global-exclude CODE_OF_CONDUCT.md
+global-exclude CONTRIBUTING.md
+global-exclude SECURITY.md
+global-exclude *-report.json
+global-exclude .bandit
+
+# Exclude test files from distribution
+global-exclude tests
+recursive-exclude tests *
+
+# Exclude development scripts
+global-exclude scripts
+recursive-exclude scripts *

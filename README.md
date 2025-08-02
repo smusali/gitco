@@ -1,8 +1,8 @@
+[![codecov](https://codecov.io/gh/41technologies/gitco/graph/badge.svg?token=R6BEP2IPGN)](https://codecov.io/gh/41technologies/gitco)
+
 # GitCo ✨
 
 **A simple CLI tool for intelligent OSS fork management and contribution discovery.**
-
-[![codecov](https://codecov.io/gh/41technologies/gitco/graph/badge.svg?token=R6BEP2IPGN)](https://codecov.io/gh/41technologies/gitco)
 
 GitCo transforms the tedious process of managing multiple OSS forks into an intelligent, context-aware workflow. It combines automated synchronization with AI-powered insights to help developers stay current with upstream changes and discover meaningful contribution opportunities.
 
