@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
+from ..utils.common import get_logger
 from .patterns import (
     BREAKING_CHANGE_PATTERNS,
     CRITICAL_SECURITY_PATTERNS,
@@ -17,7 +18,6 @@ from .patterns import (
     MEDIUM_SEVERITY_PATTERNS,
     SECURITY_PATTERNS,
 )
-from .utils.common import get_logger
 
 
 @dataclass

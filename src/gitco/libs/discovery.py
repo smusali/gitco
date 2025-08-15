@@ -2,18 +2,22 @@
 
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
-from .config import Config, Repository
-from .github_client import GitHubClient, GitHubIssue
-from .patterns.constants import DIFFICULTY_INDICATORS, SKILL_SYNONYMS, TIME_PATTERNS
-from .utils.common import (
+from rich.panel import Panel
+from rich.text import Text
+
+from ..patterns.constants import DIFFICULTY_INDICATORS, SKILL_SYNONYMS, TIME_PATTERNS
+from ..utils.common import (
+    console,
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
-from .utils.exception import DiscoveryError
+from ..utils.exception import DiscoveryError
+from .config import Config, Repository
+from .github_client import GitHubClient, GitHubIssue
 
 
 @dataclass
@@ -737,3 +741,144 @@ def create_discovery_engine(
         Configured issue discovery engine
     """
     return IssueDiscovery(github_client, config)
+
+
+def print_issue_recommendation(
+    recommendation: "IssueRecommendation", index: int
+) -> None:
+    """Print a formatted issue recommendation.
+
+    Args:
+        recommendation: The issue recommendation to display
+        index: The recommendation number/index
+    """
+    if not isinstance(recommendation, IssueRecommendation):
+        return
+
+    # Build the content
+    content: list[Union[Text, str]] = []
+
+    # Issue title and URL
+    title_text = Text(f"#{recommendation.issue.number}: {recommendation.issue.title}")
+    title_text.stylize("bold blue")
+    content.append(title_text)
+    content.append(f"🔗 {recommendation.issue.html_url}")
+    content.append("")
+
+    # Repository info
+    content.append(f"📁 Repository: {recommendation.repository.name}")
+    if recommendation.repository.language:
+        content.append(f"💻 Language: {recommendation.repository.language}")
+    content.append("")
+
+    # Score and difficulty with enhanced information
+    score_text = f"Score: {recommendation.overall_score:.2f}"
+    difficulty_text = f"Difficulty: {recommendation.difficulty_level.title()}"
+    time_text = f"Time: {recommendation.estimated_time.title()}"
+
+    # Add confidence indicator
+    if recommendation.overall_score > 0.8:
+        confidence_indicator = "🎯 Excellent Match"
+    elif recommendation.overall_score > 0.6:
+        confidence_indicator = "⭐ Good Match"
+    elif recommendation.overall_score > 0.4:
+        confidence_indicator = "💡 Good Opportunity"
+    else:
+        confidence_indicator = "🔍 Exploration"
+
+    content.append(
+        f"{confidence_indicator} | {score_text} | 🎯 {difficulty_text} | ⏱️ {time_text}"
+    )
+    content.append("")
+
+    # Skill matches with enhanced details
+    if recommendation.skill_matches:
+        content.append("🎯 Skill Matches:")
+        for match in recommendation.skill_matches:
+            confidence_text = f"({match.confidence:.1%})"
+            match_type_emoji = {
+                "exact": "🎯",
+                "partial": "📝",
+                "related": "🔗",
+                "language": "💻",
+            }.get(match.match_type, "📌")
+
+            match_text = f"  {match_type_emoji} {match.skill} {confidence_text} [{match.match_type}]"
+            content.append(match_text)
+
+            # Show evidence for high-confidence matches
+            if match.confidence > 0.7 and match.evidence:
+                evidence_text = f"    Evidence: {match.evidence[0][:60]}..."
+                content.append(f"    {evidence_text}")
+        content.append("")
+
+    # Tags with categorization
+    if recommendation.tags:
+        # Categorize tags
+        skill_tags: list[str] = [
+            tag
+            for tag in recommendation.tags
+            if tag
+            in [
+                "python",
+                "javascript",
+                "java",
+                "go",
+                "rust",
+                "react",
+                "vue",
+                "angular",
+                "api",
+                "database",
+                "testing",
+                "devops",
+            ]
+        ]
+        difficulty_tags: list[str] = [
+            tag
+            for tag in recommendation.tags
+            if tag in ["beginner", "intermediate", "advanced"]
+        ]
+        time_tags: list[str] = [
+            tag for tag in recommendation.tags if tag in ["quick", "medium", "long"]
+        ]
+        special_tags: list[str] = [
+            tag
+            for tag in recommendation.tags
+            if tag not in skill_tags + difficulty_tags + time_tags
+        ]
+
+        if skill_tags:
+            content.append(f"💻 Skills: {', '.join(skill_tags)}")
+        if difficulty_tags:
+            content.append(f"🎯 Level: {', '.join(difficulty_tags)}")
+        if time_tags:
+            content.append(f"⏱️ Time: {', '.join(time_tags)}")
+        if special_tags:
+            content.append(f"🏷️ Tags: {', '.join(special_tags)}")
+        content.append("")
+
+    # Personalized insights (if available)
+    if hasattr(recommendation, "personalized_insights"):
+        content.append("💡 Personalized Insights:")
+        for insight in recommendation.personalized_insights[:2]:  # Show top 2 insights
+            content.append(f"  • {insight}")
+        content.append("")
+
+    # Create the panel with dynamic styling
+    border_style = (
+        "green"
+        if recommendation.overall_score > 0.7
+        else "yellow"
+        if recommendation.overall_score > 0.4
+        else "blue"
+    )
+
+    panel = Panel(
+        "\n".join(str(item) for item in content),
+        title=f"Recommendation #{index}",
+        border_style=border_style,
+    )
+
+    console.print(panel)
+    console.print()  # Add spacing

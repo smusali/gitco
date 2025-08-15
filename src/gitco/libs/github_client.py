@@ -7,13 +7,13 @@ from typing import Any, Optional
 import requests
 from github import Github, GithubException
 
-from .utils.common import (
+from ..utils.common import (
     log_api_call,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
-from .utils.exception import (
+from ..utils.exception import (
     APIError,
     ConnectionTimeoutError,
     GitHubAuthenticationError,
@@ -21,8 +21,8 @@ from .utils.exception import (
     ReadTimeoutError,
     RequestTimeoutError,
 )
-from .utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
-from .utils.retry import TIMEOUT_AWARE_RETRY_CONFIG, create_retry_session, with_retry
+from ..utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
+from ..utils.retry import TIMEOUT_AWARE_RETRY_CONFIG, create_retry_session, with_retry
 
 
 @dataclass

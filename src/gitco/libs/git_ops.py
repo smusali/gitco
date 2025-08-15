@@ -15,12 +15,12 @@ import psutil
 from rich import box
 from rich.table import Table
 
-from .utils.common import (
+from ..utils.common import (
     console,
     create_progress_bar,
     get_logger,
 )
-from .utils.exception import GitOperationError
+from ..utils.exception import GitOperationError
 
 
 @dataclass

@@ -3,10 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from ..utils.common import get_logger
 from .config import Config
 from .git_ops import GitRepository
 from .github_client import GitHubClient
-from .utils.common import get_logger
 
 
 @dataclass

@@ -13,7 +13,7 @@ from rich import box
 from rich.panel import Panel
 from rich.table import Table
 
-from .utils.common import (
+from ..utils.common import (
     console,
     get_logger,
     log_operation_failure,
@@ -23,7 +23,7 @@ from .utils.common import (
     print_success_panel,
     print_warning_panel,
 )
-from .utils.exception import BackupError, RecoveryError
+from ..utils.exception import BackupError, RecoveryError
 
 
 class BackupMetadata:

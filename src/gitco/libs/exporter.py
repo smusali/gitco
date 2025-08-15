@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from .utils.common import get_logger, print_error_panel, print_success_panel
+from ..utils.common import get_logger, print_error_panel, print_success_panel
 
 
 def export_sync_results(

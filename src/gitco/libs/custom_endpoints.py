@@ -3,7 +3,7 @@
 import os
 from typing import TYPE_CHECKING
 
-from .utils.common import get_logger
+from ..utils.common import get_logger
 
 if TYPE_CHECKING:
     from .config import Config, Settings

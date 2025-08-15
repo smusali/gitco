@@ -8,9 +8,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from .custom_endpoints import validate_custom_endpoints
-from .git_ops import GitRepositoryManager
-from .utils.common import (
+from ..utils.common import (
     get_logger,
     log_configuration_loaded,
     log_operation_failure,
@@ -18,7 +16,9 @@ from .utils.common import (
     log_operation_success,
     log_validation_result,
 )
-from .utils.exception import ConfigurationError
+from ..utils.exception import ConfigurationError
+from .custom_endpoints import validate_custom_endpoints
+from .git_ops import GitRepositoryManager
 
 
 @dataclass

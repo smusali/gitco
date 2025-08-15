@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from .config import Config
-from .github_client import GitHubClient, GitHubIssue
-from .utils.common import (
+from ..utils.common import (
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
-from .utils.exception import ContributionTrackerError
+from ..utils.exception import ContributionTrackerError
+from .config import Config
+from .github_client import GitHubClient, GitHubIssue
 
 
 @dataclass

@@ -5,16 +5,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from .config import Config
-from .git_ops import GitRepository
-from .github_client import GitHubClient
-from .utils.common import (
+from ..utils.common import (
     get_logger,
     log_operation_failure,
     log_operation_start,
     log_operation_success,
 )
-from .utils.exception import HealthMetricsError
+from ..utils.exception import HealthMetricsError
+from .config import Config
+from .git_ops import GitRepository
+from .github_client import GitHubClient
 
 
 @dataclass
