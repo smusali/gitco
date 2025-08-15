@@ -172,7 +172,7 @@ Intelligent health scoring system.
 - **Activity Frequency**: Recent commits, issues, and PRs
 - **Maintainer Responsiveness**: Response times to issues and PRs
 - **Community Engagement**: Star growth, fork activity, and discussions
-- **Code Quality**: Automated testing, CI/CD status, and code review
+- **Code Quality**: Automated linting, CI/CD status, and code review
 - **Documentation**: Quality and completeness of documentation
 
 ---

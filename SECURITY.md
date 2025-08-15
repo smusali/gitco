@@ -48,7 +48,7 @@ Send an email to `fortyone.technologies@gmail.com` with the following informatio
 
 1. **Keep GitCo updated**: Always use the latest stable version
 2. **Secure API keys**: Never commit API keys to version control
-3. **Review configurations**: Regularly review your `gitco-config.yml` for sensitive information
+3. **Review configurations**: Regularly review your `~/.gitco/config.yml` for sensitive information
 4. **Monitor logs**: Check logs for any suspicious activity
 
 ### For Contributors

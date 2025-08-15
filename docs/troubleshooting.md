@@ -49,8 +49,8 @@ cat ~/.gitco/config.yml
 # Validate configuration
 gitco config validate
 
-# Test GitHub connection
-gitco github test-connection
+# Check GitHub connection
+gitco github connection-status
 
 # Check rate limits
 gitco github rate-limit-status
@@ -80,7 +80,7 @@ gitco logs --export logs.json
 python -c "import yaml; yaml.safe_load(open('~/.gitco/config.yml'))"
 
 # Validate configuration
-gitco config validate-detailed --detailed
+gitco config validate --detailed
 
 # Check for missing required fields
 gitco config validate --strict
@@ -100,8 +100,8 @@ env | grep -E "(OPENAI|ANTHROPIC|GITHUB)_API_KEY"
 export OPENAI_API_KEY="your-key-here"
 export GITHUB_TOKEN="your-token-here"
 
-# Test API connections
-gitco github test-connection
+# Check API connections
+gitco github connection-status
 ```
 
 ### Repository Path Issues
@@ -235,13 +235,13 @@ export HTTPS_PROXY="http://proxy:port"
 **Solutions:**
 
 ```bash
-# Test GitHub token
+# Check GitHub token
 curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
 
 # Regenerate token with correct scopes
 # Go to GitHub Settings > Developer settings > Personal access tokens
 
-# Test OpenAI token
+# Check OpenAI token
 curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 ```
 
@@ -259,7 +259,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 # Check LLM provider configuration
 gitco config validate
 
-# Test OpenAI connection
+# Check OpenAI connection
 curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 
 # Switch LLM provider
@@ -458,8 +458,8 @@ gitco backup validate --backup-id backup-id
 # List available backups
 gitco backup list --detailed
 
-# Test restore to different directory
-gitco backup restore --backup-id backup-id --target-dir ~/test-restore
+# Restore to different directory
+gitco backup restore --backup-id backup-id --target-dir ~/restore-location
 
 # Check restore permissions
 ls -la ~/code/
@@ -530,17 +530,17 @@ iotop -p $(pgrep -f gitco)
 **Diagnose network issues:**
 
 ```bash
-# Test GitHub API
+# Check GitHub API
 curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/rate_limit
 
-# Test OpenAI API
+# Check OpenAI API
 curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 
 # Check DNS resolution
 nslookup api.github.com
 nslookup api.openai.com
 
-# Test connectivity
+# Check connectivity
 ping api.github.com
 ping api.openai.com
 ```

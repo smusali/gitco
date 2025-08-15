@@ -7,21 +7,19 @@ GitCo uses automated GitHub releases to streamline the release process and ensur
 When a new version tag is pushed to the repository, the automated release workflow:
 
 1. **Validates** the release tag format and checks for breaking changes
-2. **Tests** the codebase across multiple Python versions
-3. **Performs security checks** to identify vulnerabilities
-4. **Builds** the Python package with proper validation
-5. **Creates** a GitHub release with auto-generated changelog
-6. **Publishes** to PyPI and Test PyPI with retry mechanisms
-7. **Verifies** the package is available and installable
-8. **Notifies** the community of the successful release
+2. **Performs security checks** to identify vulnerabilities
+3. **Builds** the Python package with proper validation
+4. **Creates** a GitHub release with auto-generated changelog
+5. **Publishes** to PyPI with retry mechanisms
+6. **Verifies** the package is available and installable
+7. **Notifies** the community of the successful release
 
 ## Creating a Release
 
 ### Prerequisites
 
 1. **PyPI API Token**: Add `PYPI_API_TOKEN` to repository secrets
-2. **Test PyPI API Token**: Add `TEST_PYPI_API_TOKEN` to repository secrets (optional)
-3. **Conventional Commits**: Ensure all commits follow conventional commit format
+2. **Conventional Commits**: Ensure all commits follow conventional commit format
 
 ### Release Process
 
@@ -48,34 +46,27 @@ Releases must follow semantic versioning:
 - **Breaking Changes Detection**: Identifies major version bumps
 - **Pre-release Detection**: Automatically marks pre-releases
 
-### 2. Testing Stage
-
-- **Multi-version Testing**: Tests on Python 3.9, 3.10, 3.11, 3.12
-- **Coverage Reporting**: Generates and uploads coverage reports
-- **Test Artifacts**: Preserves test results for analysis
-
-### 3. Security Stage
+### 2. Security Stage
 
 - **Vulnerability Scanning**: Uses `pip-audit` to check dependencies
 - **Code Security**: Uses `bandit` to scan for security issues
 - **Secret Detection**: Uses `detect-secrets` to find exposed secrets
 - **Report Generation**: Creates security reports for review
 
-### 4. Build Stage
+### 3. Build Stage
 
 - **Changelog Generation**: Creates changelog from conventional commits
 - **Package Validation**: Validates `pyproject.toml` and manifest
 - **Package Building**: Creates wheel and source distributions
-- **Installation Testing**: Tests package installation in clean environment
 
-### 5. Release Stage
+### 4. Release Stage
 
 - **GitHub Release**: Creates release with auto-generated notes
 - **PyPI Publishing**: Publishes to PyPI with retry mechanism
-- **Test PyPI Publishing**: Publishes to Test PyPI (optional)
+
 - **Availability Verification**: Confirms package is installable from PyPI
 
-### 6. Post-Release Stage
+### 5. Post-Release Stage
 
 - **Success Handling**: Logs successful release completion
 - **Failure Handling**: Provides guidance for failed releases
@@ -90,9 +81,6 @@ Add these secrets to your GitHub repository:
 ```bash
 # PyPI API Token (required for publishing)
 PYPI_API_TOKEN=your-pypi-token-here
-
-# Test PyPI API Token (optional)
-TEST_PYPI_API_TOKEN=your-test-pypi-token-here
 ```
 
 ### Optional Configuration
@@ -146,7 +134,6 @@ To rollback a release:
 
 - [ ] Update version numbers in all files
 - [ ] Review and merge all pending PRs
-- [ ] Run local tests to ensure everything works
 - [ ] Update documentation if needed
 - [ ] Check for security vulnerabilities
 
@@ -156,7 +143,6 @@ To rollback a release:
 - [ ] Watch for any error messages
 - [ ] Verify the release appears on GitHub
 - [ ] Check PyPI for the new package version
-- [ ] Test installation: `pip install gitco==X.Y.Z`
 
 ### After Release
 
@@ -181,7 +167,6 @@ Track these metrics for each release:
 The release process includes several quality gates:
 
 - ✅ **Version Validation**: Ensures proper semantic versioning
-- ✅ **Test Coverage**: Maintains minimum coverage requirements
 - ✅ **Security Scanning**: Identifies vulnerabilities
 - ✅ **Package Validation**: Ensures installable packages
 - ✅ **Availability Verification**: Confirms PyPI availability

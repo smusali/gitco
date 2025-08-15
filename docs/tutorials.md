@@ -38,9 +38,9 @@ settings:
   default_path: ~/code
 ```
 
-### Step 3: Test Your Setup
+### Step 3: Verify Your Setup
 ```bash
-# Test sync with a single repository
+# Sync with a single repository
 gitco sync --repo django
 
 # Get AI analysis of changes
@@ -189,7 +189,7 @@ gitco github rate-limit-status
 # Check API key
 echo $OPENAI_API_KEY
 
-# Test API connection
+# Check API connection
 curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 ```
 

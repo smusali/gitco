@@ -6,15 +6,15 @@ Brief description of changes.
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
-- [ ] Test improvement
+- [ ] Code improvement
 
 ## Related Issue
 Closes #(issue number)
 
-## Testing
-- [ ] Unit tests pass
-- [ ] Manual testing completed
+## Validation
+- [ ] Code validation completed
 - [ ] All linting checks pass
+- [ ] Manual verification completed
 
 ## Environment
 - OS: [e.g. macOS, Ubuntu, Windows]
@@ -25,5 +25,5 @@ Closes #(issue number)
 - [ ] Self-review completed
 - [ ] Documentation updated
 - [ ] No new warnings generated
-- [ ] Tests added/updated
-- [ ] All tests pass locally
+- [ ] Code validation completed
+- [ ] All checks pass locally

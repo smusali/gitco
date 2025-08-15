@@ -389,9 +389,9 @@ gitco github get-issues-multi --repos "django/django,fastapi/fastapi"
 gitco config validate
 ```
 
-**Test GitHub connection:**
+**Check GitHub connection:**
 ```bash
-gitco github test-connection
+gitco github connection-status
 ```
 
 **Check rate limits:**

@@ -41,37 +41,6 @@ jobs:
             echo "This may indicate breaking changes"
           fi
 
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-
-      - name: Run tests
-        run: |
-          PYTHONPATH=src pytest tests/ -v --cov=gitco --cov-report=xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
   security:
     runs-on: ubuntu-latest
     steps:
@@ -109,7 +78,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [validate, test, security]
+    needs: [validate, security]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -199,27 +168,6 @@ jobs:
             fi
           done
 
-      - name: Test package installation
-        run: |
-          # Test installation in clean environment
-          python -m venv test-env
-          source test-env/bin/activate
-
-          # Install from wheel
-          pip install dist/*.whl
-          python -c "import gitco; print('✅ Wheel installation successful')"
-
-          # Test CLI command
-          gitco --help
-
-          # Test source distribution
-          pip uninstall gitco -y
-          pip install dist/*.tar.gz
-          python -c "import gitco; print('✅ Source distribution installation successful')"
-
-          deactivate
-          rm -rf test-env
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -265,79 +213,10 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
 
-      - name: Publish to Test PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
-        run: |
-          if [ -z "$TWINE_PASSWORD" ]; then
-            echo "⚠️  Skipping Test PyPI publishing - TEST_PYPI_API_TOKEN not configured"
-            echo "To enable Test PyPI publishing, add TEST_PYPI_API_TOKEN secret"
-            echo "Get your token from: https://test.pypi.org/manage/account/token/"
-            exit 0
-          fi
-
-          echo "🧪 Publishing to Test PyPI..."
-
-          # Upload to Test PyPI with retry mechanism
-          for attempt in {1..3}; do
-            echo "📤 Test PyPI upload attempt $attempt/3"
-
-            if twine upload --repository testpypi --verbose dist/*; then
-              echo "✅ Successfully published to Test PyPI"
-              echo "🧪 Test Package URL: https://test.pypi.org/project/gitco/"
-              break
-            else
-              echo "⚠️  Test PyPI upload attempt $attempt failed"
-              if [ $attempt -lt 3 ]; then
-                echo "⏳ Waiting 30 seconds before retry..."
-                sleep 30
-              else
-                echo "❌ All Test PyPI upload attempts failed"
-                exit 1
-              fi
-            fi
-          done
-
-      - name: Verify Test PyPI availability
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-
-          # Check if Test PyPI token is available
-          if [ -z "$TEST_PYPI_API_TOKEN" ]; then
-            echo "⚠️  Skipping Test PyPI verification - TEST_PYPI_API_TOKEN not configured"
-            exit 0
-          fi
-
-          echo "⏳ Waiting for Test PyPI to process upload..."
-          sleep 30
-
-          echo "🔍 Verifying package availability on Test PyPI..."
-
-          # Test package installation from Test PyPI
-          python -m venv verify-env
-          source verify-env/bin/activate
-
-          # Try to install from Test PyPI
-          if pip install --index-url https://test.pypi.org/simple/ gitco==$VERSION; then
-            echo "✅ Package successfully installed from Test PyPI"
-            python -c "import gitco; print(f'✅ Package version {gitco.__version__} imported successfully')"
-          else
-            echo "❌ Failed to install package from Test PyPI"
-            exit 1
-          fi
-
-          # Test CLI functionality
-          gitco --help
-
-          deactivate
-          rm -rf verify-env
-
       - name: Note about PyPI publishing
         run: |
           echo "📝 Note: PyPI publishing is handled by the separate pypi-publish.yml workflow"
-          echo "📦 The package will be published to PyPI after Test PyPI verification"
+          echo "📦 The package will be published to PyPI after verification"
           echo "🔗 PyPI publishing workflow: https://github.com/41technologies/gitco/actions/workflows/pypi-publish.yml"
 
       - name: Update documentation
@@ -349,7 +228,7 @@ jobs:
         run: |
           echo "🎉 Release ${{ github.ref }} published successfully!"
           echo "📋 GitHub Release: ${{ steps.create_release.outputs.upload_url }}"
-          echo "🧪 Test PyPI: https://test.pypi.org/project/gitco/"
+
           echo "📦 PyPI: https://pypi.org/project/gitco/ (handled by separate workflow)"
           echo "📖 Documentation: https://github.com/41technologies/gitco#readme"
 

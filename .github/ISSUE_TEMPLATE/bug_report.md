@@ -27,7 +27,7 @@ What actually happened.
 
 **Configuration**
 ```yaml
-# Your gitco-config.yml (remove sensitive info)
+# Your ~/.gitco/config.yml (remove sensitive info)
 repositories:
   - name: example
     fork: username/repo

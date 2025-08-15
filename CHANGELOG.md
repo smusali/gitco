@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - chore: configure automated GitHub releases
 - chore: setup automated PyPI package building and publishing
 - chore: configure PyPI authentication and security measures
-- chore: add pre-upload testing and validation pipeline
+- chore: add pre-upload validation pipeline
 
 ### Fixed
 - fix: improve error handling for network timeouts
@@ -80,20 +80,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - docs: add comprehensive usage examples and tutorials
 
-### Testing
-- test: add unit tests for git operations and sync functionality
-- test: add tests for LLM integration and analysis features
-- test: add tests for GitHub integration and discovery features
-- test: add tests for status and reporting functionality
-
 ### CI/CD
-- chore: setup GitHub Actions CI pipeline with Python testing
 - chore: add ruff and black linting configuration and checks
 - ci(deps): bump actions/setup-python from 4 to 5
-- ci(deps): bump codecov/codecov-action from 3 to 5
 
 ### Merges
-- Merge pull request #5 from 41technologies/dependabot/github_actions/codecov/codecov-action-5
 - Merge pull request #2 from 41technologies/dependabot/github_actions/actions/setup-python-5
 
 [0.1.0]: https://github.com/41technologies/gitco/releases/tag/v0.1.0

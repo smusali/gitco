@@ -19,7 +19,7 @@ What are you trying to accomplish? What have you tried?
 
 **Configuration**
 ```yaml
-# Your gitco-config.yml (remove sensitive info)
+# Your ~/.gitco/config.yml (remove sensitive info)
 repositories:
   - name: example
     fork: username/repo

@@ -67,8 +67,8 @@ settings:
 # Validate configuration
 gitco config validate
 
-# Test GitHub connection
-gitco github test-connection
+# Check GitHub connection
+gitco github connection-status
 ```
 
 ## Basic Usage

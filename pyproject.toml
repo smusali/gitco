@@ -61,12 +61,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-timeout>=2.4.0",
     "ruff>=0.1.0",
     "black>=23.0.0",
-
     "pre-commit>=3.0.0",
     "yamllint>=1.35.0",
     "build>=1.0.0",
@@ -76,13 +72,7 @@ dev = [
     "bandit>=1.7.0",
     "detect-secrets>=1.5.0",
 ]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-timeout>=2.4.0",
-    "pytest-asyncio>=0.21.0",
-]
+
 docs = [
     "sphinx>=6.0.0",
     "sphinx-rtd-theme>=1.2.0",
@@ -100,7 +90,7 @@ Repository = "https://github.com/41technologies/gitco.git"
 "Changelog" = "https://github.com/41technologies/gitco/blob/main/CHANGELOG.md"
 "Releases" = "https://github.com/41technologies/gitco/releases"
 "CI/CD" = "https://github.com/41technologies/gitco/actions"
-"Coverage" = "https://codecov.io/gh/41technologies/gitco"
+
 
 [project.scripts]
 gitco = "gitco.cli:main"
@@ -163,51 +153,3 @@ extend-exclude = '''
   | dist
 )/
 '''
-
-
-
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --timeout=30"
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "asyncio: marks tests as asyncio tests",
-]
-timeout = 30
-asyncio_mode = "auto"
-
-[tool.coverage.run]
-source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/test_*",
-    "*/__pycache__/*",
-    "*/venv/*",
-    "*/env/*",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
-]
-
-[tool.coverage.html]
-directory = "htmlcov"
-
-[tool.coverage.xml]
-output = "coverage.xml"

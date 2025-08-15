@@ -424,11 +424,11 @@ settings:
 
 ```yaml
 repositories:
-  - name: test-repo
-    fork: username/test-repo
-    upstream: owner/test-repo
-    local_path: ~/code/test-repo
-    skills: [python, testing]
+  - name: example-repo
+    fork: username/example-repo
+    upstream: owner/example-repo
+    local_path: ~/code/example-repo
+    skills: [python, development]
     analysis_enabled: false
 
 settings:

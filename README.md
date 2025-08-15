@@ -1,5 +1,3 @@
-[![codecov](https://codecov.io/gh/41technologies/gitco/graph/badge.svg?token=R6BEP2IPGN)](https://codecov.io/gh/41technologies/gitco)
-
 # GitCo ✨
 
 **A simple CLI tool for intelligent OSS fork management and contribution discovery.**

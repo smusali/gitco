@@ -22,9 +22,7 @@ global-exclude *.c
 global-exclude *.egg-info
 global-exclude .DS_Store
 global-exclude .git*
-global-exclude .coverage
 global-exclude htmlcov
-global-exclude .pytest_cache
 global-exclude .ruff_cache
 global-exclude .mypy_cache
 global-exclude build
@@ -32,7 +30,7 @@ global-exclude dist
 
 # Exclude development configuration files
 global-exclude .pre-commit-config.yaml
-global-exclude .codecov.yml
+
 global-exclude .yamllint
 global-exclude .github
 global-exclude requirements-dev.txt
@@ -42,9 +40,7 @@ global-exclude SECURITY.md
 global-exclude *-report.json
 global-exclude .bandit
 
-# Exclude test files from distribution
-global-exclude tests
-recursive-exclude tests *
+
 
 # Exclude development scripts
 global-exclude scripts

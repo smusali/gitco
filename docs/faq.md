@@ -38,10 +38,10 @@ export GITHUB_TOKEN="your-github-token"
 gitco config validate
 
 # Detailed validation
-gitco config validate-detailed --detailed
+gitco config validate --detailed
 
 # Export validation report
-gitco config validate-detailed --export validation-report.json
+gitco config validate --export validation-report.json
 ```
 
 ### Q: Can I use a custom configuration file?
@@ -58,7 +58,7 @@ repositories:
     fork: username/new-project
     upstream: owner/new-project
     local_path: ~/code/new-project
-    skills: [python, api, testing]
+    skills: [python, api, development]
 ```
 
 ---
@@ -326,10 +326,10 @@ gitco cost reset --force
 
 ## GitHub Integration
 
-### Q: How do I test my GitHub connection?
+### Q: How do I check my GitHub connection?
 **A:**
 ```bash
-gitco github test-connection
+gitco github connection-status
 ```
 
 ### Q: How do I check rate limits?
@@ -415,8 +415,8 @@ gitco config validate
 echo $OPENAI_API_KEY
 echo $GITHUB_TOKEN
 
-# Test GitHub connection
-gitco github test-connection
+# Check GitHub connection
+gitco github connection-status
 ```
 
 ### Q: I get rate limit errors. How do I fix this?

@@ -533,31 +533,31 @@ GitHub integration commands.
 gitco github [COMMAND] [OPTIONS]
 
 Commands:
-  test-connection          Test GitHub connection
+  connection-status        Check GitHub connection status
   rate-limit-status        Check rate limit status
   get-repo                 Get repository information
   get-issues               Get repository issues
   get-issues-multi         Get issues from multiple repositories
 ```
 
-### `gitco github test-connection`
+### `gitco github connection-status`
 
-Test GitHub API connection.
+Check GitHub API connection status.
 
 ```bash
-gitco github test-connection [OPTIONS]
+gitco github connection-status [OPTIONS]
 
 Options:
-  --detailed, -d           Detailed connection test
+  --detailed, -d           Detailed connection check
 ```
 
 **Examples:**
 ```bash
-# Test connection
-gitco github test-connection
+# Check connection
+gitco github connection-status
 
-# Detailed test
-gitco github test-connection --detailed
+# Detailed check
+gitco github connection-status --detailed
 ```
 
 ### `gitco github rate-limit-status`
