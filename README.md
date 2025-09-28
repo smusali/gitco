@@ -7,7 +7,7 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 ## 🚀 Key Features
 
 - **🔄 Intelligent Fork Synchronization** - Automated sync with safe stashing and error recovery
-- **🧠 AI-Powered Change Analysis** - OpenAI/Anthropic integration for intelligent change analysis
+- **🧠 AI-Powered Change Analysis** - OpenAI integration for intelligent change analysis
 - **🎯 Contribution Discovery** - Skill-based matching for finding contribution opportunities
 - **📊 Repository Health Monitoring** - Comprehensive health metrics and activity tracking
 - **💾 Backup & Recovery** - Robust backup system with multiple backup types

@@ -17,7 +17,6 @@ from ..utils.common import (
     log_validation_result,
 )
 from ..utils.exception import ConfigurationError
-from .custom_endpoints import validate_custom_endpoints
 from .git_ops import GitRepositoryManager
 
 
@@ -81,8 +80,6 @@ class Settings:
     min_request_interval: float = 0.1
     # LLM API settings
     llm_openai_api_url: Optional[str] = None
-    llm_anthropic_api_url: Optional[str] = None
-    llm_custom_endpoints: dict[str, str] = field(default_factory=dict)
     # LLM settings
     max_tokens_per_request: int = 4000
 
@@ -138,25 +135,13 @@ class ConfigValidator:
             settings: Settings to validate.
         """
         # Validate LLM provider
-        valid_providers = ["openai", "anthropic", "custom"]
+        valid_providers = ["openai"]
         if settings.llm_provider not in valid_providers:
             self.errors.append(
                 ValidationError(
                     field="settings.llm_provider",
                     message=f"Invalid LLM provider '{settings.llm_provider}'",
                     suggestion=f"Must be one of: {', '.join(valid_providers)}",
-                )
-            )
-
-        # Validate custom endpoints
-        try:
-            validate_custom_endpoints(settings)
-        except ValueError as e:
-            self.errors.append(
-                ValidationError(
-                    field="settings.llm_custom_endpoints",
-                    message=str(e),
-                    suggestion="Configure valid custom endpoints or change llm_provider",
                 )
             )
 
@@ -858,8 +843,6 @@ class ConfigManager:
                 github_max_retries=settings_data.get("github_max_retries", 3),
                 # LLM API settings
                 llm_openai_api_url=settings_data.get("llm_openai_api_url"),
-                llm_anthropic_api_url=settings_data.get("llm_anthropic_api_url"),
-                llm_custom_endpoints=settings_data.get("llm_custom_endpoints", {}),
                 # LLM settings
                 max_tokens_per_request=settings_data.get(
                     "max_tokens_per_request", 4000
@@ -895,8 +878,6 @@ class ConfigManager:
                 "github_max_retries": config.settings.github_max_retries,
                 # LLM API settings
                 "llm_openai_api_url": config.settings.llm_openai_api_url,
-                "llm_anthropic_api_url": config.settings.llm_anthropic_api_url,
-                "llm_custom_endpoints": config.settings.llm_custom_endpoints,
                 # LLM settings
                 "max_tokens_per_request": config.settings.max_tokens_per_request,
             },
@@ -968,11 +949,5 @@ def create_sample_config() -> dict[str, Any]:
             "log_level": "INFO",
             # LLM API settings
             "llm_openai_api_url": None,  # Optional: "https://api.openai.com/v1"
-            "llm_anthropic_api_url": None,  # Optional: "https://api.anthropic.com"
-            "llm_custom_endpoints": {
-                # Example custom endpoints
-                # "my_custom_llm": "https://api.mycompany.com/v1/chat/completions",
-                # "local_llm": "http://localhost:11434/v1/chat/completions",
-            },
         },
     }

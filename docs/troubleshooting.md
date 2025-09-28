@@ -34,7 +34,6 @@ git config --list
 
 # Check environment variables
 echo $OPENAI_API_KEY
-echo $ANTHROPIC_API_KEY
 echo $GITHUB_TOKEN
 
 # Check configuration file
@@ -93,7 +92,7 @@ gitco config validate --strict
 
 ```bash
 # Check environment variables
-env | grep -E "(OPENAI|ANTHROPIC|GITHUB)_API_KEY"
+env | grep -E "(OPENAI|GITHUB)_API_KEY"
 
 # Set missing variables
 export OPENAI_API_KEY="your-key-here"
@@ -261,10 +260,6 @@ gitco config validate
 # Check OpenAI connection
 curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 
-# Switch LLM provider
-# Edit ~/.gitco/config.yml:
-# settings:
-#   llm_provider: anthropic
 
 # Disable analysis temporarily
 gitco analyze --repo django --no-llm

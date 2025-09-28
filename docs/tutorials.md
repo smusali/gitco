@@ -8,7 +8,7 @@ This guide provides essential tutorials and examples for using GitCo effectively
 - Python 3.9+ installed
 - Git installed and configured
 - GitHub account with access to repositories
-- LLM API key (OpenAI or Anthropic)
+- LLM API key (OpenAI)
 
 ### Step 1: Installation and Setup
 ```bash

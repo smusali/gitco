@@ -142,15 +142,6 @@ class RateLimiter:
                 if reset_time:
                     self._rate_limit_reset = int(reset_time)
 
-            # Anthropic-style rate limit headers
-            elif "anthropic-ratelimit-remaining-requests" in headers:
-                self._rate_limit_remaining = int(
-                    headers.get("anthropic-ratelimit-remaining-requests", 0)
-                )
-                reset_time = headers.get("anthropic-ratelimit-reset-requests")
-                if reset_time:
-                    self._rate_limit_reset = int(reset_time)
-
     def handle_rate_limit_exceeded(self, headers: dict[str, Any]) -> None:
         """Handle rate limit exceeded by waiting for reset.
 
@@ -170,10 +161,6 @@ class RateLimiter:
             # OpenAI-style
             elif "x-ratelimit-reset-requests" in headers:
                 reset_time = int(headers.get("x-ratelimit-reset-requests", 0))
-
-            # Anthropic-style
-            elif "anthropic-ratelimit-reset-requests" in headers:
-                reset_time = int(headers.get("anthropic-ratelimit-reset-requests", 0))
 
             # Generic retry-after header
             elif "Retry-After" in headers:
@@ -303,7 +290,7 @@ def get_rate_limiter(provider: str) -> RateLimiter:
     """Get or create a rate limiter for the specified provider.
 
     Args:
-        provider: API provider name (e.g., 'github', 'openai', 'anthropic')
+        provider: API provider name (e.g., 'github', 'openai')
 
     Returns:
         Rate limiter instance for the provider
@@ -317,7 +304,7 @@ def get_rate_limiter(provider: str) -> RateLimiter:
                 burst_limit=5,
                 min_interval=0.1,
             )
-        elif provider in ["openai", "anthropic"]:
+        elif provider == "openai":
             config = RateLimitConfig(
                 requests_per_minute=60,  # Conservative limit for LLM APIs
                 requests_per_hour=1000,

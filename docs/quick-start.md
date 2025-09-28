@@ -7,7 +7,7 @@ Get up and running with GitCo in 5 minutes! This guide will help you set up GitC
 - Python 3.9 or higher
 - Git installed and configured
 - GitHub account with personal access token
-- LLM API key (OpenAI or Anthropic) - optional but recommended
+- LLM API key (OpenAI) - optional but recommended
 
 ## Installation
 
@@ -38,10 +38,8 @@ The interactive setup will guide you through:
 # GitHub integration
 export GITHUB_TOKEN="your-github-token"
 
-# LLM provider (choose one)
+# LLM provider
 export OPENAI_API_KEY="your-openai-api-key"
-# OR
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
 ### 3. Configure Your First Repository

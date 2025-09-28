@@ -70,7 +70,7 @@ _gitco_completion() {
             ;;
         --provider)
             # Provider completion
-            providers="openai anthropic"
+            providers="openai"
             COMPREPLY=( $(compgen -W "${providers}" -- "${cur}") )
             return 0
             ;;
@@ -316,7 +316,7 @@ _gitco_labels() {
 
 _gitco_providers() {
     local providers
-    providers=(openai anthropic)
+    providers=(openai)
     _describe -t providers 'providers' providers
 }
 

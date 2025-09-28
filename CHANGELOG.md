@@ -29,8 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### LLM Integration (2024-07-28)
 - feat: add OpenAI API integration for change analysis
-- feat: implement Anthropic Claude API support
-- feat: add local LLM support with Ollama integration
 - feat: implement commit diff analysis and summarization
 - feat: add breaking change detection in commits
 - feat: implement analyze command with LLM provider selection
@@ -60,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: add configuration validation and error reporting
 - feat: implement rate limiting for API calls
 - feat: add retry mechanisms for network operations
-- feat: add support for custom LLM endpoints
 - feat: add shell completion for bash and zsh
 
 #### Automation & Release (2024-08-01)

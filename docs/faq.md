@@ -26,7 +26,6 @@ Common questions and answers about GitCo, organized by category for easy referen
 **A:** API keys are optional but recommended for AI-powered features:
 ```bash
 export OPENAI_API_KEY="your-openai-api-key"
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
 export GITHUB_TOKEN="your-github-token"
 ```
 
@@ -160,13 +159,13 @@ settings:
 ## Analysis and Discovery
 
 ### Q: Which LLM providers are supported?
-**A:** GitCo supports OpenAI (GPT-3.5, GPT-4), Anthropic (Claude), and custom endpoints.
+**A:** GitCo supports OpenAI (GPT-3.5, GPT-4).
 
-### Q: How do I switch between LLM providers?
+### Q: How do I configure the LLM provider?
 **A:** Update your configuration:
 ```yaml
 settings:
-  llm_provider: anthropic  # or 'openai', 'custom'
+  llm_provider: openai
 ```
 
 

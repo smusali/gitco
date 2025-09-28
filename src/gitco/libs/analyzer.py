@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
-import anthropic
 import openai
 import requests
 from rich.panel import Panel
@@ -23,10 +22,6 @@ from ..utils.exception import (
 from ..utils.rate_limiter import RateLimitedAPIClient, get_rate_limiter
 from ..utils.retry import TIMEOUT_AWARE_RETRY_CONFIG, with_retry
 from .config import Config, Repository
-from .custom_endpoints import (
-    get_custom_endpoint_config,
-    is_custom_provider,
-)
 from .detector import (
     BreakingChange,
     BreakingChangeDetector,
@@ -542,292 +537,9 @@ class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
         """Get the name of the API provider.
 
         Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic").
+            The name of the API provider (OpenAI).
         """
         return "OpenAI"
-
-
-class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
-    """Anthropic Claude API integration for change analysis."""
-
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = "claude-3-sonnet-20240229",
-        base_url: Optional[str] = None,
-        timeout: int = 30,
-        connect_timeout: Optional[int] = None,
-        read_timeout: Optional[int] = None,
-    ):
-        """Initialize Anthropic analyzer.
-
-        Args:
-            api_key: Anthropic API key. If None, will try to get from environment.
-            model: Anthropic model to use for analysis.
-            base_url: Custom base URL for Anthropic API.
-            timeout: Request timeout in seconds
-            connect_timeout: Connection timeout in seconds
-            read_timeout: Read timeout in seconds
-        """
-        super().__init__(model)
-
-        # Initialize rate limiter
-        rate_limiter = get_rate_limiter("anthropic")
-        RateLimitedAPIClient.__init__(self, rate_limiter)
-
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "Anthropic API key not provided. Set ANTHROPIC_API_KEY environment variable."
-            )
-
-        self.base_url = base_url
-        self.timeout = timeout
-        self.connect_timeout = connect_timeout or timeout
-        self.read_timeout = read_timeout or timeout
-
-        self.client = anthropic.Anthropic(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
-
-    @with_retry(config=TIMEOUT_AWARE_RETRY_CONFIG)
-    def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
-        """Call the LLM API with the given prompt.
-
-        Args:
-            prompt: The user prompt to send to the LLM.
-            system_prompt: The system prompt to send to the LLM.
-
-        Returns:
-            The raw response from the LLM.
-
-        Raises:
-            NetworkTimeoutError: When network operation times out
-            Exception: If the API call fails.
-        """
-        try:
-
-            def make_anthropic_request() -> Any:
-                return self.client.messages.create(
-                    model=self.model,
-                    max_tokens=4000,
-                    temperature=0.1,
-                    system=system_prompt,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                )
-
-            response = self.make_rate_limited_request(make_anthropic_request)
-
-            # Log token usage
-            if hasattr(response, "usage") and response.usage:
-                total_tokens = (
-                    response.usage.input_tokens + response.usage.output_tokens
-                )
-                self.logger.debug(f"Anthropic API call: {total_tokens} tokens")
-
-            response_text: str = response.content[0].text
-            return response_text
-
-        except requests.exceptions.ConnectTimeout as e:
-            raise ConnectionTimeoutError(
-                "Connection to Anthropic API timed out",
-                self.connect_timeout,
-                "Anthropic API message creation",
-            ) from e
-        except requests.exceptions.ReadTimeout as e:
-            raise ReadTimeoutError(
-                "Read from Anthropic API timed out",
-                self.read_timeout,
-                "Anthropic API message creation",
-            ) from e
-        except requests.exceptions.Timeout as e:
-            raise RequestTimeoutError(
-                "Request to Anthropic API timed out",
-                self.timeout,
-                "Anthropic API message creation",
-            ) from e
-        except requests.exceptions.RequestException as e:
-            raise NetworkTimeoutError(
-                "Network error during Anthropic API request",
-                self.timeout,
-                "Anthropic API message creation",
-            ) from e
-        except Exception as e:
-            self.logger.error(f"Anthropic API call failed: {e}")
-            raise
-
-    def _get_api_name(self) -> str:
-        """Get the name of the API provider.
-
-        Returns:
-            The name of the API provider (e.g., "OpenAI", "Anthropic").
-        """
-        api_name: str = "Anthropic"
-        return api_name
-
-
-class CustomAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
-    """Custom LLM endpoint integration for change analysis."""
-
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = "default",
-        endpoint_url: str = "",
-        provider_name: str = "custom",
-        timeout: int = 30,
-        connect_timeout: Optional[int] = None,
-        read_timeout: Optional[int] = None,
-    ):
-        """Initialize Custom analyzer.
-
-        Args:
-            api_key: API key for custom endpoint. If None, will try to get from environment.
-            model: Model name to use for analysis.
-            endpoint_url: Custom endpoint URL.
-            provider_name: Name of the custom provider.
-            timeout: Request timeout in seconds
-            connect_timeout: Connection timeout in seconds
-            read_timeout: Read timeout in seconds
-        """
-        super().__init__(model)
-
-        # Initialize rate limiter
-        rate_limiter = get_rate_limiter(provider_name)
-        RateLimitedAPIClient.__init__(self, rate_limiter)
-
-        self.api_key = api_key or os.getenv(f"{provider_name.upper()}_API_KEY")
-
-        if not endpoint_url:
-            raise ValueError("Custom endpoint URL is required")
-
-        self.endpoint_url = endpoint_url
-        self.provider_name = provider_name
-        self.timeout = timeout
-        self.connect_timeout = connect_timeout or timeout
-        self.read_timeout = read_timeout or timeout
-
-        # Create requests session with timeout configuration
-        import requests
-
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            }
-        )
-
-    @with_retry(config=TIMEOUT_AWARE_RETRY_CONFIG)
-    def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
-        """Call the LLM API with the given prompt.
-
-        Args:
-            prompt: The user prompt to send to the LLM.
-            system_prompt: The system prompt to send to the LLM.
-
-        Returns:
-            The raw response from the LLM.
-
-        Raises:
-            NetworkTimeoutError: When network operation times out
-            Exception: If the API call fails.
-        """
-        try:
-
-            def make_custom_request() -> Any:
-                # Use tuple for timeout (connect_timeout, read_timeout)
-                timeout_tuple = (self.connect_timeout, self.read_timeout)
-
-                response = self.session.post(
-                    self.endpoint_url,
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": prompt},
-                        ],
-                        "temperature": 0.1,
-                        "max_tokens": 4000,
-                    },
-                    timeout=timeout_tuple,
-                )
-                response.raise_for_status()
-                return response.json()
-
-            response_data = self.make_rate_limited_request(make_custom_request)
-
-            # Extract response content (adapt based on your custom endpoint format)
-            if not response_data:
-                return ""
-
-            if "choices" in response_data and len(response_data["choices"]) > 0:
-                content = (
-                    response_data["choices"][0].get("message", {}).get("content", "")
-                )
-            elif "content" in response_data:
-                # Handle Anthropic format: {"content": [{"text": "..."}]}
-                if (
-                    isinstance(response_data["content"], list)
-                    and len(response_data["content"]) > 0
-                ):
-                    content = response_data["content"][0].get("text", "")
-                else:
-                    content = response_data["content"]
-            elif "text" in response_data:
-                # Handle simple text format: {"text": "..."}
-                content = response_data["text"]
-            else:
-                # For malformed responses, return empty string
-                return ""
-
-            response_content: str = content
-            return response_content
-
-        except requests.exceptions.ConnectTimeout as e:
-            raise ConnectionTimeoutError(
-                "Connection to custom endpoint timed out",
-                self.connect_timeout,
-                f"Custom API {self.provider_name}",
-            ) from e
-        except requests.exceptions.ReadTimeout as e:
-            raise ReadTimeoutError(
-                "Read from custom endpoint timed out",
-                self.read_timeout,
-                f"Custom API {self.provider_name}",
-            ) from e
-        except requests.exceptions.Timeout as e:
-            raise RequestTimeoutError(
-                "Request to custom endpoint timed out",
-                self.timeout,
-                f"Custom API {self.provider_name}",
-            ) from e
-        except requests.exceptions.RequestException as e:
-            raise NetworkTimeoutError(
-                "Network error during custom API request",
-                self.timeout,
-                f"Custom API {self.provider_name}",
-            ) from e
-        except Exception as e:
-            self.logger.error(f"Custom API call failed: {e}")
-            raise
-
-    def _get_api_name(self) -> str:
-        """Get the name of the API being used.
-
-        Returns:
-            Name of the API.
-        """
-        provider_name: str = (
-            self.provider_name.replace("_", " ").title().replace(" ", "_")
-        )
-        return provider_name
 
 
 class ChangeAnalyzer:
@@ -849,7 +561,7 @@ class ChangeAnalyzer:
         """Get analyzer for the specified provider.
 
         Args:
-            provider: Provider name (openai, anthropic, custom).
+            provider: Provider name (only "openai" is supported).
 
         Returns:
             Configured analyzer instance.
@@ -871,32 +583,10 @@ class ChangeAnalyzer:
             )
             self.analyzers[provider] = openai_analyzer
             return openai_analyzer
-        elif provider == "anthropic":
-            anthropic_analyzer: BaseAnalyzer = AnthropicAnalyzer(
-                api_key=os.getenv("ANTHROPIC_API_KEY"),
-                model="claude-3-sonnet-20240229",
-                base_url=self.config.settings.llm_anthropic_api_url,
-                timeout=30,
-                connect_timeout=None,
-                read_timeout=None,
-            )
-            self.analyzers[provider] = anthropic_analyzer
-            return anthropic_analyzer
-        elif is_custom_provider(provider, self.config):
-            endpoint_url, api_key = get_custom_endpoint_config(self.config, provider)
-            custom_analyzer: BaseAnalyzer = CustomAnalyzer(
-                api_key=api_key,
-                model="default",
-                endpoint_url=endpoint_url,
-                provider_name=provider,
-                timeout=30,
-                connect_timeout=None,
-                read_timeout=None,
-            )
-            self.analyzers[provider] = custom_analyzer
-            return custom_analyzer
         else:
-            raise ValueError(f"Unsupported LLM provider: {provider}")
+            raise ValueError(
+                f"Unsupported LLM provider: {provider}. Only 'openai' is supported."
+            )
 
     def analyze_repository_changes(
         self,

@@ -331,7 +331,7 @@ def sync(
 @click.option("--detailed", "-d", is_flag=True, help="Detailed analysis")
 @click.option("--prompt", "-p", help="Custom analysis prompt")
 @click.option("--model", help="LLM model to use")
-@click.option("--provider", help="LLM provider to use (openai, anthropic)")
+@click.option("--provider", help="LLM provider to use (openai only)")
 @click.option("--no-llm", is_flag=True, help="Skip LLM analysis")
 @click.option("--max-commits", type=int, help="Maximum commits to analyze")
 @click.option("--export", "-e", help="Export analysis results")

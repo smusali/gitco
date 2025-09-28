@@ -102,7 +102,7 @@ Global settings that apply to all operations:
 
 ```yaml
 settings:
-  llm_provider: openai              # LLM provider (openai, anthropic, custom)
+  llm_provider: openai              # LLM provider (openai only)
   default_path: ~/code              # Default repository path
   analysis_enabled: true            # Global AI analysis setting
   max_repos_per_batch: 10          # Batch processing limit
@@ -115,7 +115,7 @@ settings:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `llm_provider` | string | openai | LLM provider (openai, anthropic, custom) |
+| `llm_provider` | string | openai | LLM provider (openai only) |
 | `default_path` | string | ~/code | Default repository path |
 | `analysis_enabled` | boolean | true | Global AI analysis setting |
 | `max_repos_per_batch` | integer | 10 | Maximum repositories per batch |
@@ -143,31 +143,6 @@ settings:
     timeout: 60                    # API timeout (seconds)
 ```
 
-### Anthropic Configuration
-
-```yaml
-settings:
-  llm_provider: anthropic
-  anthropic:
-    api_key_env: ANTHROPIC_API_KEY # Environment variable name
-    default_model: claude-3-sonnet # Default model
-    max_tokens: 4000               # Maximum tokens per request
-    temperature: 0.7               # Response creativity (0.0-1.0)
-    timeout: 60                    # API timeout (seconds)
-```
-
-### Custom Endpoint Configuration
-
-```yaml
-settings:
-  llm_provider: custom
-  custom:
-    api_key_env: CUSTOM_API_KEY    # Environment variable name
-    endpoint_url: https://api.example.com/v1/chat/completions
-    default_model: custom-model    # Model name
-    max_tokens: 4000               # Maximum tokens per request
-    timeout: 60                    # API timeout (seconds)
-```
 
 ---
 
@@ -243,10 +218,8 @@ settings:
 # GitHub integration
 export GITHUB_TOKEN="your-github-token"
 
-# LLM provider (choose one)
+# LLM provider
 export OPENAI_API_KEY="your-openai-api-key"
-# OR
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
 ### Optional Environment Variables
@@ -271,7 +244,6 @@ export GITCO_NO_COLOR="true"
 |----------|-------------|---------|
 | `GITHUB_TOKEN` | GitHub API token | Required |
 | `OPENAI_API_KEY` | OpenAI API key | Required for OpenAI |
-| `ANTHROPIC_API_KEY` | Anthropic API key | Required for Anthropic |
 | `GITCO_CONFIG_PATH` | Custom config path | ~/.gitco/config.yml |
 | `GITCO_LOG_LEVEL` | Log level | INFO |
 | `GITCO_LOG_FILE` | Log file path | ~/.gitco/gitco.log |
@@ -353,7 +325,7 @@ repositories:
     language: python
 
 settings:
-  llm_provider: anthropic
+  llm_provider: openai
   default_path: ~/code
   analysis_enabled: true
   max_repos_per_batch: 5
@@ -374,13 +346,6 @@ settings:
     llm_requests_per_hour: 1000
 
 
-  # LLM provider settings
-  anthropic:
-    api_key_env: ANTHROPIC_API_KEY
-    default_model: claude-3-sonnet
-    max_tokens: 4000
-    temperature: 0.7
-    timeout: 60
 ```
 
 ### Development Configuration

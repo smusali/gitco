@@ -54,7 +54,7 @@ Flexible configuration system with validation and interactive setup.
 
 **Configuration Sections:**
 - Repository definitions with skills and metadata
-- LLM provider settings (OpenAI, Anthropic, custom endpoints)
+- LLM provider settings (OpenAI)
 - GitHub integration settings
 - Performance and rate limiting settings
 
@@ -106,9 +106,6 @@ Intelligent analysis of repository changes using LLM providers.
 
 **Supported Providers:**
 - **OpenAI**: GPT-3.5-turbo, GPT-4, and other OpenAI models
-- **Anthropic**: Claude models for analysis
-- **Custom Endpoints**: Support for custom LLM endpoints
-- **Local Models**: Ollama integration for local processing
 
 
 ---

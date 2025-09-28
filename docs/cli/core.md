@@ -80,7 +80,7 @@ Options:
   --detailed, -d           Detailed analysis
   --prompt, -p <text>      Custom analysis prompt
   --model <model>          LLM model to use
-  --provider <provider>    LLM provider to use (openai, anthropic)
+  --provider <provider>    LLM provider to use (openai only)
   --no-llm                 Skip LLM analysis
   --max-commits <count>    Maximum commits to analyze
   --export, -e <file>      Export analysis results

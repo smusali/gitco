@@ -218,7 +218,7 @@ def get_label_names() -> list[str]:
 
 def get_provider_names() -> list[str]:
     """Get available LLM provider names."""
-    return ["openai", "anthropic"]
+    return ["openai"]
 
 
 def get_format_names() -> list[str]:
