@@ -9,6 +9,7 @@ import openai
 import requests
 from rich.panel import Panel
 
+from ..prompts import PromptManager
 from ..utils.common import (
     console,
     get_logger,
@@ -30,7 +31,6 @@ from .detector import (
     SecurityUpdate,
 )
 from .git_ops import GitRepository
-from .prompts import PromptManager
 
 
 @dataclass

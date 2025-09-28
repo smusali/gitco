@@ -1,5 +1,7 @@
 """GitCo - A simple CLI tool for intelligent OSS fork management and contribution discovery."""
 
+from __future__ import annotations
+
 __version__ = "0.1.0"
 __author__ = "FortyOne Technologies Inc."
 __email__ = "fortyone.technologies@gmail.com"
