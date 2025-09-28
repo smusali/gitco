@@ -8,7 +8,6 @@ from .backup import backup_commands
 from .config import config_commands
 from .contributions import contributions_commands
 from .core import core_commands
-from .cost import cost_commands
 from .github import github_commands
 from .upstream import upstream_commands
 
@@ -19,5 +18,4 @@ __all__ = [
     "github_commands",
     "contributions_commands",
     "backup_commands",
-    "cost_commands",
 ]

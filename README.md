@@ -12,7 +12,6 @@ GitCo transforms the tedious process of managing multiple OSS forks into an inte
 - **📊 Repository Health Monitoring** - Comprehensive health metrics and activity tracking
 - **💾 Backup & Recovery** - Robust backup system with multiple backup types
 - **🤖 Automation Support** - Quiet mode and export functionality for CI/CD integration
-- **💰 Cost Optimization** - Token usage tracking and cost management for LLM APIs
 
 ## 📦 Installation
 

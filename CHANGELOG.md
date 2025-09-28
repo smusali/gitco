@@ -60,7 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: add configuration validation and error reporting
 - feat: implement rate limiting for API calls
 - feat: add retry mechanisms for network operations
-- feat: implement cost optimization for LLM usage
 - feat: add support for custom LLM endpoints
 - feat: add shell completion for bash and zsh
 

@@ -14,7 +14,6 @@ from ..utils.common import (
     console,
     get_logger,
 )
-from ..utils.cost_optimizer import TokenUsage, get_cost_optimizer
 from ..utils.exception import (
     ConnectionTimeoutError,
     NetworkTimeoutError,
@@ -86,7 +85,6 @@ class BaseAnalyzer(ABC):
         self.breaking_detector = BreakingChangeDetector()
         self.security_deprecation_detector = SecurityDeprecationDetector()
         self.prompt_manager = PromptManager()
-        self.cost_optimizer = get_cost_optimizer()
 
     @abstractmethod
     def _call_llm_api(self, prompt: str, system_prompt: str) -> str:
@@ -504,25 +502,10 @@ class OpenAIAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
 
             response = self.make_rate_limited_request(make_openai_request)
 
-            # Record token usage and cost
+            # Log token usage
             if hasattr(response, "usage") and response.usage:
-                usage = TokenUsage(
-                    prompt_tokens=response.usage.prompt_tokens,
-                    completion_tokens=response.usage.completion_tokens,
-                    total_tokens=response.usage.total_tokens,
-                    model=self.model,
-                    provider="openai",
-                    cost_usd=self.cost_optimizer.calculate_actual_cost(
-                        response.usage.prompt_tokens,
-                        response.usage.completion_tokens,
-                        self.model,
-                        "openai",
-                    ),
-                )
-                self.cost_optimizer.record_usage(usage)
                 self.logger.debug(
-                    f"OpenAI API call: {usage.total_tokens} tokens, "
-                    f"cost: ${usage.cost_usd:.4f}"
+                    f"OpenAI API call: {response.usage.total_tokens} tokens"
                 )
 
             return response.choices[0].message.content or ""
@@ -641,26 +624,11 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
 
             response = self.make_rate_limited_request(make_anthropic_request)
 
-            # Record token usage and cost
+            # Log token usage
             if hasattr(response, "usage") and response.usage:
-                usage = TokenUsage(
-                    prompt_tokens=response.usage.input_tokens,
-                    completion_tokens=response.usage.output_tokens,
-                    total_tokens=response.usage.input_tokens
-                    + response.usage.output_tokens,
-                    model=self.model,
-                    provider="anthropic",
-                    cost_usd=self.cost_optimizer.calculate_actual_cost(
-                        response.usage.input_tokens,
-                        response.usage.output_tokens,
-                        self.model,
-                        "anthropic",
-                    ),
-                )
-                self.cost_optimizer.record_usage(usage)
+                total_tokens = response.usage.input_tokens + response.usage.output_tokens
                 self.logger.debug(
-                    f"Anthropic API call: {usage.total_tokens} tokens, "
-                    f"cost: ${usage.cost_usd:.4f}"
+                    f"Anthropic API call: {total_tokens} tokens"
                 )
 
             response_text: str = response.content[0].text

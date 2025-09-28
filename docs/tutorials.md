@@ -221,6 +221,6 @@ gitco sync --detailed-log --log-file debug.log
 2. Monitor logs regularly for issues
 3. Set up alerts for sync failures
 4. Create regular backups
-5. Monitor API usage costs
+5. Monitor API usage and performance
 
 For more detailed examples and advanced workflows, see the [Examples Guide](examples.md) and [Workflows Guide](workflows.md).

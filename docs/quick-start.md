@@ -31,7 +31,6 @@ The interactive setup will guide you through:
 - Repository configuration
 - LLM provider selection
 - GitHub integration
-- Cost optimization settings
 
 ### 2. Set Environment Variables
 

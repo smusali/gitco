@@ -9,11 +9,10 @@ This guide covers all configuration options available in GitCo, from basic setup
 3. [Settings Configuration](#settings-configuration)
 4. [LLM Provider Configuration](#llm-provider-configuration)
 5. [GitHub Integration](#github-integration)
-6. [Cost Optimization](#cost-optimization)
-7. [Rate Limiting](#rate-limiting)
-8. [Environment Variables](#environment-variables)
-9. [Validation](#validation)
-10. [Examples](#examples)
+6. [Rate Limiting](#rate-limiting)
+7. [Environment Variables](#environment-variables)
+8. [Validation](#validation)
+9. [Examples](#examples)
 
 ---
 
@@ -200,35 +199,6 @@ settings:
 
 ---
 
-## Cost Optimization
-
-### Cost Management Configuration
-
-```yaml
-settings:
-  cost_management:
-    enabled: true                   # Enable cost tracking
-    daily_limit_usd: 5.0           # Daily cost limit
-    monthly_limit_usd: 50.0        # Monthly cost limit
-    per_request_limit_usd: 0.10    # Per-request cost limit
-    token_optimization: true        # Enable token optimization
-    cost_alert_threshold: 0.8      # Alert when 80% of limit reached
-```
-
-### Token Optimization
-
-```yaml
-settings:
-  token_optimization:
-    enabled: true                   # Enable token optimization
-    max_tokens_per_request: 4000   # Maximum tokens per request
-    prompt_truncation: true         # Enable prompt truncation
-    compression_enabled: true       # Enable response compression
-    cache_enabled: true            # Enable response caching
-```
-
----
-
 ## Rate Limiting
 
 ### API Rate Limiting
@@ -403,13 +373,6 @@ settings:
     llm_requests_per_minute: 60
     llm_requests_per_hour: 1000
 
-  # Cost optimization
-  cost_management:
-    enabled: true
-    daily_limit_usd: 5.0
-    monthly_limit_usd: 50.0
-    per_request_limit_usd: 0.10
-    token_optimization: true
 
   # LLM provider settings
   anthropic:

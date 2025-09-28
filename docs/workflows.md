@@ -225,7 +225,6 @@ fi
 # Monthly cleanup (run on 1st of month)
 if [ "$(date +%d)" -eq "01" ]; then
     gitco backup cleanup --keep 30
-    gitco cost summary --export monthly-cost-report.json
 fi
 
 echo "✅ Scheduled maintenance completed!"
@@ -280,51 +279,6 @@ echo "Community analysis completed. Check exported reports."
 echo "✅ Community analysis completed!"
 ```
 
-## Cost Management Workflows
-
-### Cost Monitoring Workflow
-```bash
-#!/bin/bash
-# cost-monitoring-workflow.sh
-
-echo "💰 Starting cost monitoring..."
-
-# Check current costs
-gitco cost summary --detailed --export cost-report.json
-
-# Check if approaching limits
-DAILY_COST=$(gitco cost summary --days 1 | grep "Daily cost" | awk '{print $3}')
-DAILY_LIMIT=5.0
-
-if (( $(echo "$DAILY_COST > $DAILY_LIMIT * 0.8" | bc -l) )); then
-    echo "⚠️  Warning: Approaching daily cost limit!"
-    gitco cost configure --daily-limit 2.0
-fi
-
-echo "✅ Cost monitoring completed!"
-```
-
-### Cost Optimization Workflow
-```bash
-#!/bin/bash
-# cost-optimization-workflow.sh
-
-echo "🔧 Starting cost optimization..."
-
-# Analyze cost breakdown
-gitco cost breakdown --detailed --export cost-breakdown.json
-
-# Optimize token usage
-gitco cost configure --enable-optimization
-
-# Set conservative limits
-gitco cost configure --daily-limit 2.0 --monthly-limit 20.0
-
-# Use cheaper models for analysis
-gitco analyze --repo django --model gpt-3.5-turbo
-
-echo "✅ Cost optimization completed!"
-```
 
 ## Backup and Recovery Workflows
 
@@ -469,7 +423,6 @@ case $WORKFLOW_TYPE in
         ;;
     "monthly")
         gitco contributions stats --days 30 --export monthly-stats.json
-        gitco cost summary --detailed --export monthly-cost.json
         gitco backup cleanup --keep 30
         ;;
     *)

@@ -83,14 +83,8 @@ class Settings:
     llm_openai_api_url: Optional[str] = None
     llm_anthropic_api_url: Optional[str] = None
     llm_custom_endpoints: dict[str, str] = field(default_factory=dict)
-    # Cost optimization settings
-    enable_cost_tracking: bool = True
-    enable_token_optimization: bool = True
+    # LLM settings
     max_tokens_per_request: int = 4000
-    max_cost_per_request_usd: float = 0.10
-    max_daily_cost_usd: float = 5.0
-    max_monthly_cost_usd: float = 50.0
-    cost_log_file: str = "~/.gitco/cost_log.json"
 
 
 @dataclass
@@ -223,7 +217,7 @@ class ConfigValidator:
                 )
             )
 
-        # Validate cost optimization settings
+        # Validate LLM settings
         if settings.max_tokens_per_request < 100:
             self.errors.append(
                 ValidationError(
@@ -237,44 +231,8 @@ class ConfigValidator:
                 ValidationError(
                     field="settings.max_tokens_per_request",
                     message=f"Value {settings.max_tokens_per_request} is very high",
-                    suggestion="Consider using a value between 1000-8000 for cost efficiency",
+                    suggestion="Consider using a value between 1000-8000 for efficiency",
                     severity="warning",
-                )
-            )
-
-        if settings.max_cost_per_request_usd < 0:
-            self.errors.append(
-                ValidationError(
-                    field="settings.max_cost_per_request_usd",
-                    message=f"Value {settings.max_cost_per_request_usd} is invalid",
-                    suggestion="Must be a non-negative number",
-                )
-            )
-        elif settings.max_cost_per_request_usd > 10.0:
-            self.warnings.append(
-                ValidationError(
-                    field="settings.max_cost_per_request_usd",
-                    message=f"Value {settings.max_cost_per_request_usd} is very high",
-                    suggestion="Consider using a value between 0.01-1.00 for cost control",
-                    severity="warning",
-                )
-            )
-
-        if settings.max_daily_cost_usd < 0:
-            self.errors.append(
-                ValidationError(
-                    field="settings.max_daily_cost_usd",
-                    message=f"Value {settings.max_daily_cost_usd} is invalid",
-                    suggestion="Must be a non-negative number",
-                )
-            )
-
-        if settings.max_monthly_cost_usd < 0:
-            self.errors.append(
-                ValidationError(
-                    field="settings.max_monthly_cost_usd",
-                    message=f"Value {settings.max_monthly_cost_usd} is invalid",
-                    suggestion="Must be a non-negative number",
                 )
             )
 
@@ -902,21 +860,9 @@ class ConfigManager:
                 llm_openai_api_url=settings_data.get("llm_openai_api_url"),
                 llm_anthropic_api_url=settings_data.get("llm_anthropic_api_url"),
                 llm_custom_endpoints=settings_data.get("llm_custom_endpoints", {}),
-                # Cost optimization settings
-                enable_cost_tracking=settings_data.get("enable_cost_tracking", True),
-                enable_token_optimization=settings_data.get(
-                    "enable_token_optimization", True
-                ),
+                # LLM settings
                 max_tokens_per_request=settings_data.get(
                     "max_tokens_per_request", 4000
-                ),
-                max_cost_per_request_usd=settings_data.get(
-                    "max_cost_per_request_usd", 0.10
-                ),
-                max_daily_cost_usd=settings_data.get("max_daily_cost_usd", 5.0),
-                max_monthly_cost_usd=settings_data.get("max_monthly_cost_usd", 50.0),
-                cost_log_file=settings_data.get(
-                    "cost_log_file", "~/.gitco/cost_log.json"
                 ),
             )
 
@@ -951,14 +897,8 @@ class ConfigManager:
                 "llm_openai_api_url": config.settings.llm_openai_api_url,
                 "llm_anthropic_api_url": config.settings.llm_anthropic_api_url,
                 "llm_custom_endpoints": config.settings.llm_custom_endpoints,
-                # Cost optimization settings
-                "enable_cost_tracking": config.settings.enable_cost_tracking,
-                "enable_token_optimization": config.settings.enable_token_optimization,
+                # LLM settings
                 "max_tokens_per_request": config.settings.max_tokens_per_request,
-                "max_cost_per_request_usd": config.settings.max_cost_per_request_usd,
-                "max_daily_cost_usd": config.settings.max_daily_cost_usd,
-                "max_monthly_cost_usd": config.settings.max_monthly_cost_usd,
-                "cost_log_file": config.settings.cost_log_file,
             },
         }
 

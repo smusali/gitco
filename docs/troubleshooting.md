@@ -10,9 +10,8 @@ This guide helps you resolve common issues with GitCo and provides diagnostic co
 4. [API and Network Issues](#api-and-network-issues)
 5. [Analysis and Discovery Issues](#analysis-and-discovery-issues)
 6. [Performance Issues](#performance-issues)
-7. [Cost Management Issues](#cost-management-issues)
-8. [Backup and Recovery Issues](#backup-and-recovery-issues)
-9. [Advanced Troubleshooting](#advanced-troubleshooting)
+7. [Backup and Recovery Issues](#backup-and-recovery-issues)
+8. [Advanced Troubleshooting](#advanced-troubleshooting)
 
 ---
 
@@ -271,25 +270,6 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
 gitco analyze --repo django --no-llm
 ```
 
-### Cost Limit Exceeded
-
-**Symptoms:** Analysis stops due to cost limits
-
-**Solutions:**
-
-```bash
-# Check current costs
-gitco cost summary
-
-# Increase cost limits
-gitco cost configure --daily-limit 10.0 --monthly-limit 100.0
-
-# Reset cost tracking
-gitco cost reset --force
-
-# Use cheaper model
-gitco analyze --repo django --model gpt-3.5-turbo
-```
 
 ### Discovery Issues
 
@@ -377,51 +357,6 @@ gitco --quiet sync
 # Process repositories one by one
 gitco sync --repo django
 gitco sync --repo fastapi
-```
-
----
-
-## Cost Management Issues
-
-### Unexpected Costs
-
-**Symptoms:** Higher costs than expected
-
-**Solutions:**
-
-```bash
-# Check cost breakdown
-gitco cost breakdown --detailed
-
-# Set stricter limits
-gitco cost configure --daily-limit 2.0 --monthly-limit 20.0
-
-# Enable cost optimization
-gitco cost configure --enable-optimization
-
-# Use cheaper models
-gitco analyze --repo django --model gpt-3.5-turbo
-```
-
-### Cost Tracking Not Working
-
-**Symptoms:** No cost data available
-
-**Solutions:**
-
-```bash
-# Enable cost tracking
-gitco cost configure --enable-tracking
-
-# Check cost configuration
-gitco cost configure --show
-
-# Reset cost tracking
-gitco cost reset --force
-
-# Verify API keys
-echo $OPENAI_API_KEY
-echo $ANTHROPIC_API_KEY
 ```
 
 ---

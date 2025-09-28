@@ -117,7 +117,6 @@ try:
     from .cli.config import register_config_commands
     from .cli.contributions import register_contributions_commands
     from .cli.core import register_core_commands
-    from .cli.cost import register_cost_commands
     from .cli.github import register_github_commands
     from .cli.upstream import register_upstream_commands
 
@@ -128,7 +127,6 @@ try:
     register_github_commands(main)
     register_contributions_commands(main)
     register_backup_commands(main)
-    register_cost_commands(main)
 
 except ImportError as e:
     # Fallback to show at least the main group structure

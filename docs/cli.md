@@ -143,13 +143,6 @@ Backup management: create, list, restore, validate, delete, cleanup.
 - `gitco backup list` - List backups
 - `gitco backup restore` - Restore from backup
 
-### [Cost Management Commands](cli/cost.md)
-Cost tracking and optimization: summary, breakdown, configure, reset.
-
-**Examples:**
-- `gitco cost summary` - View cost summary
-- `gitco cost configure` - Configure cost settings
-- `gitco cost breakdown` - View detailed breakdown
 
 ---
 
@@ -265,18 +258,6 @@ gitco backup list --detailed
 gitco backup restore --backup-id backup-2024-01-15
 ```
 
-### Cost Management
-
-```bash
-# View cost summary
-gitco cost summary --detailed
-
-# Set cost limits
-gitco cost configure --daily-limit 5.0 --monthly-limit 50.0
-
-# Reset cost tracking
-gitco cost reset --force
-```
 
 ---
 

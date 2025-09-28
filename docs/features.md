@@ -12,12 +12,11 @@ GitCo is a comprehensive CLI tool for intelligent OSS fork management and contri
 6. [Activity Tracking](#activity-tracking)
 7. [Contribution Tracking](#contribution-tracking)
 8. [Backup and Recovery](#backup-and-recovery)
-9. [Cost Management](#cost-management)
-10. [GitHub Integration](#github-integration)
-11. [Configuration Management](#configuration-management)
-12. [Automation Support](#automation-support)
-13. [Performance Monitoring](#performance-monitoring)
-14. [Shell Completion](#shell-completion)
+9. [GitHub Integration](#github-integration)
+10. [Configuration Management](#configuration-management)
+11. [Automation Support](#automation-support)
+12. [Performance Monitoring](#performance-monitoring)
+13. [Shell Completion](#shell-completion)
 
 ---
 
@@ -57,7 +56,6 @@ Flexible configuration system with validation and interactive setup.
 - Repository definitions with skills and metadata
 - LLM provider settings (OpenAI, Anthropic, custom endpoints)
 - GitHub integration settings
-- Cost optimization parameters
 - Performance and rate limiting settings
 
 ---
@@ -112,16 +110,6 @@ Intelligent analysis of repository changes using LLM providers.
 - **Custom Endpoints**: Support for custom LLM endpoints
 - **Local Models**: Ollama integration for local processing
 
-### Cost Optimization
-
-Intelligent cost management for LLM API usage.
-
-**Cost Features:**
-- **Token Tracking**: Monitor token usage across all operations
-- **Cost Limits**: Set daily and monthly cost limits
-- **Model Selection**: Choose cost-effective models for different tasks
-- **Usage Analytics**: Detailed cost breakdown by provider and model
-- **Optimization**: Automatic token optimization and compression
 
 ---
 
@@ -258,32 +246,6 @@ Comprehensive recovery and restoration capabilities.
 - **Validation**: Validate restored data integrity
 - **Rollback**: Rollback to previous states if needed
 - **Migration**: Migrate between different environments
-
----
-
-## Cost Management
-
-### Cost Tracking and Optimization
-
-Comprehensive cost management for LLM API usage.
-
-**Cost Features:**
-- **Real-time Tracking**: Track costs in real-time across all operations
-- **Provider Breakdown**: Detailed cost breakdown by provider and model
-- **Usage Analytics**: Analyze usage patterns and optimize costs
-- **Budget Management**: Set and enforce cost budgets
-- **Alerting**: Get alerts when approaching cost limits
-
-### Cost Optimization
-
-Intelligent cost optimization strategies.
-
-**Optimization Features:**
-- **Model Selection**: Automatically select cost-effective models
-- **Token Optimization**: Optimize token usage and reduce costs
-- **Batch Processing**: Efficient batch processing to reduce API calls
-- **Caching**: Cache results to avoid redundant API calls
-- **Rate Limiting**: Intelligent rate limiting to manage costs
 
 ---
 

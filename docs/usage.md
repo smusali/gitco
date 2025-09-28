@@ -10,9 +10,8 @@ This guide provides comprehensive usage examples and workflows for GitCo, coveri
 4. [Health Monitoring](#health-monitoring)
 5. [Contribution Tracking](#contribution-tracking)
 6. [Backup and Recovery](#backup-and-recovery)
-7. [Cost Management](#cost-management)
-8. [Automation](#automation)
-9. [Advanced Workflows](#advanced-workflows)
+7. [Automation](#automation)
+8. [Advanced Workflows](#advanced-workflows)
 
 ---
 
@@ -272,27 +271,6 @@ gitco backup list
 **Restore from backup:**
 ```bash
 gitco backup restore --backup-id backup-id
-```
-
----
-
-## Cost Management
-
-### View Cost Summary
-
-**View cost summary:**
-```bash
-gitco cost summary
-```
-
-**Configure cost limits:**
-```bash
-gitco cost configure --daily-limit 5.0 --monthly-limit 50.0
-```
-
-**Cost breakdown by provider:**
-```bash
-gitco cost breakdown --provider openai
 ```
 
 ---

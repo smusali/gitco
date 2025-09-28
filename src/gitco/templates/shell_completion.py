@@ -13,7 +13,7 @@ _gitco_completion() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    cmds="init sync analyze discover status activity logs performance help config upstream validate-repo github contributions backup cost"
+    cmds="init sync analyze discover status activity logs performance help config upstream validate-repo github contributions backup"
 
     # Subcommands
     config_cmds="validate config-status validate-detailed"
@@ -21,7 +21,6 @@ _gitco_completion() {
     github_cmds="rate-limit-status test-connection get-repo get-issues get-issues-multi"
     contributions_cmds="sync-history stats recommendations export trending"
     backup_cmds="create list-backups restore validate-backup delete cleanup"
-    cost_cmds="summary configure reset breakdown"
 
     # Options
     global_opts="-v --verbose -q --quiet --log-file --detailed-log --max-log-size --log-backups -c --config --help --version"
@@ -49,10 +48,6 @@ _gitco_completion() {
             ;;
         backup)
             COMPREPLY=( $(compgen -W "${backup_cmds}" -- "${cur}") )
-            return 0
-            ;;
-        cost)
-            COMPREPLY=( $(compgen -W "${cost_cmds}" -- "${cur}") )
             return 0
             ;;
         -r|--repo)
@@ -161,7 +156,6 @@ _gitco() {
                 'github:GitHub API operations'
                 'contributions:Contribution management'
                 'backup:Backup management'
-                'cost:Cost management'
             )
             _describe -t commands 'gitco commands' commands
             ;;
@@ -222,16 +216,6 @@ _gitco() {
                     )
                     _describe -t subcommands 'backup subcommands' subcommands
                     ;;
-                cost)
-                    local -a subcommands
-                    subcommands=(
-                        'summary:Show cost summary'
-                        'configure:Configure cost settings'
-                        'reset:Reset cost history'
-                        'breakdown:Show cost breakdown'
-                    )
-                    _describe -t subcommands 'cost subcommands' subcommands
-                    ;;
                 sync|analyze|status|activity)
                     _arguments \\
                         '-r[Repository name]:repository:_gitco_repositories' \\
@@ -285,19 +269,6 @@ _gitco() {
                         '--compression[Compression level]:level:(0 1 2 3 4 5 6 7 8 9)' \\
                         '-q[Suppress output]' \\
                         '--quiet[Suppress output]'
-                    ;;
-                cost)
-                    _arguments \\
-                        '-d[Detailed output]' \\
-                        '--detailed[Detailed output]' \\
-                        '--export[Export to file]:file:_files' \\
-                        '-e[Export to file]:file:_files' \\
-                        '--days[Days]:number:' \\
-                        '--months[Months]:number:' \\
-                        '-m[Model]:model:' \\
-                        '--model[Model]:model:' \\
-                        '-p[Provider]:provider:_gitco_providers' \\
-                        '--provider[Provider]:provider:_gitco_providers'
                     ;;
             esac
             ;;

@@ -11,10 +11,9 @@ Common questions and answers about GitCo, organized by category for easy referen
 5. [Health Monitoring](#health-monitoring)
 6. [Contribution Tracking](#contribution-tracking)
 7. [Backup and Recovery](#backup-and-recovery)
-8. [Cost Management](#cost-management)
-9. [GitHub Integration](#github-integration)
-10. [Performance and Optimization](#performance-and-optimization)
-11. [Troubleshooting](#troubleshooting)
+8. [GitHub Integration](#github-integration)
+9. [Performance and Optimization](#performance-and-optimization)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -170,18 +169,6 @@ settings:
   llm_provider: anthropic  # or 'openai', 'custom'
 ```
 
-### Q: How do I control analysis costs?
-**A:**
-```bash
-# Set cost limits
-gitco cost configure --daily-limit 5.0 --monthly-limit 50.0
-
-# View cost summary
-gitco cost summary
-
-# Disable analysis
-gitco analyze --repo django --no-llm
-```
 
 ### Q: How accurate are the discovery recommendations?
 **A:** Discovery accuracy depends on your skill configuration and the quality of issue labels. You can adjust confidence thresholds:
@@ -291,38 +278,6 @@ gitco backup cleanup --keep 10
 
 ---
 
-## Cost Management
-
-### Q: How do I track API costs?
-**A:**
-```bash
-# View cost summary
-gitco cost summary
-
-# Detailed breakdown
-gitco cost summary --detailed
-
-# Breakdown by provider
-gitco cost breakdown --provider openai
-```
-
-### Q: How do I set cost limits?
-**A:**
-```bash
-# Set daily and monthly limits
-gitco cost configure --daily-limit 5.0 --monthly-limit 50.0
-
-# Set per-request limit
-gitco cost configure --per-request-limit 0.10
-```
-
-### Q: How do I reset cost tracking?
-**A:**
-```bash
-gitco cost reset --force
-```
-
----
 
 ## GitHub Integration
 

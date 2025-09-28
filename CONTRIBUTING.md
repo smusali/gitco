@@ -332,7 +332,7 @@ Thank you for contributing to GitCo! 🚀
 
 ### LLM Integration
 - Support multiple LLM providers (OpenAI, Anthropic)
-- Consider API rate limits and costs
+- Consider API rate limits
 - Validate prompt engineering for different use cases
 
 ### Git Operations
