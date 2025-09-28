@@ -626,10 +626,10 @@ class AnthropicAnalyzer(BaseAnalyzer, RateLimitedAPIClient):
 
             # Log token usage
             if hasattr(response, "usage") and response.usage:
-                total_tokens = response.usage.input_tokens + response.usage.output_tokens
-                self.logger.debug(
-                    f"Anthropic API call: {total_tokens} tokens"
+                total_tokens = (
+                    response.usage.input_tokens + response.usage.output_tokens
                 )
+                self.logger.debug(f"Anthropic API call: {total_tokens} tokens")
 
             response_text: str = response.content[0].text
             return response_text
