@@ -385,23 +385,45 @@ def prompt_github_settings() -> dict[str, Any]:
 
     settings = {}
 
-    auth_method = prompt_choice(
-        "GitHub authentication method",
-        ["token", "username/password", "none"],
-        default="token",
+    # Explain Git-based authentication
+    console.print("\n[bold green]Git-based Authentication[/bold green]")
+    console.print(
+        "GitCo will automatically use your existing Git credentials for GitHub API access."
     )
+    console.print("This includes SSH keys, stored tokens, and Git credential manager.")
+    console.print("No additional API keys are required!")
 
-    if auth_method == "token":
-        settings["github_token_env"] = prompt_text(
-            "GitHub token environment variable", default="GITHUB_TOKEN"
+    use_git_auth = prompt_confirm("Use Git-based authentication?", default=True)
+    settings["github_use_git_auth"] = use_git_auth
+
+    if not use_git_auth:
+        console.print("\n[bold yellow]Fallback Authentication[/bold yellow]")
+        console.print(
+            "If Git authentication is not available, you can configure fallback credentials."
         )
-    elif auth_method == "username/password":
-        settings["github_username_env"] = prompt_text(
-            "GitHub username environment variable", default="GITHUB_USERNAME"
+
+        configure_fallback = prompt_confirm(
+            "Configure fallback authentication?", default=False
         )
-        settings["github_password_env"] = prompt_text(
-            "GitHub password environment variable", default="GITHUB_PASSWORD"
-        )
+
+        if configure_fallback:
+            auth_method = prompt_choice(
+                "Fallback authentication method",
+                ["token", "username/password"],
+                default="token",
+            )
+
+            if auth_method == "token":
+                settings["github_token_env"] = prompt_text(
+                    "GitHub token environment variable", default="GITHUB_TOKEN"
+                )
+            elif auth_method == "username/password":
+                settings["github_username_env"] = prompt_text(
+                    "GitHub username environment variable", default="GITHUB_USERNAME"
+                )
+                settings["github_password_env"] = prompt_text(
+                    "GitHub password environment variable", default="GITHUB_PASSWORD"
+                )
 
     settings["github_api_url"] = prompt_text(
         "GitHub API URL", default="https://api.github.com"
@@ -497,10 +519,16 @@ def show_configuration_summary(
     # GitHub Settings
     if github_settings:
         console.print("\n[bold]GitHub Integration:[/bold]")
-        if github_settings.get("github_token_env"):
-            console.print(f"  • Token env: {github_settings['github_token_env']}")
-        if github_settings.get("github_username_env"):
-            console.print(f"  • Username env: {github_settings['github_username_env']}")
+        if github_settings.get("github_use_git_auth", True):
+            console.print("  • Authentication: Git-based (automatic)")
+        else:
+            console.print("  • Authentication: Fallback credentials")
+            if github_settings.get("github_token_env"):
+                console.print(f"    - Token env: {github_settings['github_token_env']}")
+            if github_settings.get("github_username_env"):
+                console.print(
+                    f"    - Username env: {github_settings['github_username_env']}"
+                )
         console.print(
             f"  • API URL: {github_settings.get('github_api_url', 'https://api.github.com')}"
         )

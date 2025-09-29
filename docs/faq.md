@@ -280,6 +280,16 @@ gitco backup cleanup --keep 10
 
 ## GitHub Integration
 
+### Q: Do I need a GitHub API key?
+**A:** No! GitCo automatically uses your existing Git credentials for GitHub API access. It detects SSH keys, stored credentials, and Git configuration automatically.
+
+### Q: How does Git-based authentication work?
+**A:** GitCo detects and uses:
+- SSH keys from `~/.ssh/`
+- Stored credentials in Git credential manager
+- Environment variables (as fallback)
+- Repository-specific authentication settings
+
 ### Q: How do I check my GitHub connection?
 **A:**
 ```bash
@@ -297,6 +307,12 @@ gitco github rate-limit-status
 ```bash
 gitco github get-repo --repo django/django
 ```
+
+### Q: What if Git authentication fails?
+**A:** GitCo will automatically fall back to:
+1. Environment variables (GITHUB_TOKEN, etc.)
+2. Anonymous access (limited functionality)
+3. Clear error messages with troubleshooting steps
 
 ---
 

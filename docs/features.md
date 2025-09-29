@@ -248,6 +248,17 @@ Comprehensive recovery and restoration capabilities.
 
 ## GitHub Integration
 
+### Git-Based Authentication
+
+Seamless GitHub integration using your existing Git credentials.
+
+**Authentication Features:**
+- **Automatic Detection**: Automatically detects SSH keys, stored credentials, and Git configuration
+- **SSH Support**: Uses SSH keys for both Git and API operations
+- **Credential Store**: Extracts tokens from Git credential manager
+- **Fallback Support**: Optional fallback to traditional API keys
+- **Repository-Specific**: Supports repository-specific authentication settings
+
 ### Comprehensive GitHub API Integration
 
 Full integration with GitHub APIs for enhanced functionality.
@@ -268,7 +279,7 @@ Intelligent rate limit management for GitHub API.
 - **Limit Monitoring**: Monitor and track rate limit usage
 - **Queue Management**: Queue requests when limits are approached
 - **Retry Logic**: Intelligent retry logic with exponential backoff
-- **Token Rotation**: Support for multiple tokens to increase limits
+- **No API Keys Required**: Uses existing Git infrastructure for authentication
 
 ---
 

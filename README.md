@@ -29,7 +29,7 @@ gitco init --interactive
 ### 2. Set Up API Keys
 ```bash
 export OPENAI_API_KEY="your-openai-api-key"
-export GITHUB_TOKEN="your-github-token"
+# GitHub authentication is automatic using your existing Git credentials!
 ```
 
 ### 3. Configure Repositories

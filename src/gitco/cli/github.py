@@ -10,6 +10,7 @@ from typing import Optional
 import click
 
 from ..libs.config import ConfigManager
+from ..libs.git_ops import detect_github_auth, test_github_auth
 from ..libs.github_client import create_github_client
 from ..utils.common import (
     log_operation_failure,
@@ -20,6 +21,66 @@ from ..utils.common import (
     print_success_panel,
     print_warning_panel,
 )
+
+
+def create_github_client_with_fallback(
+    config_manager: ConfigManager, repo_path: Optional[str] = None
+):
+    """Create GitHub client with fallback authentication mechanisms.
+
+    Args:
+        config_manager: Configuration manager instance
+        repo_path: Optional repository path for local Git authentication
+
+    Returns:
+        GitHub client instance
+
+    Raises:
+        Exception: If all authentication methods fail
+    """
+    # Get GitHub credentials from configuration
+    credentials = config_manager.get_github_credentials()
+
+    # Try Git-based authentication first
+    if credentials.get("use_git_auth", True):
+        try:
+            # Detect Git authentication
+            auth_info = detect_github_auth(repo_path)
+
+            if auth_info.method != "none" and test_github_auth(auth_info):
+                print_info_panel(
+                    "Git Authentication Detected",
+                    f"Using {auth_info.method} authentication from Git configuration",
+                )
+                return create_github_client(
+                    repo_path=repo_path,
+                    use_git_auth=True,
+                    **{k: v for k, v in credentials.items() if k != "use_git_auth"},
+                )
+        except Exception as e:
+            print_warning_panel(
+                "Git Authentication Failed",
+                f"Git authentication failed: {e}\nFalling back to configured credentials.",
+            )
+
+    # Fall back to configured credentials
+    if credentials.get("token") or (
+        credentials.get("username") and credentials.get("password")
+    ):
+        print_info_panel(
+            "Using Fallback Authentication", "Using configured GitHub credentials"
+        )
+        return create_github_client(
+            use_git_auth=False,
+            **{k: v for k, v in credentials.items() if k != "use_git_auth"},
+        )
+
+    # If all else fails, try anonymous access
+    print_warning_panel(
+        "No Authentication Found",
+        "No GitHub authentication found. Using anonymous access (limited functionality).",
+    )
+    return create_github_client(use_git_auth=False)
 
 
 def register_github_commands(main_group):
@@ -51,30 +112,8 @@ def connection_status(ctx: click.Context, detailed: bool) -> None:
         config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
-        # Get GitHub credentials
-        credentials = config_manager.get_github_credentials()
-
-        # Create GitHub client
-        github_client = create_github_client(
-            token=(
-                credentials["token"] if isinstance(credentials["token"], str) else None
-            ),
-            username=(
-                credentials["username"]
-                if isinstance(credentials["username"], str)
-                else None
-            ),
-            password=(
-                credentials["password"]
-                if isinstance(credentials["password"], str)
-                else None
-            ),
-            base_url=(
-                str(credentials["base_url"])
-                if credentials["base_url"]
-                else "https://api.github.com"
-            ),
-        )
+        # Create GitHub client with fallback mechanisms
+        github_client = create_github_client_with_fallback(config_manager)
 
         # Test connection
         if github_client.test_connection():
@@ -108,9 +147,10 @@ def connection_status(ctx: click.Context, detailed: bool) -> None:
                 "GitHub API Connection Failed",
                 "❌ Failed to connect to GitHub API\n\n"
                 "Please check:\n"
-                "1. Your GitHub credentials (GITHUB_TOKEN or GITHUB_USERNAME/GITHUB_PASSWORD)\n"
+                "1. Your Git authentication (SSH keys, stored credentials, or Git credential manager)\n"
                 "2. Network connectivity\n"
-                "3. GitHub API status",
+                "3. GitHub API status\n"
+                "4. Run 'gitco config validate' to check your configuration",
             )
             sys.exit(1)
 
@@ -193,30 +233,8 @@ def get_repo(ctx: click.Context, repo: str) -> None:
         config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
-        # Get GitHub credentials
-        credentials = config_manager.get_github_credentials()
-
-        # Create GitHub client
-        github_client = create_github_client(
-            token=(
-                credentials["token"] if isinstance(credentials["token"], str) else None
-            ),
-            username=(
-                credentials["username"]
-                if isinstance(credentials["username"], str)
-                else None
-            ),
-            password=(
-                credentials["password"]
-                if isinstance(credentials["password"], str)
-                else None
-            ),
-            base_url=(
-                str(credentials["base_url"])
-                if credentials["base_url"]
-                else "https://api.github.com"
-            ),
-        )
+        # Create GitHub client with fallback mechanisms
+        github_client = create_github_client_with_fallback(config_manager)
 
         # Get repository information
         github_repo = github_client.get_repository(repo)
@@ -287,30 +305,8 @@ def get_issues(
         config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
-        # Get GitHub credentials
-        credentials = config_manager.get_github_credentials()
-
-        # Create GitHub client
-        github_client = create_github_client(
-            token=(
-                credentials["token"] if isinstance(credentials["token"], str) else None
-            ),
-            username=(
-                credentials["username"]
-                if isinstance(credentials["username"], str)
-                else None
-            ),
-            password=(
-                credentials["password"]
-                if isinstance(credentials["password"], str)
-                else None
-            ),
-            base_url=(
-                str(credentials["base_url"])
-                if credentials["base_url"]
-                else "https://api.github.com"
-            ),
-        )
+        # Create GitHub client with fallback mechanisms
+        github_client = create_github_client_with_fallback(config_manager)
 
         # Parse labels
         label_list = None
@@ -420,30 +416,8 @@ def get_issues_multi(
         config_manager = ConfigManager(ctx.obj.get("config"))
         config_manager.load_config()
 
-        # Get GitHub credentials
-        credentials = config_manager.get_github_credentials()
-
-        # Create GitHub client
-        github_client = create_github_client(
-            token=(
-                credentials["token"] if isinstance(credentials["token"], str) else None
-            ),
-            username=(
-                credentials["username"]
-                if isinstance(credentials["username"], str)
-                else None
-            ),
-            password=(
-                credentials["password"]
-                if isinstance(credentials["password"], str)
-                else None
-            ),
-            base_url=(
-                str(credentials["base_url"])
-                if credentials["base_url"]
-                else "https://api.github.com"
-            ),
-        )
+        # Create GitHub client with fallback mechanisms
+        github_client = create_github_client_with_fallback(config_manager)
 
         # Parse repository list
         repo_list = [repo.strip() for repo in repos.split(",")]

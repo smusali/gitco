@@ -63,13 +63,15 @@ class Settings:
     git_timeout: int = 300
     rate_limit_delay: float = 1.0
     log_level: str = "INFO"
-    # GitHub API settings
-    github_token_env: str = "GITHUB_TOKEN"
-    github_username_env: str = "GITHUB_USERNAME"
-    github_password_env: str = "GITHUB_PASSWORD"
+    # GitHub API settings (Git-based authentication)
     github_api_url: str = "https://api.github.com"
     github_timeout: int = 30
     github_max_retries: int = 3
+    github_use_git_auth: bool = True
+    # Fallback GitHub authentication (optional)
+    github_token_env: Optional[str] = None
+    github_username_env: Optional[str] = None
+    github_password_env: Optional[str] = None
     # Rate limiting settings
     github_rate_limit_per_minute: int = 30
     github_rate_limit_per_hour: int = 5000
@@ -771,7 +773,7 @@ class ConfigManager:
             return len(self.config.repositories) < initial_count
         return False
 
-    def get_github_credentials(self) -> dict[str, Union[Optional[str], int]]:
+    def get_github_credentials(self) -> dict[str, Union[Optional[str], int, bool]]:
         """Get GitHub credentials from environment variables.
 
         Returns:
@@ -779,13 +781,26 @@ class ConfigManager:
         """
         settings = self.config.settings
 
+        # Get fallback credentials if available
+        token = None
+        username = None
+        password = None
+
+        if settings.github_token_env:
+            token = os.getenv(settings.github_token_env)
+        if settings.github_username_env:
+            username = os.getenv(settings.github_username_env)
+        if settings.github_password_env:
+            password = os.getenv(settings.github_password_env)
+
         return {
-            "token": os.getenv(settings.github_token_env),
-            "username": os.getenv(settings.github_username_env),
-            "password": os.getenv(settings.github_password_env),
+            "token": token,
+            "username": username,
+            "password": password,
             "base_url": settings.github_api_url,
             "timeout": settings.github_timeout,
             "max_retries": settings.github_max_retries,
+            "use_git_auth": settings.github_use_git_auth,
         }
 
     def _parse_config(self, data: dict[str, Any]) -> Config:
@@ -828,19 +843,17 @@ class ConfigManager:
                 git_timeout=settings_data.get("git_timeout", 300),
                 rate_limit_delay=settings_data.get("rate_limit_delay", 1.0),
                 log_level=settings_data.get("log_level", "INFO"),
-                # GitHub settings
-                github_token_env=settings_data.get("github_token_env", "GITHUB_TOKEN"),
-                github_username_env=settings_data.get(
-                    "github_username_env", "GITHUB_USERNAME"
-                ),
-                github_password_env=settings_data.get(
-                    "github_password_env", "GITHUB_PASSWORD"
-                ),
+                # GitHub settings (Git-based authentication)
                 github_api_url=settings_data.get(
                     "github_api_url", "https://api.github.com"
                 ),
                 github_timeout=settings_data.get("github_timeout", 30),
                 github_max_retries=settings_data.get("github_max_retries", 3),
+                github_use_git_auth=settings_data.get("github_use_git_auth", True),
+                # Fallback GitHub authentication (optional)
+                github_token_env=settings_data.get("github_token_env"),
+                github_username_env=settings_data.get("github_username_env"),
+                github_password_env=settings_data.get("github_password_env"),
                 # LLM API settings
                 llm_openai_api_url=settings_data.get("llm_openai_api_url"),
                 # LLM settings
@@ -869,13 +882,15 @@ class ConfigManager:
                 "git_timeout": config.settings.git_timeout,
                 "rate_limit_delay": config.settings.rate_limit_delay,
                 "log_level": config.settings.log_level,
-                # GitHub settings
-                "github_token_env": config.settings.github_token_env,
-                "github_username_env": config.settings.github_username_env,
-                "github_password_env": config.settings.github_password_env,
+                # GitHub settings (Git-based authentication)
                 "github_api_url": config.settings.github_api_url,
                 "github_timeout": config.settings.github_timeout,
                 "github_max_retries": config.settings.github_max_retries,
+                "github_use_git_auth": config.settings.github_use_git_auth,
+                # Fallback GitHub authentication (optional)
+                "github_token_env": config.settings.github_token_env,
+                "github_username_env": config.settings.github_username_env,
+                "github_password_env": config.settings.github_password_env,
                 # LLM API settings
                 "llm_openai_api_url": config.settings.llm_openai_api_url,
                 # LLM settings

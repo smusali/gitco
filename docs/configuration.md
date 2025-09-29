@@ -148,16 +148,37 @@ settings:
 
 ## GitHub Integration
 
-### GitHub API Configuration
+### Git-Based Authentication
+
+GitCo automatically uses your existing Git credentials for GitHub API access. No additional API keys are required!
 
 ```yaml
 settings:
   github:
-    token_env: GITHUB_TOKEN         # Environment variable name
     api_url: https://api.github.com # GitHub API URL
     timeout: 30                    # API timeout (seconds)
-    user_agent: GitCo/0.1.0       # User agent string
+    use_git_auth: true            # Use Git-based authentication (default: true)
+    # Fallback authentication (optional)
+    token_env: GITHUB_TOKEN       # Environment variable name for fallback
+    username_env: GITHUB_USERNAME # Username for fallback
+    password_env: GITHUB_PASSWORD # Password for fallback
 ```
+
+### Supported Authentication Methods
+
+1. **SSH Authentication** - Uses your SSH keys for both Git and API operations
+2. **Token Authentication** - Extracts tokens from Git credential store
+3. **Basic Authentication** - Uses username/password from Git credentials
+4. **Fallback Authentication** - Traditional API keys (optional)
+5. **Anonymous Access** - Limited functionality for public repositories
+
+### Automatic Detection
+
+GitCo automatically detects and uses:
+- SSH keys from `~/.ssh/`
+- Stored credentials in Git credential manager
+- Environment variables (as fallback)
+- Repository-specific authentication settings
 
 ### Rate Limiting Configuration
 

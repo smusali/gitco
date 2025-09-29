@@ -35,11 +35,11 @@ The interactive setup will guide you through:
 ### 2. Set Environment Variables
 
 ```bash
-# GitHub integration
-export GITHUB_TOKEN="your-github-token"
-
 # LLM provider
 export OPENAI_API_KEY="your-openai-api-key"
+
+# GitHub authentication is automatic using your existing Git credentials!
+# No additional GitHub API keys are required.
 ```
 
 ### 3. Configure Your First Repository

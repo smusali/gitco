@@ -10,8 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Any, Callable, Optional
+from urllib.parse import urlparse
 
 import psutil
+import requests
 from rich import box
 from rich.table import Table
 
@@ -48,9 +50,375 @@ class BatchPerformanceMetrics:
     average_duration: float
     memory_usage_mb: float
     cpu_usage_percent: float
-    throughput_repos_per_second: float
-    concurrent_workers: int
-    batch_size: int
+
+
+@dataclass
+class GitAuthInfo:
+    """Git authentication information."""
+
+    method: str  # 'ssh', 'token', 'basic', 'none'
+    username: Optional[str] = None
+    token: Optional[str] = None
+    password: Optional[str] = None
+    ssh_key_path: Optional[str] = None
+    ssh_agent_available: bool = False
+
+
+class GitAuthDetector:
+    """Detects and extracts Git authentication information."""
+
+    def __init__(self):
+        """Initialize Git authentication detector."""
+        self.logger = get_logger()
+
+    def detect_auth_method(self, repo_url: str) -> str:
+        """Detect authentication method from repository URL.
+
+        Args:
+            repo_url: Repository URL (SSH or HTTPS)
+
+        Returns:
+            Authentication method ('ssh', 'token', 'basic', 'none')
+        """
+        if not repo_url:
+            return "none"
+
+        # Check if it's an SSH URL
+        if repo_url.startswith("git@github.com:") or repo_url.startswith("ssh://"):
+            return "ssh"
+
+        # Check if it's an HTTPS URL
+        if repo_url.startswith("https://github.com/"):
+            return "token"
+
+        # Check if it's an HTTP URL (basic auth)
+        if repo_url.startswith("http://github.com/"):
+            return "basic"
+
+        return "none"
+
+    def extract_ssh_auth(self, repo_url: str) -> GitAuthInfo:
+        """Extract SSH authentication information.
+
+        Args:
+            repo_url: SSH repository URL
+
+        Returns:
+            GitAuthInfo with SSH authentication details
+        """
+        ssh_key_path = None
+        ssh_agent_available = False
+
+        # Check for SSH agent
+        try:
+            result = subprocess.run(
+                ["ssh-add", "-l"], capture_output=True, text=True, timeout=5
+            )
+            ssh_agent_available = result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            ssh_agent_available = False
+
+        # Check for SSH key files
+        ssh_dir = os.path.expanduser("~/.ssh")
+        if os.path.exists(ssh_dir):
+            for key_file in ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa"]:
+                key_path = os.path.join(ssh_dir, key_file)
+                if os.path.exists(key_path):
+                    ssh_key_path = key_path
+                    break
+
+        return GitAuthInfo(
+            method="ssh",
+            ssh_key_path=ssh_key_path,
+            ssh_agent_available=ssh_agent_available,
+        )
+
+    def extract_git_credentials(self, repo_url: str) -> GitAuthInfo:
+        """Extract Git credentials using git credential helper.
+
+        Args:
+            repo_url: Repository URL
+
+        Returns:
+            GitAuthInfo with extracted credentials
+        """
+        try:
+            # Use git credential fill to get stored credentials
+            credential_input = f"url={repo_url}\n"
+
+            result = subprocess.run(
+                ["git", "credential", "fill"],
+                input=credential_input,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if result.returncode != 0:
+                return GitAuthInfo(method="none")
+
+            # Parse the credential output
+            credentials = {}
+            for line in result.stdout.strip().split("\n"):
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    credentials[key] = value
+
+            username = credentials.get("username")
+            password = credentials.get("password")
+
+            if username and password:
+                # Check if password looks like a token (starts with ghp_, gho_, etc.)
+                if password.startswith(("ghp_", "gho_", "ghu_", "ghs_", "ghr_")):
+                    return GitAuthInfo(
+                        method="token",
+                        username=username,
+                        token=password,
+                    )
+                else:
+                    return GitAuthInfo(
+                        method="basic",
+                        username=username,
+                        password=password,
+                    )
+
+            return GitAuthInfo(method="none")
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+            self.logger.debug(f"Failed to extract Git credentials: {e}")
+            return GitAuthInfo(method="none")
+
+    def get_git_config_value(
+        self, key: str, repo_path: Optional[str] = None
+    ) -> Optional[str]:
+        """Get Git configuration value.
+
+        Args:
+            key: Git configuration key
+            repo_path: Optional repository path for local config
+
+        Returns:
+            Configuration value or None if not found
+        """
+        try:
+            cmd = ["git", "config", key]
+            if repo_path:
+                cmd.extend(["--git-dir", os.path.join(repo_path, ".git")])
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+
+            if result.returncode == 0:
+                return result.stdout.strip()
+            return None
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            return None
+
+    def detect_repository_auth(self, repo_path: str) -> GitAuthInfo:
+        """Detect authentication for a specific repository.
+
+        Args:
+            repo_path: Path to the Git repository
+
+        Returns:
+            GitAuthInfo with detected authentication
+        """
+        if not os.path.exists(os.path.join(repo_path, ".git")):
+            return GitAuthInfo(method="none")
+
+        # Get remote URL
+        remote_url = self.get_git_config_value("remote.origin.url", repo_path)
+        if not remote_url:
+            return GitAuthInfo(method="none")
+
+        # Detect authentication method
+        auth_method = self.detect_auth_method(remote_url)
+
+        if auth_method == "ssh":
+            return self.extract_ssh_auth(remote_url)
+        elif auth_method in ["token", "basic"]:
+            return self.extract_git_credentials(remote_url)
+        else:
+            return GitAuthInfo(method="none")
+
+    def get_github_token_from_env(self) -> Optional[str]:
+        """Get GitHub token from environment variables.
+
+        Returns:
+            GitHub token or None if not found
+        """
+        # Check common environment variable names
+        env_vars = [
+            "GITHUB_TOKEN",
+            "GITHUB_API_TOKEN",
+            "GH_TOKEN",
+            "GITHUB_PAT",
+        ]
+
+        for env_var in env_vars:
+            token = os.getenv(env_var)
+            if token and token.strip():
+                return token.strip()
+
+        return None
+
+    def detect_global_auth(self) -> GitAuthInfo:
+        """Detect global Git authentication.
+
+        Returns:
+            GitAuthInfo with global authentication details
+        """
+        # Check for environment variables first
+        token = self.get_github_token_from_env()
+        if token:
+            return GitAuthInfo(method="token", token=token)
+
+        # Check for global Git configuration
+        username = self.get_git_config_value("user.name")
+        email = self.get_git_config_value("user.email")
+
+        if username and email:
+            # Try to get credentials for GitHub
+            github_url = "https://github.com"
+            return self.extract_git_credentials(github_url)
+
+        return GitAuthInfo(method="none")
+
+    def get_authentication_info(self, repo_path: Optional[str] = None) -> GitAuthInfo:
+        """Get authentication information for GitHub API access.
+
+        Args:
+            repo_path: Optional repository path for local authentication
+
+        Returns:
+            GitAuthInfo with authentication details
+        """
+        # Try repository-specific authentication first
+        if repo_path and os.path.exists(repo_path):
+            auth_info = self.detect_repository_auth(repo_path)
+            if auth_info.method != "none":
+                return auth_info
+
+        # Fall back to global authentication
+        return self.detect_global_auth()
+
+    def validate_ssh_connection(self, repo_url: str) -> bool:
+        """Validate SSH connection to GitHub.
+
+        Args:
+            repo_url: SSH repository URL
+
+        Returns:
+            True if SSH connection is successful
+        """
+        try:
+            # Extract hostname from SSH URL
+            if repo_url.startswith("git@github.com:"):
+                hostname = "github.com"
+            elif repo_url.startswith("ssh://"):
+                parsed = urlparse(repo_url)
+                hostname = parsed.hostname
+            else:
+                return False
+
+            if not hostname:
+                return False
+
+            # Test SSH connection
+            result = subprocess.run(
+                ["ssh", "-T", f"git@{hostname}"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            # GitHub returns exit code 1 for successful SSH connections
+            # with the message "Hi username! You've successfully authenticated"
+            return (
+                result.returncode == 1 and "successfully authenticated" in result.stderr
+            )
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            return False
+
+    def test_github_connection(self, auth_info: GitAuthInfo) -> bool:
+        """Test GitHub connection with given authentication.
+
+        Args:
+            auth_info: Git authentication information
+
+        Returns:
+            True if connection is successful
+        """
+        if auth_info.method == "ssh":
+            return self.validate_ssh_connection("git@github.com:test/test.git")
+        elif auth_info.method in ["token", "basic"]:
+            # Test with a simple API call
+            try:
+                headers = {}
+                if auth_info.token:
+                    headers["Authorization"] = f"token {auth_info.token}"
+                elif auth_info.username and auth_info.password:
+                    import base64
+
+                    credentials = base64.b64encode(
+                        f"{auth_info.username}:{auth_info.password}".encode()
+                    ).decode()
+                    headers["Authorization"] = f"Basic {credentials}"
+
+                response = requests.get(
+                    "https://api.github.com/user",
+                    headers=headers,
+                    timeout=10,
+                )
+                return response.status_code == 200
+
+            except Exception:
+                return False
+
+        return False
+
+
+# Global authentication detector instance
+_auth_detector: Optional[GitAuthDetector] = None
+
+
+def get_auth_detector() -> GitAuthDetector:
+    """Get the global authentication detector instance.
+
+    Returns:
+        Global authentication detector
+    """
+    global _auth_detector
+    if _auth_detector is None:
+        _auth_detector = GitAuthDetector()
+    return _auth_detector
+
+
+def detect_github_auth(repo_path: Optional[str] = None) -> GitAuthInfo:
+    """Detect GitHub authentication for API access.
+
+    Args:
+        repo_path: Optional repository path for local authentication
+
+    Returns:
+        GitAuthInfo with authentication details
+    """
+    detector = get_auth_detector()
+    return detector.get_authentication_info(repo_path)
+
+
+def test_github_auth(auth_info: GitAuthInfo) -> bool:
+    """Test GitHub authentication.
+
+    Args:
+        auth_info: Git authentication information
+
+    Returns:
+        True if authentication is successful
+    """
+    detector = get_auth_detector()
+    return detector.test_github_connection(auth_info)
 
 
 class BatchProcessor:
